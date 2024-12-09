@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { getEvents } from '../services/storage';
 import { useTheme } from '../contexts/ThemeContext';
 import { lightTheme, darkTheme } from '../constants/colors';
 import EventCard from '../components/EventCard';
 
-/**
- * Tela de visualização de calendário.
- * @param {Object} props
- * @param {Function} props.navigation
- */
 const CalendarViewScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const currentTheme = theme === 'light' ? lightTheme : darkTheme;
@@ -18,6 +13,7 @@ const CalendarViewScreen = ({ navigation }) => {
   const [events, setEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [filteredEvents, setFilteredEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -27,6 +23,8 @@ const CalendarViewScreen = ({ navigation }) => {
       } catch (error) {
         Alert.alert('Erro', 'Não foi possível carregar os eventos');
         console.error('Erro ao carregar eventos:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadEvents();
@@ -48,39 +46,41 @@ const CalendarViewScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <Text style={[styles.header, { color: currentTheme.text }]}>
-        Calendário de Eventos
-      </Text>
-      <Calendar
-        markedDates={{
-          ...markedDates,
-          [selectedDate]: {
-            ...markedDates[selectedDate],
-            selected: true,
-            selectedColor: currentTheme.primary,
-          },
-        }}
-        onDayPress={(day) => setSelectedDate(day.dateString)}
-        theme={{
-          calendarBackground: currentTheme.background,
-          textSectionTitleColor: currentTheme.text,
-          selectedDayBackgroundColor: currentTheme.primary,
-          selectedDayTextColor: currentTheme.card,
-          todayTextColor: currentTheme.secondary,
-          dayTextColor: currentTheme.text,
-          dotColor: currentTheme.primary,
-          arrowColor: currentTheme.primary,
-        }}
-      />
+      <Text style={[styles.header, { color: currentTheme.text }]}>Calendário de Eventos</Text>
+      {isLoading ? (
+        <ActivityIndicator size="large" color={currentTheme.primary} />
+      ) : (
+        <Calendar
+          markedDates={{
+            ...markedDates,
+            [selectedDate]: {
+              ...markedDates[selectedDate],
+              selected: true,
+              selectedColor: currentTheme.primary,
+            },
+          }}
+          onDayPress={(day) => setSelectedDate(day.dateString)}
+          theme={{
+            calendarBackground: currentTheme.background,
+            textSectionTitleColor: currentTheme.text,
+            selectedDayBackgroundColor: currentTheme.primary,
+            selectedDayTextColor: currentTheme.card,
+            todayTextColor: currentTheme.secondary,
+            dayTextColor: currentTheme.text,
+            dotColor: currentTheme.primary,
+            arrowColor: currentTheme.primary,
+          }}
+        />
+      )}
       <View style={styles.eventList}>
         {filteredEvents.length === 0 ? (
           <Text style={[styles.noEventsText, { color: currentTheme.text + '80' }]}>
-            Nenhum evento neste dia
+            {selectedDate ? 'Nenhum evento neste dia' : 'Selecione uma data para visualizar eventos'}
           </Text>
         ) : (
           filteredEvents.map((event) => (
             <EventCard
-              key={event.id || `${event.date}-${event.title}`} // Use o `event.id` ou uma combinação única
+              key={event.id || `${event.date}-${event.title}`}
               event={event}
               onPress={() => navigation.navigate('EventDetails', { event })}
             />

@@ -14,37 +14,25 @@ import { lightTheme, darkTheme } from '../constants/colors';
 import { eventFields } from '../constants/eventFields';
 import uuid from 'react-native-uuid';
 
-/**
- * Tela de criação de eventos.
- * @param {Object} props
- * @param {Function} props.navigation
- * @param {Object} props.route
- */
 const EventCreateScreen = ({ navigation, route }) => {
   const { theme } = useTheme();
   const currentTheme = theme === 'light' ? lightTheme : darkTheme;
 
   const [eventType, setEventType] = useState(route.params?.eventType || 'other');
   const [eventData, setEventData] = useState({});
+  const [isSaving, setIsSaving] = useState(false); // Indicador de salvamento
 
-  /**
-   * Atualiza o campo de dados do evento.
-   * @param {string} name - Nome do campo.
-   * @param {string} value - Valor do campo.
-   */
   const handleInputChange = (name, value) => {
     setEventData((prev) => ({ ...prev, [name]: value }));
   };
 
-  /**
-   * Salva o evento.
-   */
   const handleSaveEvent = async () => {
     if (!eventData.title || !eventData.date) {
-      Alert.alert('Erro', 'Título e data são obrigatórios!');
+      Alert.alert('Erro', 'Os campos Título e Data são obrigatórios!');
       return;
     }
 
+    setIsSaving(true);
     const newEvent = {
       ...eventData,
       id: uuid.v4(),
@@ -59,22 +47,20 @@ const EventCreateScreen = ({ navigation, route }) => {
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível salvar o evento.');
       console.error('Erro ao salvar evento:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const fields = eventFields[eventType] || []; // Adiciona fallback para array vazio
+  const fields = eventFields[eventType] || [];
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <Text style={[styles.header, { color: currentTheme.text }]}>
-        Novo Evento
-      </Text>
+      <Text style={[styles.header, { color: currentTheme.text }]}>Novo Evento</Text>
       <ScrollView>
         {fields.map((field) => (
           <View key={field.name} style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: currentTheme.text }]}>
-              {field.label}
-            </Text>
+            <Text style={[styles.label, { color: currentTheme.text }]}>{field.label}</Text>
             {field.type === 'textarea' ? (
               <TextInput
                 style={[
@@ -102,10 +88,14 @@ const EventCreateScreen = ({ navigation, route }) => {
         ))}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.saveButton, { backgroundColor: currentTheme.primary }]}
+            style={[
+              styles.saveButton,
+              { backgroundColor: isSaving ? currentTheme.secondary : currentTheme.primary },
+            ]}
             onPress={handleSaveEvent}
+            disabled={isSaving}
           >
-            <Text style={styles.buttonText}>Salvar</Text>
+            <Text style={styles.buttonText}>{isSaving ? 'Salvando...' : 'Salvar'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.cancelButton, { backgroundColor: currentTheme.secondary }]}

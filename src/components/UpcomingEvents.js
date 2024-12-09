@@ -1,5 +1,5 @@
-import React, { useMemo, useReducer, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, { useMemo, useReducer, useEffect, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { getEvents } from '../services/storage';
 import EventCard from './EventCard';
 import { useTheme } from '../contexts/ThemeContext';
@@ -9,6 +9,7 @@ const UpcomingEvents = () => {
   const { theme } = useTheme();
   const currentTheme = useMemo(() => (theme === 'light' ? lightTheme : darkTheme), [theme]);
 
+  const [isLoading, setIsLoading] = useState(true); // Indicador de carregamento
   const [events, dispatch] = useReducer((state, action) => {
     switch (action.type) {
       case 'SET_EVENTS':
@@ -29,6 +30,8 @@ const UpcomingEvents = () => {
         dispatch({ type: 'SET_EVENTS', events: upcomingEvents.slice(0, 5) });
       } catch (error) {
         console.error('Erro ao buscar eventos:', error);
+      } finally {
+        setIsLoading(false); // Finaliza o carregamento
       }
     };
     fetchUpcomingEvents();
@@ -39,7 +42,9 @@ const UpcomingEvents = () => {
       <Text accessibilityRole="header" style={[styles.title, { color: currentTheme.text }]}>
         Próximos Eventos
       </Text>
-      {events.length === 0 ? (
+      {isLoading ? (
+        <ActivityIndicator size="large" color={currentTheme.primary} />
+      ) : events.length === 0 ? (
         <Text style={[styles.noEventsText, { color: currentTheme.text + '80' }]}>
           Nenhum evento próximo
         </Text>
@@ -51,11 +56,12 @@ const UpcomingEvents = () => {
             <EventCard
               event={item}
               onPress={() => {
-                /* Navegação para detalhes */
+                /* Navegação para detalhes do evento */
               }}
             />
           )}
-          keyExtractor={(item) => item.id || `${item.date}-${item.title}`} // Correção do keyExtractor
+          keyExtractor={(item) => item.id || `${item.date}-${item.title}`}
+          ItemSeparatorComponent={() => <View style={styles.separator} />} // Separador entre eventos
         />
       )}
     </View>
@@ -66,6 +72,8 @@ const styles = StyleSheet.create({
   container: {
     padding: 15,
     borderRadius: 10,
+    marginHorizontal: 10,
+    marginVertical: 10,
   },
   title: {
     fontSize: 18,
@@ -75,6 +83,9 @@ const styles = StyleSheet.create({
   noEventsText: {
     textAlign: 'center',
     fontSize: 16,
+  },
+  separator: {
+    height: 10,
   },
 });
 
