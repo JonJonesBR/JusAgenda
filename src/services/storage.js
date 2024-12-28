@@ -1,12 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Chave única para armazenar eventos
 const EVENTS_KEY = 'jus_agenda_events';
 
 /**
- * Salva um evento no AsyncStorage.
- * @param {Object} event - Objeto contendo os detalhes do evento.
- * @throws {Error} Se não for possível salvar o evento.
+ * Saves an event in AsyncStorage.
+ * @param {Object} event - Event details object.
+ * @throws {Error} If saving the event fails.
  */
 export const saveEvent = async (event) => {
   try {
@@ -15,52 +14,52 @@ export const saveEvent = async (event) => {
     events.push(event);
     await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(events));
   } catch (error) {
-    console.error('Erro ao salvar evento:', error);
-    throw new Error('Não foi possível salvar o evento.');
+    console.error('Error saving event:', error);
+    throw new Error('Could not save the event.');
   }
 };
 
 /**
- * Obtém todos os eventos do AsyncStorage.
- * @returns {Promise<Array<Object>>} Lista de eventos.
- * @throws {Error} Se não for possível buscar os eventos.
+ * Retrieves all events from AsyncStorage.
+ * @returns {Promise<Array<Object>>} List of events.
+ * @throws {Error} If fetching events fails.
  */
 export const getEvents = async () => {
   try {
     const events = await AsyncStorage.getItem(EVENTS_KEY);
     return events ? JSON.parse(events) : [];
   } catch (error) {
-    console.error('Erro ao buscar eventos:', error);
-    throw new Error('Não foi possível buscar os eventos.');
+    console.error('Error fetching events:', error);
+    throw new Error('Could not fetch the events.');
   }
 };
 
 /**
- * Deleta um evento específico pelo ID.
- * @param {string} eventId - O ID do evento a ser deletado.
- * @throws {Error} Se não for possível deletar o evento.
+ * Deletes a specific event by ID.
+ * @param {string} eventId - The ID of the event to delete.
+ * @throws {Error} If deleting the event fails.
  */
 export const deleteEvent = async (eventId) => {
   try {
     const existingEvents = await AsyncStorage.getItem(EVENTS_KEY);
     const events = existingEvents ? JSON.parse(existingEvents) : [];
-    const updatedEvents = events.filter((event) => event.id !== eventId); // Correção do filtro
+    const updatedEvents = events.filter((event) => event.id !== eventId);
     await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(updatedEvents));
   } catch (error) {
-    console.error('Erro ao deletar evento:', error);
-    throw new Error('Não foi possível deletar o evento.');
+    console.error('Error deleting event:', error);
+    throw new Error('Could not delete the event.');
   }
 };
 
 /**
- * Limpa todos os eventos do AsyncStorage.
- * @throws {Error} Se não for possível limpar os eventos.
+ * Clears all events from AsyncStorage.
+ * @throws {Error} If clearing events fails.
  */
 export const clearAllEvents = async () => {
   try {
     await AsyncStorage.removeItem(EVENTS_KEY);
   } catch (error) {
-    console.error('Erro ao limpar eventos:', error);
-    throw new Error('Não foi possível limpar os eventos.');
+    console.error('Error clearing events:', error);
+    throw new Error('Could not clear the events.');
   }
 };

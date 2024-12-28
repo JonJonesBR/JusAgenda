@@ -10,17 +10,17 @@ import {
 } from 'react-native';
 import { saveEvent } from '../services/storage';
 import { useTheme } from '../contexts/ThemeContext';
-import { lightTheme, darkTheme } from '../constants/colors';
+import { darkTheme } from '../constants/colors';
 import { eventFields } from '../constants/eventFields';
 import uuid from 'react-native-uuid';
 
 const EventCreateScreen = ({ navigation, route }) => {
   const { theme } = useTheme();
-  const currentTheme = theme === 'light' ? lightTheme : darkTheme;
+  const currentTheme = darkTheme;
 
-  const [eventType, setEventType] = useState(route.params?.eventType || 'other');
+  const [eventType, setEventType] = useState(route.params?.eventType || 'defaultEventType');
   const [eventData, setEventData] = useState({});
-  const [isSaving, setIsSaving] = useState(false); // Indicador de salvamento
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleInputChange = (name, value) => {
     setEventData((prev) => ({ ...prev, [name]: value }));
@@ -52,7 +52,7 @@ const EventCreateScreen = ({ navigation, route }) => {
     }
   };
 
-  const fields = eventFields[eventType] || [];
+  const fields = Array.isArray(eventFields[eventType]) ? eventFields[eventType] : [];
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
@@ -63,10 +63,7 @@ const EventCreateScreen = ({ navigation, route }) => {
             <Text style={[styles.label, { color: currentTheme.text }]}>{field.label}</Text>
             {field.type === 'textarea' ? (
               <TextInput
-                style={[
-                  styles.textarea,
-                  { borderColor: currentTheme.primary, color: currentTheme.text },
-                ]}
+                style={[styles.textarea, { borderColor: currentTheme.primary, color: currentTheme.text }]}
                 multiline
                 numberOfLines={4}
                 value={eventData[field.name] || ''}
@@ -74,10 +71,7 @@ const EventCreateScreen = ({ navigation, route }) => {
               />
             ) : (
               <TextInput
-                style={[
-                  styles.input,
-                  { borderColor: currentTheme.primary, color: currentTheme.text },
-                ]}
+                style={[styles.input, { borderColor: currentTheme.primary, color: currentTheme.text }]}
                 placeholder={field.label}
                 placeholderTextColor={currentTheme.text + '80'}
                 value={eventData[field.name] || ''}
@@ -88,10 +82,7 @@ const EventCreateScreen = ({ navigation, route }) => {
         ))}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[
-              styles.saveButton,
-              { backgroundColor: isSaving ? currentTheme.secondary : currentTheme.primary },
-            ]}
+            style={[styles.saveButton, { backgroundColor: isSaving ? currentTheme.secondary : currentTheme.primary }]}
             onPress={handleSaveEvent}
             disabled={isSaving}
           >

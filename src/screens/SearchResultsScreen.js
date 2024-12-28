@@ -13,12 +13,10 @@ const SearchResultsScreen = ({ route, navigation }) => {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // Simulação de busca com filtros
     const simulateSearch = async () => {
       setIsLoading(true);
       try {
-        // Substitua pela lógica real de busca usando `filters`
-        const results = []; // Aqui você buscaria os eventos baseados nos filtros
+        const results = []; // Placeholder for actual search logic
         setFilteredResults(results);
       } catch (error) {
         console.error('Erro ao buscar resultados:', error);
@@ -36,9 +34,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
       {isLoading ? (
         <ActivityIndicator size="large" color={currentTheme.primary} />
       ) : filteredResults.length === 0 ? (
-        <Text style={[styles.noResults, { color: currentTheme.text + '80' }]}>
-          Nenhum resultado encontrado.
-        </Text>
+        <Text style={[styles.noResults, { color: currentTheme.text + '80' }]}>Nenhum resultado encontrado.</Text>
       ) : (
         <FlatList
           data={filteredResults}

@@ -1,12 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
-import { lightTheme, darkTheme } from '../constants/colors';
+import { lightTheme } from '../constants/colors';
 
 const EventCard = ({ event, onPress }) => {
-  const { theme } = useTheme();
-  const currentTheme = useMemo(() => (theme === 'light' ? lightTheme : darkTheme), [theme]);
-
   const getEventTypeColorCode = (type) => {
     const colors = {
       audiencia: '#2C8CB4',
@@ -17,7 +13,7 @@ const EventCard = ({ event, onPress }) => {
     return colors[type] || colors.outros;
   };
 
-  const eventTypeColor = useMemo(() => getEventTypeColorCode(event.type), [event.type]);
+  const eventTypeColor = getEventTypeColorCode(event.type);
 
   return (
     <TouchableOpacity
@@ -25,13 +21,13 @@ const EventCard = ({ event, onPress }) => {
       style={[
         styles.card,
         {
-          backgroundColor: currentTheme.card,
+          backgroundColor: lightTheme.card,
           borderLeftColor: eventTypeColor,
           shadowColor: eventTypeColor,
         },
       ]}
       onPress={onPress}
-      activeOpacity={0.8} // Feedback ao toque
+      activeOpacity={0.8}
     >
       <View style={styles.cardHeader}>
         <Text
@@ -46,19 +42,19 @@ const EventCard = ({ event, onPress }) => {
         >
           {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
         </Text>
-        <Text style={[styles.dateText, { color: currentTheme.text }]}>
+        <Text style={[styles.dateText, { color: lightTheme.text }]}>
           {event.date}
         </Text>
       </View>
       <Text
         accessibilityRole="header"
-        style={[styles.eventTitle, { color: currentTheme.text }]}
+        style={[styles.eventTitle, { color: lightTheme.text }]}
         numberOfLines={1}
       >
         {event.title}
       </Text>
       {event.client && (
-        <Text style={[styles.clientText, { color: `${currentTheme.text}80` }]} numberOfLines={1}>
+        <Text style={[styles.clientText, { color: `${lightTheme.text}80` }]} numberOfLines={1}>
           {event.client}
         </Text>
       )}
@@ -77,7 +73,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3, // Sombra no Android
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',

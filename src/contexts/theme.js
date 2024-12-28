@@ -1,33 +1,19 @@
-import { lightTheme, darkTheme } from './colors';
+import { darkTheme } from './colors';
 
 /**
- * Obtém o tema atual com base na preferência do usuário.
- * @param {string} theme - Tema atual ('light' ou 'dark').
- * @returns {Object} Tema correspondente.
+ * Retrieves the current fixed theme (dark).
+ * @returns {Object} Fixed theme (darkTheme).
  */
-export const getTheme = (theme) => {
-  if (theme === 'dark') {
-    return darkTheme;
-  }
-  return lightTheme;
+export const getTheme = () => {
+  return darkTheme; // Always returns the fixed dark theme
 };
 
 /**
- * Alterna entre temas claro e escuro.
- * @param {string} currentTheme - Tema atual ('light' ou 'dark').
- * @returns {string} Tema alternado ('light' ou 'dark').
+ * Dynamically updates the theme color scheme.
+ * @param {Object} customizations - Optional theme customizations.
+ * @returns {Object} Updated theme with customizations applied.
  */
-export const toggleTheme = (currentTheme) => {
-  return currentTheme === 'light' ? 'dark' : 'light';
-};
-
-/**
- * Atualiza dinamicamente o esquema de cores do tema.
- * @param {string} theme - Tema atual ('light' ou 'dark').
- * @param {Object} customizations - Personalizações do tema (opcional).
- * @returns {Object} Tema atualizado com personalizações aplicadas.
- */
-export const customizeTheme = (theme, customizations = {}) => {
-  const baseTheme = getTheme(theme);
+export const customizeTheme = (customizations = {}) => {
+  const baseTheme = getTheme(); // Always uses the fixed dark theme as base
   return { ...baseTheme, ...customizations };
 };

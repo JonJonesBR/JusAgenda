@@ -2,8 +2,8 @@ import * as Notifications from 'expo-notifications';
 import * as Permissions from 'expo-permissions';
 
 /**
- * Configuração inicial para as notificações.
- * @returns {Promise<boolean>} True se a permissão for concedida, false caso contrário.
+ * Configures the notifications system.
+ * @returns {Promise<boolean>} True if permission is granted, false otherwise.
  */
 export const configureNotifications = async () => {
   const { status: existingStatus } = await Permissions.getAsync(Permissions.NOTIFICATIONS);
@@ -15,7 +15,7 @@ export const configureNotifications = async () => {
   }
 
   if (finalStatus !== 'granted') {
-    console.warn('Permissão para notificações não foi concedida');
+    console.warn('Notification permissions not granted');
     return false;
   }
 
@@ -23,11 +23,11 @@ export const configureNotifications = async () => {
 };
 
 /**
- * Agendar uma notificação.
+ * Schedules a notification.
  * @param {Object} options
- * @param {string} options.title
- * @param {string} options.body
- * @param {number} options.time
+ * @param {string} options.title - The title of the notification.
+ * @param {string} options.body - The body content of the notification.
+ * @param {number} options.time - Time in milliseconds to trigger the notification.
  */
 export const scheduleNotification = async ({ title, body, time }) => {
   try {
@@ -37,22 +37,22 @@ export const scheduleNotification = async ({ title, body, time }) => {
         body,
         sound: true,
       },
-      trigger: time,
+      trigger: { seconds: time / 1000 },
     });
-    console.log('Notificação agendada com sucesso!');
+    console.log('Notification scheduled successfully!');
   } catch (error) {
-    console.error('Erro ao agendar notificação:', error);
+    console.error('Error scheduling notification:', error);
   }
 };
 
 /**
- * Cancelar todas as notificações.
+ * Cancels all scheduled notifications.
  */
 export const cancelAllNotifications = async () => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('Todas as notificações foram canceladas.');
+    console.log('All notifications have been canceled.');
   } catch (error) {
-    console.error('Erro ao cancelar notificações:', error);
-  }
+    console.error('Error canceling notifications:', error);
+  }
 };

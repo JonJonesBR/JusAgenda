@@ -9,7 +9,8 @@ const UpcomingEvents = () => {
   const { theme } = useTheme();
   const currentTheme = useMemo(() => (theme === 'light' ? lightTheme : darkTheme), [theme]);
 
-  const [isLoading, setIsLoading] = useState(true); // Indicador de carregamento
+  const [isLoading, setIsLoading] = useState(true);
+
   const [events, dispatch] = useReducer((state, action) => {
     switch (action.type) {
       case 'SET_EVENTS':
@@ -31,7 +32,7 @@ const UpcomingEvents = () => {
       } catch (error) {
         console.error('Erro ao buscar eventos:', error);
       } finally {
-        setIsLoading(false); // Finaliza o carregamento
+        setIsLoading(false);
       }
     };
     fetchUpcomingEvents();
@@ -39,15 +40,12 @@ const UpcomingEvents = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <Text accessibilityRole="header" style={[styles.title, { color: currentTheme.text }]}>
-        Próximos Eventos
-      </Text>
+      <Text accessibilityRole="header" style={[styles.title, { color: currentTheme.text }]}>Próximos Eventos</Text>
+
       {isLoading ? (
         <ActivityIndicator size="large" color={currentTheme.primary} />
       ) : events.length === 0 ? (
-        <Text style={[styles.noEventsText, { color: currentTheme.text + '80' }]}>
-          Nenhum evento próximo
-        </Text>
+        <Text style={[styles.noEventsText, { color: currentTheme.text + '80' }]}>Nenhum evento próximo</Text>
       ) : (
         <FlatList
           accessibilityRole="list"
@@ -56,12 +54,12 @@ const UpcomingEvents = () => {
             <EventCard
               event={item}
               onPress={() => {
-                /* Navegação para detalhes do evento */
+                // Navegação para detalhes do evento (implementação futura)
               }}
             />
           )}
           keyExtractor={(item) => item.id || `${item.date}-${item.title}`}
-          ItemSeparatorComponent={() => <View style={styles.separator} />} // Separador entre eventos
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
     </View>

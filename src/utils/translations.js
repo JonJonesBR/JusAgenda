@@ -30,12 +30,12 @@ export const translations = {
 };
 
 /**
- * Traduz um texto para o idioma especificado.
- * @param {string} language Código do idioma (pt-BR, en-US, etc.)
- * @param {string} key Chave do texto a ser traduzido (ex: home.title)
- * @returns {string} Texto traduzido
+ * Translates a given key to the specified language.
+ * @param {string} language - Language code (e.g., 'pt-BR', 'en-US').
+ * @param {string} key - Key to translate (e.g., 'home.title').
+ * @returns {string} Translated text.
  */
 export const translate = (language, key) => {
   const keys = key.split('.');
-  return keys.reduce((obj, k) => obj?.[k], translations[language]);
+  return keys.reduce((obj, k) => obj?.[k], translations[language]) || key;
 };

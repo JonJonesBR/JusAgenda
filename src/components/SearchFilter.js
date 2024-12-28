@@ -1,19 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Modal, Text } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
-import { lightTheme, darkTheme } from '../constants/colors';
+import { lightTheme } from '../constants/colors';
 import { Feather } from '@expo/vector-icons';
 
-const filters = ['audiencia', 'reuniao', 'prazo', 'outros'];
+const filters = ['audiência', 'reunião', 'prazo', 'outros'];
 
 const SearchFilter = ({ onSearch }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-
-  const { theme } = useTheme();
-  const currentTheme = useMemo(() => (theme === 'light' ? lightTheme : darkTheme), [theme]);
 
   const handleSearchSubmit = () => {
     setIsLoading(true);
@@ -29,20 +25,20 @@ const SearchFilter = ({ onSearch }) => {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.searchContainer, { backgroundColor: currentTheme.card, borderColor: currentTheme.primary }]}>
-        <Feather name="search" size={20} color={currentTheme.primary} aria-label="Ícone de busca" />
+      <View style={[styles.searchContainer, { backgroundColor: lightTheme.card, borderColor: lightTheme.primary }]}>
+        <Feather name="search" size={20} color={lightTheme.primary} aria-label="Ícone de busca" />
         <TextInput
           accessibilityRole="search"
-          style={[styles.searchInput, { color: currentTheme.text }]}
+          style={[styles.searchInput, { color: lightTheme.text }]}
           placeholder="Buscar eventos (Ex: Reunião, audiência...)"
-          placeholderTextColor={currentTheme.text + '60'}
+          placeholderTextColor={lightTheme.text + '60'}
           value={searchTerm}
           onChangeText={setSearchTerm}
           onSubmitEditing={handleSearchSubmit}
         />
         <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
           <View style={styles.filterButton}>
-            <Feather name="filter" size={20} color={currentTheme.primary} aria-label="Ícone de filtro" />
+            <Feather name="filter" size={20} color={lightTheme.primary} aria-label="Ícone de filtro" />
             {activeFilterCount > 0 && (
               <View style={styles.filterBadge}>
                 <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -53,18 +49,18 @@ const SearchFilter = ({ onSearch }) => {
       </View>
 
       <Modal visible={isFilterModalVisible} transparent={true} animationType="slide">
-        <View style={[styles.modalBackground, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <View style={[styles.filterModal, { backgroundColor: currentTheme.card }]}>
-            <Text style={[styles.modalTitle, { color: currentTheme.text }]}>Filtrar Eventos</Text>
+        <View style={styles.modalBackground}>
+          <View style={[styles.filterModal, { backgroundColor: lightTheme.card }]}>
+            <Text style={[styles.modalTitle, { color: lightTheme.text }]}>Filtrar Eventos</Text>
             {filters.map((filter) => (
               <TouchableOpacity key={filter} style={styles.filterOption} onPress={() => toggleFilter(filter)}>
-                <Text style={{ color: currentTheme.text }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</Text>
+                <Text style={{ color: lightTheme.text }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</Text>
                 <View
                   style={[
                     styles.checkbox,
                     {
-                      backgroundColor: selectedFilters[filter] ? currentTheme.primary : 'transparent',
-                      borderColor: currentTheme.primary,
+                      backgroundColor: selectedFilters[filter] ? lightTheme.primary : 'transparent',
+                      borderColor: lightTheme.primary,
                     },
                   ]}
                 >
@@ -74,7 +70,7 @@ const SearchFilter = ({ onSearch }) => {
             ))}
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.modalButton} onPress={() => setFilterModalVisible(false)}>
-                <Text style={{ color: currentTheme.primary }}>Cancelar</Text>
+                <Text style={{ color: lightTheme.primary }}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalButton}
@@ -83,7 +79,7 @@ const SearchFilter = ({ onSearch }) => {
                   setFilterModalVisible(false);
                 }}
               >
-                <Text style={{ color: currentTheme.primary }}>Aplicar</Text>
+                <Text style={{ color: lightTheme.primary }}>Aplicar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -129,6 +125,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   filterModal: {
     width: '80%',

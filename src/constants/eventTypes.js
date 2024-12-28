@@ -1,41 +1,40 @@
 /**
- * @typedef {Object} TipoDeEvento
- * @property {string} id
- * @property {Object<string, string>} labels
+ * @typedef {Object} EventType
+ * @property {string} id Unique identifier for the event type.
+ * @property {string} label Label displayed in the interface.
  */
 
 export const eventTypes = {
   audiencia: {
     id: 'hearing',
-    labels: {
-      'pt-BR': 'Audiência',
-      'en-US': 'Hearing',
-    },
+    label: 'Audiência',
   },
   reuniao: {
     id: 'meeting',
-    labels: {
-      'pt-BR': 'Reunião',
-      'en-US': 'Meeting',
-    },
+    label: 'Reunião',
   },
   prazo: {
     id: 'deadline',
-    labels: {
-      'pt-BR': 'Prazo',
-      'en-US': 'Deadline',
-    },
+    label: 'Prazo',
   },
   outros: {
     id: 'other',
-    labels: {
-      'pt-BR': 'Outros',
-      'en-US': 'Others',
-    },
+    label: 'Outros',
   },
 };
 
-export const getEventTypeLabel = (type, language = 'pt-BR') => {
-  const eventType = Object.values(eventTypes).find((e) => (link unavailable) === type);
-  return eventType?.labels[language] || type;
+/**
+ * Retrieves the label for a given event type.
+ * @param {string} type Identifier for the event type.
+ * @returns {string} The label corresponding to the event type.
+ */
+export const getEventTypeLabel = (type) => {
+  const eventType = Object.values(eventTypes).find((e) => e.id === type);
+
+  if (!eventType) {
+    console.warn(`Event type not found: ${type}`);
+    return type; // Fallback to the identifier
+  }
+
+  return eventType.label; // Always returns the label
 };
