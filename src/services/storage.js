@@ -12,10 +12,12 @@ export const saveEvent = async (event) => {
     const existingEvents = await AsyncStorage.getItem(EVENTS_KEY);
     const events = existingEvents ? JSON.parse(existingEvents) : [];
     events.push(event);
+    console.log('Eventos antes de salvar:', events); // Debug
     await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+    console.log('Evento salvo com sucesso:', event); // Debug
   } catch (error) {
-    console.error('Error saving event:', error);
-    throw new Error('Could not save the event.');
+    console.error('Erro ao salvar evento:', error);
+    throw new Error('Não foi possível salvar o evento.');
   }
 };
 
@@ -27,10 +29,11 @@ export const saveEvent = async (event) => {
 export const getEvents = async () => {
   try {
     const events = await AsyncStorage.getItem(EVENTS_KEY);
+    console.log('Eventos carregados:', events ? JSON.parse(events) : []); // Debug
     return events ? JSON.parse(events) : [];
   } catch (error) {
-    console.error('Error fetching events:', error);
-    throw new Error('Could not fetch the events.');
+    console.error('Erro ao buscar eventos:', error);
+    throw new Error('Não foi possível buscar os eventos.');
   }
 };
 
@@ -44,10 +47,11 @@ export const deleteEvent = async (eventId) => {
     const existingEvents = await AsyncStorage.getItem(EVENTS_KEY);
     const events = existingEvents ? JSON.parse(existingEvents) : [];
     const updatedEvents = events.filter((event) => event.id !== eventId);
+    console.log('Eventos após exclusão:', updatedEvents); // Debug
     await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(updatedEvents));
   } catch (error) {
-    console.error('Error deleting event:', error);
-    throw new Error('Could not delete the event.');
+    console.error('Erro ao deletar evento:', error);
+    throw new Error('Não foi possível deletar o evento.');
   }
 };
 
@@ -58,8 +62,9 @@ export const deleteEvent = async (eventId) => {
 export const clearAllEvents = async () => {
   try {
     await AsyncStorage.removeItem(EVENTS_KEY);
+    console.log('Todos os eventos foram limpos com sucesso.'); // Debug
   } catch (error) {
-    console.error('Error clearing events:', error);
-    throw new Error('Could not clear the events.');
+    console.error('Erro ao limpar eventos:', error);
+    throw new Error('Não foi possível limpar os eventos.');
   }
 };

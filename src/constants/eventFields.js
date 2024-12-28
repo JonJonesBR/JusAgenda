@@ -6,8 +6,8 @@
  */
 
 const commonFields = {
-  caseNumber: { name: 'caseNumber', label: 'Número do Processo', type: 'text' },
-  court: { name: 'court', label: 'Vara', type: 'text' },
+  title: { name: 'title', label: 'Título', type: 'text' },
+  date: { name: 'date', label: 'Data', type: 'date' },
   notes: { name: 'notes', label: 'Observações', type: 'textarea' },
 };
 
@@ -16,25 +16,25 @@ const commonFields = {
  */
 export const eventFields = {
   audiencia: [
-    commonFields.caseNumber,
-    commonFields.court,
-    { name: 'plaintiff', label: 'Parte Autora', type: 'text' },
-    { name: 'defendant', label: 'Parte Ré', type: 'text' },
-    { name: 'hearingLocation', label: 'Local da Audiência', type: 'text' },
+    commonFields.title,
+    commonFields.date,
+    { name: 'court', label: 'Vara', type: 'text' },
     commonFields.notes,
   ],
   reuniao: [
-    { name: 'clientName', label: 'Nome do Cliente', type: 'text' },
-    { name: 'meetingLocation', label: 'Local da Reunião', type: 'text' },
+    commonFields.title,
+    commonFields.date,
+    { name: 'client', label: 'Cliente', type: 'text' },
     { name: 'topic', label: 'Assunto', type: 'text' },
     commonFields.notes,
   ],
   prazo: [
-    commonFields.caseNumber,
-    commonFields.court,
+    commonFields.title,
+    commonFields.date,
     { name: 'deadlineType', label: 'Tipo de Prazo', type: 'select' },
     commonFields.notes,
   ],
+  outros: [commonFields.title, commonFields.date, commonFields.notes],
 };
 
 /**

@@ -18,12 +18,44 @@ const EventCreateScreen = ({ navigation, route }) => {
   const { theme } = useTheme();
   const currentTheme = darkTheme;
 
-  const [eventType, setEventType] = useState(route.params?.eventType || 'defaultEventType');
+  const [eventType, setEventType] = useState(route.params?.eventType || 'outros');
   const [eventData, setEventData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
 
+  const formatDate = (date) => {
+    const [day, month, year] = date.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  const isValidDate = (date) => {
+    const regex = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (!regex.test(date)) return false;
+
+    const [day, month, year] = date.split('/').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    return (
+      dateObj.getFullYear() === year &&
+      dateObj.getMonth() === month - 1 &&
+      dateObj.getDate() === day
+    );
+  };
+
+  const formatInputDate = (value) => {
+    // Remove caracteres não numéricos
+    const sanitizedValue = value.replace(/\D/g, '');
+
+    if (sanitizedValue.length <= 2) {
+      return sanitizedValue; // Apenas dia
+    } else if (sanitizedValue.length <= 4) {
+      return `${sanitizedValue.slice(0, 2)}/${sanitizedValue.slice(2)}`; // Dia/Mês
+    } else {
+      return `${sanitizedValue.slice(0, 2)}/${sanitizedValue.slice(2, 4)}/${sanitizedValue.slice(4, 8)}`; // Dia/Mês/Ano
+    }
+  };
+
   const handleInputChange = (name, value) => {
-    setEventData((prev) => ({ ...prev, [name]: value }));
+    const formattedValue = name === 'date' ? formatInputDate(value) : value;
+    setEventData((prev) => ({ ...prev, [name]: formattedValue }));
   };
 
   const handleSaveEvent = async () => {
@@ -32,15 +64,22 @@ const EventCreateScreen = ({ navigation, route }) => {
       return;
     }
 
+    if (!isValidDate(eventData.date)) {
+      Alert.alert('Erro', 'Por favor, insira uma data válida no formato DD/MM/AAAA.');
+      return;
+    }
+
     setIsSaving(true);
     const newEvent = {
       ...eventData,
       id: uuid.v4(),
+      date: formatDate(eventData.date),
       type: eventType,
       status: 'pending',
     };
 
     try {
+      console.log('Evento a ser salvo:', newEvent); // Debug
       await saveEvent(newEvent);
       Alert.alert('Sucesso', 'Evento salvo com sucesso!');
       navigation.goBack();
@@ -52,13 +91,11 @@ const EventCreateScreen = ({ navigation, route }) => {
     }
   };
 
-  const fields = Array.isArray(eventFields[eventType]) ? eventFields[eventType] : [];
-
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       <Text style={[styles.header, { color: currentTheme.text }]}>Novo Evento</Text>
       <ScrollView>
-        {fields.map((field) => (
+        {eventFields[eventType]?.map((field) => (
           <View key={field.name} style={styles.fieldContainer}>
             <Text style={[styles.label, { color: currentTheme.text }]}>{field.label}</Text>
             {field.type === 'textarea' ? (
@@ -68,6 +105,16 @@ const EventCreateScreen = ({ navigation, route }) => {
                 numberOfLines={4}
                 value={eventData[field.name] || ''}
                 onChangeText={(value) => handleInputChange(field.name, value)}
+              />
+            ) : field.name === 'date' ? (
+              <TextInput
+                style={[styles.input, { borderColor: currentTheme.primary, color: currentTheme.text }]}
+                placeholder="DD/MM/AAAA"
+                placeholderTextColor={currentTheme.text + '80'}
+                keyboardType="numeric"
+                value={eventData[field.name] || ''}
+                onChangeText={(value) => handleInputChange(field.name, value)}
+                maxLength={10} // Limita o input a 10 caracteres
               />
             ) : (
               <TextInput

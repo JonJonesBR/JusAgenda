@@ -13,13 +13,14 @@ const HomeScreen = ({ navigation }) => {
   const currentTheme = darkTheme;
 
   const eventTypes = [
-    { id: 'hearing', label: translate(language, 'eventTypes.hearing') },
-    { id: 'meeting', label: translate(language, 'eventTypes.meeting') },
-    { id: 'deadline', label: translate(language, 'eventTypes.deadline') },
-    { id: 'other', label: translate(language, 'eventTypes.other') },
+    { id: 'audiencia', label: translate(language, 'eventTypes.hearing') },
+    { id: 'reuniao', label: translate(language, 'eventTypes.meeting') },
+    { id: 'prazo', label: translate(language, 'eventTypes.deadline') },
+    { id: 'outros', label: translate(language, 'eventTypes.other') },
   ];
 
   const handleNavigateToCreateEvent = (type) => {
+    console.log('Navigating to EventCreate with type:', type); // Debug
     navigation.navigate('EventCreate', { eventType: type });
   };
 
