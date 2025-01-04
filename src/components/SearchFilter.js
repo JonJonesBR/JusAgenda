@@ -3,7 +3,8 @@ import { View, TextInput, StyleSheet, TouchableOpacity, Modal, Text } from 'reac
 import { lightTheme } from '../constants/colors';
 import { Feather } from '@expo/vector-icons';
 
-const filters = ['audiência', 'reunião', 'prazo', 'outros'];
+// Tipos de eventos sem acentos para corresponder ao que é salvo
+const filters = ['audiencia', 'reuniao', 'prazo', 'outros'];
 
 const SearchFilter = ({ onSearch }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,22 +14,40 @@ const SearchFilter = ({ onSearch }) => {
   // Processa a busca e aplica os filtros
   const handleSearchSubmit = () => {
     const activeFilters = Object.keys(selectedFilters).filter((key) => selectedFilters[key]);
+    console.log('Filtros ativos:', activeFilters); // Debug
   
     const searchParams = {
       term: searchTerm.trim(),
       filters: activeFilters,
     };
   
+    console.log('Parâmetros de busca:', searchParams); // Debug
     onSearch(searchParams);
   };
 
   // Alterna o estado dos filtros
   const toggleFilter = (filterKey) => {
-    setSelectedFilters((prev) => ({ ...prev, [filterKey]: !prev[filterKey] }));
+    console.log('Alternando filtro:', filterKey); // Debug
+    setSelectedFilters((prev) => {
+      const newState = { ...prev, [filterKey]: !prev[filterKey] };
+      console.log('Novo estado dos filtros:', newState); // Debug
+      return newState;
+    });
   };
 
   // Conta os filtros ativos
   const activeFilterCount = Object.values(selectedFilters).filter(Boolean).length;
+
+  // Função para obter o rótulo do filtro com acento
+  const getFilterLabel = (filter) => {
+    const labels = {
+      'audiencia': 'Audiência',
+      'reuniao': 'Reunião',
+      'prazo': 'Prazo',
+      'outros': 'Outros'
+    };
+    return labels[filter] || filter;
+  };
 
   return (
     <View style={styles.container}>
@@ -57,45 +76,42 @@ const SearchFilter = ({ onSearch }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Modal de Filtros */}
-      <Modal visible={isFilterModalVisible} transparent={true} animationType="slide">
-        <View style={styles.modalBackground}>
-          <View style={[styles.filterModal, { backgroundColor: lightTheme.card }]}>
-            <Text style={[styles.modalTitle, { color: lightTheme.text }]}>Filtrar Eventos</Text>
+      {/* Modal de filtros */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isFilterModalVisible}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: lightTheme.card }]}>
+            <Text style={[styles.modalTitle, { color: lightTheme.text }]}>Filtrar por tipo</Text>
             {filters.map((filter) => (
               <TouchableOpacity
                 key={filter}
-                style={styles.filterOption}
+                style={[
+                  styles.filterItem,
+                  selectedFilters[filter] && { backgroundColor: lightTheme.primary + '20' },
+                ]}
                 onPress={() => toggleFilter(filter)}
               >
-                <Text style={{ color: lightTheme.text }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</Text>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: selectedFilters[filter] ? lightTheme.primary : 'transparent',
-                      borderColor: lightTheme.primary,
-                    },
-                  ]}
-                >
-                  {selectedFilters[filter] && <Feather name="check" size={14} color="white" />}
-                </View>
+                <Text style={[styles.filterText, { color: lightTheme.text }]}>
+                  {getFilterLabel(filter)}
+                </Text>
+                {selectedFilters[filter] && (
+                  <Feather name="check" size={20} color={lightTheme.primary} />
+                )}
               </TouchableOpacity>
             ))}
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButton} onPress={() => setFilterModalVisible(false)}>
-                <Text style={{ color: lightTheme.primary }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => {
-                  handleSearchSubmit();
-                  setFilterModalVisible(false);
-                }}
-              >
-                <Text style={{ color: lightTheme.primary }}>Aplicar</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.applyButton, { backgroundColor: lightTheme.primary }]}
+              onPress={() => {
+                setFilterModalVisible(false);
+                handleSearchSubmit();
+              }}
+            >
+              <Text style={styles.applyButtonText}>Aplicar Filtros</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -135,13 +151,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  modalBackground: {
+  modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  filterModal: {
+  modalContent: {
     width: '80%',
     padding: 20,
     borderRadius: 10,
@@ -152,7 +168,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
   },
-  filterOption: {
+  filterItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -160,21 +176,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#ddd',
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+  filterText: {
+    fontSize: 16,
   },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  applyButton: {
+    padding: 10,
+    borderRadius: 8,
     marginTop: 20,
   },
-  modalButton: {
-    padding: 10,
+  applyButtonText: {
+    color: 'white',
+    fontSize: 16,
   },
 });
 

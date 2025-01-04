@@ -23,8 +23,15 @@ const EventCreateScreen = ({ navigation, route }) => {
   const [isSaving, setIsSaving] = useState(false);
 
   const formatDate = (date) => {
-    const [day, month, year] = date.split('/');
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    try {
+      const [day, month, year] = date.split('/');
+      const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      console.log('Data formatada:', formattedDate); // Debug
+      return formattedDate;
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return null;
+    }
   };
 
   const isValidDate = (date) => {
@@ -69,11 +76,17 @@ const EventCreateScreen = ({ navigation, route }) => {
       return;
     }
 
+    const formattedDate = formatDate(eventData.date);
+    if (!formattedDate) {
+      Alert.alert('Erro', 'Erro ao formatar a data. Por favor, tente novamente.');
+      return;
+    }
+
     setIsSaving(true);
     const newEvent = {
       ...eventData,
       id: uuid.v4(),
-      date: formatDate(eventData.date),
+      date: formattedDate,
       type: eventType,
       status: 'pending',
     };
@@ -84,8 +97,8 @@ const EventCreateScreen = ({ navigation, route }) => {
       Alert.alert('Sucesso', 'Evento salvo com sucesso!');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível salvar o evento.');
       console.error('Erro ao salvar evento:', error);
+      Alert.alert('Erro', 'Não foi possível salvar o evento. Por favor, tente novamente.');
     } finally {
       setIsSaving(false);
     }

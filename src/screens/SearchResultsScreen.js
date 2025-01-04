@@ -15,24 +15,63 @@ const SearchResultsScreen = ({ route, navigation }) => {
   useEffect(() => {
     const fetchAndFilterEvents = async () => {
       try {
+        console.log('Iniciando busca de eventos...'); // Debug
+        console.log('Termo de busca:', term); // Debug
+        console.log('Filtros ativos:', filters); // Debug
+
         const storedEvents = await getEvents();
         console.log('Eventos carregados:', storedEvents); // Debug
 
+        if (!Array.isArray(storedEvents)) {
+          console.error('Eventos armazenados não é um array:', storedEvents);
+          return;
+        }
+
+        let filteredResults = [...storedEvents];
+
         // Filtro por termo de busca
-        const eventsFilteredByTerm = storedEvents.filter(
-          (event) =>
-            (!term || event.title.toLowerCase().includes(term.toLowerCase())) ||
-            (event.client && event.client.toLowerCase().includes(term.toLowerCase()))
-        );
+        if (term) {
+          filteredResults = filteredResults.filter((event) => {
+            const searchFields = [
+              event.title,
+              event.client,
+              event.description,
+              event.location
+            ].filter(Boolean); // Remove campos undefined/null
 
-        // Filtro por tipo (filters)
-        const eventsFilteredByType = filters.length
-          ? eventsFilteredByTerm.filter((event) => filters.includes(event.type))
-          : eventsFilteredByTerm;
+            const searchText = searchFields.join(' ').toLowerCase();
+            return searchText.includes(term.toLowerCase());
+          });
+          console.log('Resultados após filtro por termo:', filteredResults); // Debug
+        }
 
-        setFilteredEvents(eventsFilteredByType);
+        // Filtro por tipo
+        if (filters && filters.length > 0) {
+          console.log('Aplicando filtro por tipos:', filters); // Debug
+          filteredResults = filteredResults.filter((event) => {
+            const eventType = (event.type || '').toLowerCase();
+            const matchingFilter = filters.some(filter => filter.toLowerCase() === eventType);
+            console.log(`Evento ${event.title} (tipo: ${eventType}) corresponde aos filtros? ${matchingFilter}`); // Debug
+            return matchingFilter;
+          });
+          console.log('Resultados após filtro por tipo:', filteredResults); // Debug
+        }
+
+        // Ordenar por data
+        filteredResults.sort((a, b) => {
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          if (dateA.getTime() === dateB.getTime()) {
+            return a.title.localeCompare(b.title);
+          }
+          return dateA - dateB;
+        });
+
+        console.log('Resultados finais:', filteredResults); // Debug
+        setFilteredEvents(filteredResults);
       } catch (error) {
         console.error('Erro ao buscar eventos:', error);
+        Alert.alert('Erro', 'Não foi possível carregar os eventos. Por favor, tente novamente.');
       } finally {
         setIsLoading(false);
       }

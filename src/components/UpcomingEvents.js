@@ -1,119 +1,170 @@
-import React, { useMemo, useReducer, useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
-import { getEvents } from '../services/storage';
-import EventCard from './EventCard';
-import { useTheme } from '../contexts/ThemeContext';
-import { lightTheme, darkTheme } from '../constants/colors';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, Card, Icon } from '@rneui/themed';
+import { useNavigation } from '@react-navigation/native';
+import { getUpcomingEvents } from '../services/EventService';
 
 const UpcomingEvents = () => {
-  const { theme } = useTheme();
-  const currentTheme = useMemo(() => (theme === 'light' ? lightTheme : darkTheme), [theme]);
+  const navigation = useNavigation();
+  const [events, setEvents] = useState([]);
 
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [events, dispatch] = useReducer((state, action) => {
-    switch (action.type) {
-      case 'SET_EVENTS':
-        return action.events;
-      default:
-        return state;
-    }
+  useEffect(() => {
+    loadEvents();
   }, []);
 
-  // Função para validar datas
-  const isValidDate = (date) => {
-    try {
-      const parsedDate = new Date(date);
-      return !isNaN(parsedDate.getTime());
-    } catch (error) {
-      console.error('Erro ao validar data:', error);
-      return false;
+  const loadEvents = () => {
+    const upcomingEvents = getUpcomingEvents();
+    setEvents(upcomingEvents);
+  };
+
+  const getEventTypeIcon = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'audiencia':
+        return { name: 'gavel', color: '#6200ee' };
+      case 'reuniao':
+        return { name: 'groups', color: '#03dac6' };
+      case 'prazo':
+        return { name: 'timer', color: '#ff0266' };
+      default:
+        return { name: 'event', color: '#018786' };
     }
   };
 
-  useEffect(() => {
-    const fetchUpcomingEvents = async () => {
-      try {
-        const storedEvents = await getEvents();
-        console.log('Eventos armazenados:', storedEvents); // Debug
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+    });
+  };
 
-        // Filtrar eventos com datas válidas
-        const validEvents = storedEvents.filter((event) => isValidDate(event.date));
-        console.log('Eventos válidos:', validEvents); // Debug
-
-        const sortedEvents = validEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
-        const upcomingEvents = sortedEvents.filter(
-          (event) => new Date(event.date).getTime() >= new Date().setHours(0, 0, 0, 0)
-        ); // Considera apenas eventos a partir de hoje
-        console.log('Próximos eventos:', upcomingEvents); // Debug
-        dispatch({ type: 'SET_EVENTS', events: upcomingEvents.slice(0, 5) });
-      } catch (error) {
-        console.error('Erro ao buscar eventos:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchUpcomingEvents();
-  }, []);
+  if (events.length === 0) {
+    return (
+      <Card containerStyle={styles.emptyCard}>
+        <Icon name="event-busy" size={48} color="#757575" />
+        <Text style={styles.emptyText}>Nenhum evento próximo</Text>
+      </Card>
+    );
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <FlatList
-        nestedScrollEnabled // Permite rolagem aninhada
-        data={events}
-        renderItem={({ item }) => (
-          <EventCard
-            event={item}
-            onPress={() => {
-              console.log('Evento clicado:', item); // Debug para navegação futura
-            }}
-          />
-        )}
-        keyExtractor={(item) => item.id || `${item.date}-${item.title}`}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListHeaderComponent={() => (
-          <Text style={[styles.title, { color: currentTheme.text }]}>
-            Próximos Eventos
-          </Text>
-        )}
-        ListEmptyComponent={() =>
-          !isLoading && (
-            <Text style={[styles.noEventsText, { color: currentTheme.text + '80' }]}>
-              Nenhum evento próximo
-            </Text>
-          )
-        }
-        contentContainerStyle={{ paddingBottom: 15 }}
-      />
-      {isLoading && (
-        <ActivityIndicator size="large" color={currentTheme.primary} style={styles.loading} />
-      )}
-    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      {events.map((event) => {
+        const icon = getEventTypeIcon(event.type);
+        return (
+          <TouchableOpacity
+            key={event.id}
+            onPress={() => navigation.navigate('EventDetails', { event })}
+          >
+            <Card containerStyle={styles.card}>
+              <View style={styles.cardHeader}>
+                <Icon name={icon.name} color={icon.color} size={24} />
+                <Text style={styles.eventType}>
+                  {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
+                </Text>
+              </View>
+
+              <Text style={styles.title} numberOfLines={2}>
+                {event.title}
+              </Text>
+
+              <View style={styles.dateContainer}>
+                <Icon name="calendar-today" size={16} color="#757575" />
+                <Text style={styles.date}>{formatDate(event.date)}</Text>
+              </View>
+
+              {event.location && (
+                <View style={styles.locationContainer}>
+                  <Icon name="location-on" size={16} color="#757575" />
+                  <Text style={styles.location} numberOfLines={1}>
+                    {event.location}
+                  </Text>
+                </View>
+              )}
+
+              {event.client && (
+                <View style={styles.clientContainer}>
+                  <Icon name="person" size={16} color="#757575" />
+                  <Text style={styles.client} numberOfLines={1}>
+                    {event.client}
+                  </Text>
+                </View>
+              )}
+            </Card>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 15,
+  card: {
+    width: 280,
     borderRadius: 10,
-    marginHorizontal: 10,
-    marginVertical: 10,
+    marginRight: 8,
+    marginLeft: 8,
+    padding: 16,
+    elevation: 4,
+  },
+  emptyCard: {
+    borderRadius: 10,
+    padding: 24,
+    alignItems: 'center',
+    elevation: 4,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#757575',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  eventType: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#757575',
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: 12,
+    color: '#000000',
   },
-  noEventsText: {
-    textAlign: 'center',
-    fontSize: 16,
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  separator: {
-    height: 10,
+  date: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#000000',
   },
-  loading: {
-    marginTop: 20,
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  location: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#000000',
+    flex: 1,
+  },
+  clientContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  client: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#000000',
+    flex: 1,
   },
 });
 

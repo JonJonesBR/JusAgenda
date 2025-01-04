@@ -1,117 +1,158 @@
-import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage } from '../contexts/LanguageContext';
-import { darkTheme } from '../constants/colors';
-import { translate } from '../utils/translations';
+import React from 'react';
+import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { Text, Button, FAB } from '@rneui/themed';
+import { useNavigation } from '@react-navigation/native';
 import UpcomingEvents from '../components/UpcomingEvents';
-import SearchFilter from '../components/SearchFilter';
 
-const HomeScreen = ({ navigation, route }) => {
-  const { theme } = useTheme();
-  const { language } = useLanguage();
-  const currentTheme = darkTheme;
-
-  const refresh = route.params?.refresh || false;
-
-  const eventTypes = [
-    { id: 'audiencia', label: translate(language, 'eventTypes.hearing') },
-    { id: 'reuniao', label: translate(language, 'eventTypes.meeting') },
-    { id: 'prazo', label: translate(language, 'eventTypes.deadline') },
-    { id: 'outros', label: translate(language, 'eventTypes.other') },
-  ];
-
-  const handleNavigateToCreateEvent = (type) => {
-    console.log('Navigating to EventCreate with type:', type); // Debug
-    navigation.navigate('EventCreate', { eventType: type });
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      if (refresh) {
-        console.log('Atualizando eventos...');
-        // Aqui você pode forçar a atualização dos eventos em UpcomingEvents
-        navigation.setParams({ refresh: false }); // Reseta o parâmetro após o refresh
-      }
-    }, [refresh, navigation])
-  );
+const HomeScreen = () => {
+  const navigation = useNavigation();
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <View style={styles.headerContainer}>
-        <Text style={[styles.header, { color: currentTheme.text }]}>JusAgenda</Text>
-      </View>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <Text h4>Bem-vindo ao JusAgenda</Text>
+          <Text style={styles.subtitle}>
+            Gerencie seus compromissos jurídicos
+          </Text>
+        </View>
 
-      <SearchFilter
-        onSearch={({ term, filters }) => {
-          navigation.navigate('SearchResults', { term, filters });
-        }}
-      />
+        <Text style={styles.sectionTitle}>Próximos Eventos</Text>
+        <UpcomingEvents />
 
-      <UpcomingEvents />
+        <View style={styles.quickActionsContainer}>
+          <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+          <View style={styles.quickActionsGrid}>
+            <Button
+              title="Buscar"
+              icon={{
+                name: 'search',
+                type: 'material',
+                size: 24,
+                color: 'white',
+              }}
+              titleStyle={styles.actionButtonTitle}
+              buttonStyle={[styles.actionButton, { backgroundColor: '#6200ee' }]}
+              containerStyle={styles.actionButtonContainer}
+              onPress={() => navigation.navigate('Search')}
+            />
+            <Button
+              title="Novo"
+              icon={{
+                name: 'add',
+                type: 'material',
+                size: 24,
+                color: 'white',
+              }}
+              titleStyle={styles.actionButtonTitle}
+              buttonStyle={[styles.actionButton, { backgroundColor: '#03dac6' }]}
+              containerStyle={styles.actionButtonContainer}
+              onPress={() => navigation.navigate('AddEvent')}
+            />
+            <Button
+              title="Agenda"
+              icon={{
+                name: 'calendar-today',
+                type: 'material',
+                size: 24,
+                color: 'white',
+              }}
+              titleStyle={styles.actionButtonTitle}
+              buttonStyle={[styles.actionButton, { backgroundColor: '#018786' }]}
+              containerStyle={styles.actionButtonContainer}
+              onPress={() => navigation.navigate('Calendar')}
+            />
+          </View>
+        </View>
+        
+        {/* Espaço extra no final do ScrollView para evitar sobreposição com o FAB */}
+        <View style={styles.fabSpace} />
+      </ScrollView>
 
-      <Text style={[styles.sectionHeader, { color: currentTheme.text }]}>Tipos de Evento</Text>
-      <FlatList
-        data={eventTypes}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: currentTheme.primary }]}
-            onPress={() => handleNavigateToCreateEvent(item.id)}
-          >
-            <Text style={[styles.buttonText, { color: currentTheme.card }]}>{item.label}</Text>
-          </TouchableOpacity>
-        )}
-        contentContainerStyle={styles.buttonGroup}
+      <FAB
+        icon={{ name: 'add', color: 'white' }}
+        color="#6200ee"
+        placement="right"
+        style={styles.fab}
+        onPress={() => navigation.navigate('AddEvent')}
       />
     </View>
   );
 };
 
+const { width } = Dimensions.get('window');
+const buttonWidth = (width - 48 - 16) / 3; // 48 para padding, 16 para gaps
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 15,
+    backgroundColor: '#f5f5f5',
   },
-  headerContainer: {
-    marginBottom: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 16, // Padding extra no final do conteúdo
   },
   header: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginVertical: 20,
+  subtitle: {
+    fontSize: 16,
+    color: '#757575',
+    marginTop: 4,
   },
-  buttonGroup: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 12,
+    color: '#000000',
+  },
+  quickActionsContainer: {
+    paddingBottom: 16,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    gap: 8,
   },
-  button: {
-    flex: 1,
-    marginHorizontal: 5,
-    padding: 15,
-    marginVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+  actionButtonContainer: {
+    width: buttonWidth,
+    borderRadius: 12,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  actionButton: {
+    height: 88,
+    borderRadius: 12,
+    flexDirection: 'column',
+    padding: 12,
+  },
+  actionButtonTitle: {
+    fontSize: 14,
+    marginTop: 8,
     textAlign: 'center',
+  },
+  fab: {
+    margin: 16,
+    marginBottom: 32,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.30,
+    shadowRadius: 4.65,
+  },
+  fabSpace: {
+    height: 80, // Espaço extra para evitar sobreposição com o FAB
   },
 });
 
