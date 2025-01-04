@@ -9,22 +9,30 @@ const SearchFilter = ({ onSearch }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
 
+  // Processa a busca e aplica os filtros
   const handleSearchSubmit = () => {
-    setIsLoading(true);
-    onSearch({ term: searchTerm, filters: selectedFilters });
-    setTimeout(() => setIsLoading(false), 500); // Simula carregamento
+    const activeFilters = Object.keys(selectedFilters).filter((key) => selectedFilters[key]);
+  
+    const searchParams = {
+      term: searchTerm.trim(),
+      filters: activeFilters,
+    };
+  
+    onSearch(searchParams);
   };
 
+  // Alterna o estado dos filtros
   const toggleFilter = (filterKey) => {
     setSelectedFilters((prev) => ({ ...prev, [filterKey]: !prev[filterKey] }));
   };
 
+  // Conta os filtros ativos
   const activeFilterCount = Object.values(selectedFilters).filter(Boolean).length;
 
   return (
     <View style={styles.container}>
+      {/* Campo de busca */}
       <View style={[styles.searchContainer, { backgroundColor: lightTheme.card, borderColor: lightTheme.primary }]}>
         <Feather name="search" size={20} color={lightTheme.primary} aria-label="Ícone de busca" />
         <TextInput
@@ -36,6 +44,7 @@ const SearchFilter = ({ onSearch }) => {
           onChangeText={setSearchTerm}
           onSubmitEditing={handleSearchSubmit}
         />
+        {/* Botão de filtro */}
         <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
           <View style={styles.filterButton}>
             <Feather name="filter" size={20} color={lightTheme.primary} aria-label="Ícone de filtro" />
@@ -48,12 +57,17 @@ const SearchFilter = ({ onSearch }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Modal de Filtros */}
       <Modal visible={isFilterModalVisible} transparent={true} animationType="slide">
         <View style={styles.modalBackground}>
           <View style={[styles.filterModal, { backgroundColor: lightTheme.card }]}>
             <Text style={[styles.modalTitle, { color: lightTheme.text }]}>Filtrar Eventos</Text>
             {filters.map((filter) => (
-              <TouchableOpacity key={filter} style={styles.filterOption} onPress={() => toggleFilter(filter)}>
+              <TouchableOpacity
+                key={filter}
+                style={styles.filterOption}
+                onPress={() => toggleFilter(filter)}
+              >
                 <Text style={{ color: lightTheme.text }}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</Text>
                 <View
                   style={[

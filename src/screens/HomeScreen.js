@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { darkTheme } from '../constants/colors';
@@ -7,10 +8,12 @@ import { translate } from '../utils/translations';
 import UpcomingEvents from '../components/UpcomingEvents';
 import SearchFilter from '../components/SearchFilter';
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const currentTheme = darkTheme;
+
+  const refresh = route.params?.refresh || false;
 
   const eventTypes = [
     { id: 'audiencia', label: translate(language, 'eventTypes.hearing') },
@@ -24,33 +27,46 @@ const HomeScreen = ({ navigation }) => {
     navigation.navigate('EventCreate', { eventType: type });
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (refresh) {
+        console.log('Atualizando eventos...');
+        // Aqui você pode forçar a atualização dos eventos em UpcomingEvents
+        navigation.setParams({ refresh: false }); // Reseta o parâmetro após o refresh
+      }
+    }, [refresh, navigation])
+  );
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: currentTheme.background }]}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       <View style={styles.headerContainer}>
         <Text style={[styles.header, { color: currentTheme.text }]}>JusAgenda</Text>
       </View>
 
       <SearchFilter
-        onSearch={(filters) => {
-          navigation.navigate('SearchResults', { filters });
+        onSearch={({ term, filters }) => {
+          navigation.navigate('SearchResults', { term, filters });
         }}
       />
 
       <UpcomingEvents />
 
       <Text style={[styles.sectionHeader, { color: currentTheme.text }]}>Tipos de Evento</Text>
-      <View style={styles.buttonGroup}>
-        {eventTypes.map((type) => (
+      <FlatList
+        data={eventTypes}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        renderItem={({ item }) => (
           <TouchableOpacity
-            key={type.id}
             style={[styles.button, { backgroundColor: currentTheme.primary }]}
-            onPress={() => handleNavigateToCreateEvent(type.id)}
+            onPress={() => handleNavigateToCreateEvent(item.id)}
           >
-            <Text style={[styles.buttonText, { color: currentTheme.card }]}>{type.label}</Text>
+            <Text style={[styles.buttonText, { color: currentTheme.card }]}>{item.label}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
+        )}
+        contentContainerStyle={styles.buttonGroup}
+      />
+    </View>
   );
 };
 
@@ -75,13 +91,12 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   buttonGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 20,
   },
   button: {
-    flexBasis: '48%',
+    flex: 1,
+    marginHorizontal: 5,
     padding: 15,
     marginVertical: 10,
     borderRadius: 8,
