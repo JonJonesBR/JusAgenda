@@ -2,7 +2,6 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Icon } from '@rneui/themed';
 import HomeScreen from '../screens/HomeScreen';
-import AddEventScreen from '../screens/AddEventScreen';
 import SearchScreen from '../screens/SearchScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 
@@ -35,16 +34,6 @@ const BottomTabNavigator = () => {
           title: 'Início',
           tabBarIcon: ({ color }) => (
             <Icon name="home" type="material" color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="AddEvent"
-        component={AddEventScreen}
-        options={{
-          title: 'Adicionar',
-          tabBarIcon: ({ color }) => (
-            <Icon name="add-circle" type="material" color={color} />
           ),
         }}
       />

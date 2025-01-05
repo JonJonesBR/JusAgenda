@@ -1,35 +1,15 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, Icon, Button } from '@rneui/themed';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text, Button, Icon, Card } from '@rneui/themed';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { deleteEvent } from '../services/EventService';
+import { useEvents } from '../contexts/EventContext';
+import { cancelEventNotification, removeFromDeviceCalendar } from '../services/NotificationService';
 
 const EventDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const event = route.params?.event;
-
-  if (!event) {
-    return (
-      <View style={styles.errorContainer}>
-        <Icon name="error" size={48} color="#b00020" />
-        <Text style={styles.errorText}>Evento não encontrado</Text>
-      </View>
-    );
-  }
-
-  const getEventTypeIcon = (type) => {
-    switch (type?.toLowerCase()) {
-      case 'audiencia':
-        return { name: 'gavel', color: '#6200ee' };
-      case 'reuniao':
-        return { name: 'groups', color: '#03dac6' };
-      case 'prazo':
-        return { name: 'timer', color: '#ff0266' };
-      default:
-        return { name: 'event', color: '#018786' };
-    }
-  };
+  const { event } = route.params;
+  const { deleteEvent } = useEvents();
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -38,65 +18,96 @@ const EventDetailsScreen = () => {
       day: '2-digit',
       month: 'long',
       year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
-  const handleDelete = async () => {
-    try {
-      await deleteEvent(event.id);
-      navigation.goBack();
-    } catch (error) {
-      console.error('Erro ao deletar evento:', error);
-    }
+  const handleEdit = () => {
+    navigation.navigate('AddEvent', { event });
   };
 
-  const icon = getEventTypeIcon(event.type);
+  const handleDelete = async () => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este evento?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Cancela notificações antes de excluir
+              if (event.notificationId) {
+                await cancelEventNotification(event.notificationId);
+              }
+              if (event.calendarEventId) {
+                await removeFromDeviceCalendar(event.calendarEventId);
+              }
+
+              const success = await deleteEvent(event.id);
+              if (success) {
+                navigation.goBack();
+              } else {
+                Alert.alert('Erro', 'Não foi possível excluir o evento');
+              }
+            } catch (error) {
+              console.error('Erro ao excluir evento:', error);
+              Alert.alert('Erro', 'Ocorreu um erro ao excluir o evento');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScrollView style={styles.container}>
       <Card containerStyle={styles.card}>
         <View style={styles.header}>
-          <Icon name={icon.name} color={icon.color} size={32} />
-          <Text h4 style={styles.title}>{event.title}</Text>
-        </View>
-
-        <Card.Divider />
-
-        <View style={styles.infoSection}>
-          <View style={styles.infoItem}>
-            <Icon name="calendar-today" size={20} color="#757575" />
-            <Text style={styles.infoText}>{formatDate(event.date)}</Text>
-          </View>
-
-          {event.location && (
-            <View style={styles.infoItem}>
-              <Icon name="location-on" size={20} color="#757575" />
-              <Text style={styles.infoText}>{event.location}</Text>
-            </View>
-          )}
-
-          {event.client && (
-            <View style={styles.infoItem}>
-              <Icon name="person" size={20} color="#757575" />
-              <Text style={styles.infoText}>{event.client}</Text>
-            </View>
-          )}
-
-          <View style={styles.infoItem}>
-            <Icon name="label" size={20} color="#757575" />
-            <Text style={styles.infoText}>
-              {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
-            </Text>
+          <View style={styles.titleContainer}>
+            <Text h4 style={styles.title}>{event.title}</Text>
+            <Text style={styles.type}>{event.type}</Text>
           </View>
         </View>
+
+        <View style={styles.section}>
+          <Icon name="calendar-today" color="#6200ee" size={20} />
+          <Text style={styles.sectionText}>{formatDate(event.date)}</Text>
+        </View>
+
+        {event.location && (
+          <View style={styles.section}>
+            <Icon name="location-on" color="#6200ee" size={20} />
+            <Text style={styles.sectionText}>{event.location}</Text>
+          </View>
+        )}
+
+        {event.client && (
+          <View style={styles.section}>
+            <Icon name="person" color="#6200ee" size={20} />
+            <Text style={styles.sectionText}>{event.client}</Text>
+          </View>
+        )}
 
         {event.description && (
-          <>
-            <Card.Divider />
-            <Text style={styles.descriptionTitle}>Descrição</Text>
-            <Text style={styles.description}>{event.description}</Text>
-          </>
+          <View style={styles.descriptionSection}>
+            <Icon name="description" color="#6200ee" size={20} />
+            <Text style={styles.descriptionText}>{event.description}</Text>
+          </View>
         )}
+
+        <View style={styles.notificationInfo}>
+          <Icon name="notifications" color="#6200ee" size={20} />
+          <Text style={styles.notificationText}>
+            Lembrete agendado para 24h antes do evento
+            {event.calendarEventId && ' (Adicionado à agenda do dispositivo)'}
+          </Text>
+        </View>
 
         <View style={styles.buttonContainer}>
           <Button
@@ -106,10 +117,9 @@ const EventDetailsScreen = () => {
               size: 20,
               color: 'white',
             }}
-            buttonStyle={styles.editButton}
-            onPress={() => navigation.navigate('AddEvent', { event })}
+            buttonStyle={[styles.button, styles.editButton]}
+            onPress={handleEdit}
           />
-
           <Button
             title="Excluir"
             icon={{
@@ -117,7 +127,7 @@ const EventDetailsScreen = () => {
               size: 20,
               color: 'white',
             }}
-            buttonStyle={styles.deleteButton}
+            buttonStyle={[styles.button, styles.deleteButton]}
             onPress={handleDelete}
           />
         </View>
@@ -131,75 +141,80 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#b00020',
-  },
   card: {
     borderRadius: 10,
     margin: 16,
     padding: 16,
-    elevation: 4,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  titleContainer: {
+    flex: 1,
   },
   title: {
-    marginLeft: 12,
-    flex: 1,
     color: '#000000',
+    marginBottom: 4,
   },
-  infoSection: {
-    marginTop: 8,
+  type: {
+    color: '#6200ee',
+    fontSize: 16,
+    textTransform: 'capitalize',
   },
-  infoItem: {
+  section: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    gap: 8,
   },
-  infoText: {
-    marginLeft: 12,
+  sectionText: {
     fontSize: 16,
     color: '#000000',
+    flex: 1,
   },
-  descriptionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 8,
-    marginBottom: 8,
-    color: '#000000',
+  descriptionSection: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
   },
-  description: {
+  descriptionText: {
     fontSize: 16,
     color: '#000000',
+    flex: 1,
     lineHeight: 24,
+  },
+  notificationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    gap: 8,
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#666666',
+    flex: 1,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
-    gap: 12,
+    gap: 16,
+  },
+  button: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    flex: 1,
   },
   editButton: {
-    flex: 1,
     backgroundColor: '#6200ee',
-    borderRadius: 10,
-    height: 50,
   },
   deleteButton: {
-    flex: 1,
-    backgroundColor: '#b00020',
-    borderRadius: 10,
-    height: 50,
+    backgroundColor: '#dc3545',
   },
 });
 

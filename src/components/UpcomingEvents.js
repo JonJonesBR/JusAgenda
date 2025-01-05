@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
 import { useNavigation } from '@react-navigation/native';
-import { getUpcomingEvents } from '../services/EventService';
+import { useEvents } from '../contexts/EventContext';
 
 const UpcomingEvents = () => {
   const navigation = useNavigation();
-  const [events, setEvents] = useState([]);
+  const { events } = useEvents();
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
-
-  const loadEvents = () => {
-    const upcomingEvents = getUpcomingEvents();
-    setEvents(upcomingEvents);
-  };
+  // Calcula os próximos eventos
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    return [...events]
+      .filter(event => new Date(event.date) >= now)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(0, 5);
+  }, [events]);
 
   const getEventTypeIcon = (type) => {
     switch (type?.toLowerCase()) {
@@ -39,7 +39,7 @@ const UpcomingEvents = () => {
     });
   };
 
-  if (events.length === 0) {
+  if (upcomingEvents.length === 0) {
     return (
       <Card containerStyle={styles.emptyCard}>
         <Icon name="event-busy" size={48} color="#757575" />
@@ -50,7 +50,7 @@ const UpcomingEvents = () => {
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      {events.map((event) => {
+      {upcomingEvents.map((event) => {
         const icon = getEventTypeIcon(event.type);
         return (
           <TouchableOpacity
@@ -100,14 +100,6 @@ const UpcomingEvents = () => {
 };
 
 const styles = StyleSheet.create({
-  card: {
-    width: 280,
-    borderRadius: 10,
-    marginRight: 8,
-    marginLeft: 8,
-    padding: 16,
-    elevation: 4,
-  },
   emptyCard: {
     borderRadius: 10,
     padding: 24,
@@ -118,6 +110,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#757575',
+  },
+  card: {
+    borderRadius: 10,
+    padding: 16,
+    width: 280,
+    marginRight: 8,
+    marginVertical: 8,
+    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',

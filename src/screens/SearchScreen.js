@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SearchBar, Button, Text, Card, Icon } from '@rneui/themed';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useEvents } from '../contexts/EventContext';
 
 const SearchScreen = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilters, setSelectedFilters] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const navigation = useNavigation();
+  const { events, refreshEvents } = useEvents();
+  const isFocused = useIsFocused();
+
+  // Atualiza os eventos quando a tela recebe foco
+  useEffect(() => {
+    if (isFocused) {
+      refreshEvents();
+    }
+  }, [isFocused, refreshEvents]);
+
+  // Atualiza os resultados da busca quando os eventos mudam
+  useEffect(() => {
+    if (searchTerm || selectedFilters.length > 0) {
+      handleSearch();
+    }
+  }, [events, handleSearch]);
 
   const filters = [
     { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
@@ -23,11 +41,44 @@ const SearchScreen = () => {
     );
   };
 
-  const handleSearch = () => {
-    navigation.navigate('SearchResults', {
-      term: searchTerm,
-      filters: selectedFilters,
+  const handleSearch = useCallback(() => {
+    const term = searchTerm.toLowerCase().trim();
+    let filtered = events;
+
+    // Filtrar por termo de busca
+    if (term) {
+      filtered = filtered.filter(event =>
+        event.title?.toLowerCase().includes(term) ||
+        event.client?.toLowerCase().includes(term) ||
+        event.description?.toLowerCase().includes(term) ||
+        event.location?.toLowerCase().includes(term)
+      );
+    }
+
+    // Filtrar por tipos selecionados
+    if (selectedFilters.length > 0) {
+      filtered = filtered.filter(event =>
+        selectedFilters.includes(event.type?.toLowerCase())
+      );
+    }
+
+    // Ordenar por data
+    filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    setSearchResults(filtered);
+  }, [searchTerm, selectedFilters, events]);
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
     });
+  };
+
+  const handleEventPress = (event) => {
+    navigation.navigate('EventDetails', { event });
   };
 
   return (
@@ -42,7 +93,12 @@ const SearchScreen = () => {
       <Card containerStyle={styles.searchCard}>
         <SearchBar
           placeholder="Digite sua busca..."
-          onChangeText={setSearchTerm}
+          onChangeText={(text) => {
+            setSearchTerm(text);
+            if (!text && selectedFilters.length === 0) {
+              setSearchResults([]);
+            }
+          }}
           value={searchTerm}
           platform="default"
           containerStyle={styles.searchBarContainer}
@@ -70,7 +126,12 @@ const SearchScreen = () => {
                 styles.filterButtonText,
                 selectedFilters.includes(filter.id) && styles.filterButtonTextActive,
               ]}
-              onPress={() => toggleFilter(filter.id)}
+              onPress={() => {
+                toggleFilter(filter.id);
+                if (searchTerm || selectedFilters.length > 0) {
+                  handleSearch();
+                }
+              }}
             />
           ))}
         </View>
@@ -88,27 +149,85 @@ const SearchScreen = () => {
         />
       </Card>
 
-      <Card containerStyle={styles.tipsCard}>
-        <Card.Title>
-          <View style={styles.cardTitleContainer}>
-            <Icon name="lightbulb" color="#6200ee" size={24} />
-            <Text style={styles.cardTitle}>Dicas de Busca</Text>
+      {searchResults.length > 0 ? (
+        <View style={styles.resultsContainer}>
+          <Text style={styles.resultsTitle}>
+            {searchResults.length} {searchResults.length === 1 ? 'resultado encontrado' : 'resultados encontrados'}
+          </Text>
+          {searchResults.map((event) => {
+            const icon = filters.find(f => f.id === event.type?.toLowerCase());
+            return (
+              <Card key={event.id} containerStyle={styles.resultCard}>
+                <TouchableOpacity
+                  onPress={() => handleEventPress(event)}
+                >
+                  <View style={styles.resultHeader}>
+                    <Icon
+                      name={icon?.icon || 'event'}
+                      color="#6200ee"
+                      size={24}
+                      style={styles.resultIcon}
+                    />
+                    <View style={styles.resultInfo}>
+                      <Text style={styles.resultTitle}>{event.title}</Text>
+                      <Text style={styles.resultDate}>
+                        {formatDate(event.date)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {event.location && (
+                    <View style={styles.resultDetail}>
+                      <Icon name="location-on" size={16} color="#757575" />
+                      <Text style={styles.resultDetailText}>
+                        {event.location}
+                      </Text>
+                    </View>
+                  )}
+
+                  {event.client && (
+                    <View style={styles.resultDetail}>
+                      <Icon name="person" size={16} color="#757575" />
+                      <Text style={styles.resultDetailText}>
+                        {event.client}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Card>
+            );
+          })}
+        </View>
+      ) : searchTerm || selectedFilters.length > 0 ? (
+        <Card containerStyle={styles.noResultsCard}>
+          <Icon name="search-off" size={48} color="#757575" />
+          <Text style={styles.noResultsText}>
+            Nenhum evento encontrado
+          </Text>
+        </Card>
+      ) : (
+        <Card containerStyle={styles.tipsCard}>
+          <Card.Title>
+            <View style={styles.cardTitleContainer}>
+              <Icon name="lightbulb" color="#6200ee" size={24} />
+              <Text style={styles.cardTitle}>Dicas de Busca</Text>
+            </View>
+          </Card.Title>
+          <Card.Divider />
+          <View style={styles.tipItem}>
+            <Icon name="info" color="#6200ee" size={20} />
+            <Text style={styles.tipText}>
+              Use palavras-chave específicas para encontrar eventos mais facilmente
+            </Text>
           </View>
-        </Card.Title>
-        <Card.Divider />
-        <View style={styles.tipItem}>
-          <Icon name="info" color="#6200ee" size={20} />
-          <Text style={styles.tipText}>
-            Use palavras-chave específicas para encontrar eventos mais facilmente
-          </Text>
-        </View>
-        <View style={styles.tipItem}>
-          <Icon name="filter-list" color="#6200ee" size={20} />
-          <Text style={styles.tipText}>
-            Combine filtros para refinar sua busca
-          </Text>
-        </View>
-      </Card>
+          <View style={styles.tipItem}>
+            <Icon name="filter-list" color="#6200ee" size={20} />
+            <Text style={styles.tipText}>
+              Combine filtros para refinar sua busca
+            </Text>
+          </View>
+        </Card>
+      )}
     </ScrollView>
   );
 };
@@ -184,6 +303,64 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     height: 50,
   },
+  resultsContainer: {
+    padding: 16,
+  },
+  resultsTitle: {
+    fontSize: 16,
+    color: '#757575',
+    marginBottom: 8,
+  },
+  resultCard: {
+    borderRadius: 10,
+    marginBottom: 8,
+    padding: 12,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  resultIcon: {
+    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+    padding: 8,
+    borderRadius: 20,
+  },
+  resultInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  resultTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  resultDate: {
+    fontSize: 14,
+    color: '#757575',
+  },
+  resultDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  resultDetailText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#000000',
+  },
+  noResultsCard: {
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#757575',
+  },
   tipsCard: {
     borderRadius: 10,
     marginHorizontal: 16,
@@ -206,7 +383,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tipText: {
-    marginLeft: 8,
+    marginLeft: 12,
     fontSize: 14,
     color: '#000000',
     flex: 1,

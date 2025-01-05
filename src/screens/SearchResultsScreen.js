@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
 import { searchEvents } from '../services/EventService';
 
 const SearchResultsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const isFocused = useIsFocused();
   const { term, filters } = route.params || {};
   const [events, setEvents] = useState([]);
 
-  useEffect(() => {
+  const searchForEvents = () => {
     const results = searchEvents(term || '');
     if (filters && filters.length > 0) {
       const filteredResults = results.filter(event => 
@@ -20,7 +21,13 @@ const SearchResultsScreen = () => {
     } else {
       setEvents(results);
     }
-  }, [term, filters]);
+  };
+
+  useEffect(() => {
+    if (isFocused) {
+      searchForEvents();
+    }
+  }, [isFocused, term, filters]);
 
   const getEventTypeIcon = (type) => {
     switch (type?.toLowerCase()) {
@@ -67,45 +74,46 @@ const SearchResultsScreen = () => {
       {events.map(event => {
         const icon = getEventTypeIcon(event.type);
         return (
-          <Card
+          <TouchableOpacity
             key={event.id}
-            containerStyle={styles.card}
             onPress={() => navigation.navigate('EventDetails', { event })}
           >
-            <View style={styles.cardHeader}>
-              <Icon name={icon.name} color={icon.color} size={24} />
-              <Text style={styles.eventType}>
-                {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
+            <Card containerStyle={styles.card}>
+              <View style={styles.cardHeader}>
+                <Icon name={icon.name} color={icon.color} size={24} />
+                <Text style={styles.eventType}>
+                  {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
+                </Text>
+              </View>
+
+              <Text style={styles.title} numberOfLines={2}>
+                {event.title}
               </Text>
-            </View>
 
-            <Text style={styles.title} numberOfLines={2}>
-              {event.title}
-            </Text>
-
-            <View style={styles.dateContainer}>
-              <Icon name="calendar-today" size={16} color="#757575" />
-              <Text style={styles.date}>{formatDate(event.date)}</Text>
-            </View>
-
-            {event.location && (
-              <View style={styles.locationContainer}>
-                <Icon name="location-on" size={16} color="#757575" />
-                <Text style={styles.location} numberOfLines={1}>
-                  {event.location}
-                </Text>
+              <View style={styles.dateContainer}>
+                <Icon name="calendar-today" size={16} color="#757575" />
+                <Text style={styles.date}>{formatDate(event.date)}</Text>
               </View>
-            )}
 
-            {event.client && (
-              <View style={styles.clientContainer}>
-                <Icon name="person" size={16} color="#757575" />
-                <Text style={styles.client} numberOfLines={1}>
-                  {event.client}
-                </Text>
-              </View>
-            )}
-          </Card>
+              {event.location && (
+                <View style={styles.locationContainer}>
+                  <Icon name="location-on" size={16} color="#757575" />
+                  <Text style={styles.location} numberOfLines={1}>
+                    {event.location}
+                  </Text>
+                </View>
+              )}
+
+              {event.client && (
+                <View style={styles.clientContainer}>
+                  <Icon name="person" size={16} color="#757575" />
+                  <Text style={styles.client} numberOfLines={1}>
+                    {event.client}
+                  </Text>
+                </View>
+              )}
+            </Card>
+          </TouchableOpacity>
         );
       })}
     </ScrollView>
@@ -116,17 +124,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  resultsText: {
-    fontSize: 16,
-    color: '#757575',
-    margin: 16,
+    padding: 16,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   emptyText: {
     marginTop: 16,
@@ -134,11 +138,15 @@ const styles = StyleSheet.create({
     color: '#757575',
     textAlign: 'center',
   },
+  resultsText: {
+    fontSize: 16,
+    color: '#757575',
+    marginBottom: 16,
+  },
   card: {
     borderRadius: 10,
-    marginHorizontal: 16,
-    marginBottom: 8,
     padding: 16,
+    marginBottom: 8,
     elevation: 4,
   },
   cardHeader: {

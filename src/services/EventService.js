@@ -7,7 +7,9 @@ let events = [
     location: 'Fórum Central',
     client: 'João Silva',
     type: 'audiencia',
-    description: 'Audiência de instrução e julgamento'
+    description: 'Audiência de instrução e julgamento',
+    notificationId: null,
+    calendarEventId: null,
   },
   {
     id: '2',
@@ -16,7 +18,9 @@ let events = [
     location: 'Escritório',
     client: 'Maria Santos',
     type: 'reuniao',
-    description: 'Discussão sobre novo caso'
+    description: 'Discussão sobre novo caso',
+    notificationId: null,
+    calendarEventId: null,
   },
   {
     id: '3',
@@ -25,7 +29,9 @@ let events = [
     location: 'Online',
     client: 'Pedro Oliveira',
     type: 'prazo',
-    description: 'Último dia para apresentar recurso'
+    description: 'Último dia para apresentar recurso',
+    notificationId: null,
+    calendarEventId: null,
   }
 ];
 
@@ -52,6 +58,8 @@ export const addEvent = (event) => {
   const newEvent = {
     ...event,
     id: generateId(),
+    notificationId: null,
+    calendarEventId: null,
   };
   events.push(newEvent);
   return newEvent;
@@ -61,7 +69,12 @@ export const addEvent = (event) => {
 export const updateEvent = (id, updatedEvent) => {
   const index = events.findIndex(event => event.id === id);
   if (index !== -1) {
-    events[index] = { ...events[index], ...updatedEvent };
+    events[index] = { 
+      ...events[index], 
+      ...updatedEvent,
+      notificationId: events[index].notificationId,
+      calendarEventId: events[index].calendarEventId,
+    };
     return events[index];
   }
   return null;
@@ -91,4 +104,18 @@ export const searchEvents = (query) => {
 // Busca um evento específico por ID
 export const getEventById = (id) => {
   return events.find(event => event.id === id);
+};
+
+// Atualiza os IDs de notificação e calendário
+export const updateEventNotifications = (id, { notificationId, calendarEventId }) => {
+  const index = events.findIndex(event => event.id === id);
+  if (index !== -1) {
+    events[index] = {
+      ...events[index],
+      notificationId: notificationId ?? events[index].notificationId,
+      calendarEventId: calendarEventId ?? events[index].calendarEventId,
+    };
+    return events[index];
+  }
+  return null;
 };

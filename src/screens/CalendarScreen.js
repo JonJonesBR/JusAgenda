@@ -1,27 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
 import { Calendar } from 'react-native-calendars';
 import { useNavigation } from '@react-navigation/native';
-import { getAllEvents } from '../services/EventService';
+import { useEvents } from '../contexts/EventContext';
 
 const CalendarScreen = () => {
   const navigation = useNavigation();
-  const [events, setEvents] = useState([]);
+  const { events, refreshEvents } = useEvents();
   const [selectedDate, setSelectedDate] = useState('');
   const [markedDates, setMarkedDates] = useState({});
 
   useEffect(() => {
-    loadEvents();
-  }, []);
+    refreshEvents();
+  }, [refreshEvents]);
 
-  const loadEvents = () => {
-    const allEvents = getAllEvents();
-    setEvents(allEvents);
-    
-    // Marca as datas que têm eventos
+  useEffect(() => {
+    // Atualiza as marcações do calendário quando os eventos mudam
     const marks = {};
-    allEvents.forEach(event => {
+    events.forEach(event => {
       const date = new Date(event.date);
       const dateString = date.toISOString().split('T')[0];
       marks[dateString] = {
@@ -30,7 +27,7 @@ const CalendarScreen = () => {
       };
     });
     setMarkedDates(marks);
-  };
+  }, [events]);
 
   const getEventColor = (type) => {
     switch (type?.toLowerCase()) {
@@ -73,6 +70,10 @@ const CalendarScreen = () => {
     });
   };
 
+  const handleEventPress = (event) => {
+    navigation.navigate('EventDetails', { event });
+  };
+
   const renderEvents = () => {
     if (!selectedDate) return null;
 
@@ -89,35 +90,36 @@ const CalendarScreen = () => {
     return dayEvents.map(event => {
       const icon = getEventTypeIcon(event.type);
       return (
-        <Card
+        <TouchableOpacity
           key={event.id}
-          containerStyle={styles.eventCard}
-          onPress={() => navigation.navigate('EventDetails', { event })}
+          onPress={() => handleEventPress(event)}
         >
-          <View style={styles.eventHeader}>
-            <Icon name={icon.name} color={icon.color} size={24} />
-            <Text style={styles.eventType}>
-              {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
-            </Text>
-            <Text style={styles.eventTime}>{formatTime(event.date)}</Text>
-          </View>
-
-          <Text style={styles.eventTitle}>{event.title}</Text>
-
-          {event.location && (
-            <View style={styles.eventDetail}>
-              <Icon name="location-on" size={16} color="#757575" />
-              <Text style={styles.detailText}>{event.location}</Text>
+          <Card containerStyle={styles.eventCard}>
+            <View style={styles.eventHeader}>
+              <Icon name={icon.name} color={icon.color} size={24} />
+              <Text style={styles.eventType}>
+                {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
+              </Text>
+              <Text style={styles.eventTime}>{formatTime(event.date)}</Text>
             </View>
-          )}
 
-          {event.client && (
-            <View style={styles.eventDetail}>
-              <Icon name="person" size={16} color="#757575" />
-              <Text style={styles.detailText}>{event.client}</Text>
-            </View>
-          )}
-        </Card>
+            <Text style={styles.eventTitle}>{event.title}</Text>
+
+            {event.location && (
+              <View style={styles.eventInfo}>
+                <Icon name="location-on" size={16} color="#757575" />
+                <Text style={styles.eventText}>{event.location}</Text>
+              </View>
+            )}
+
+            {event.client && (
+              <View style={styles.eventInfo}>
+                <Icon name="person" size={16} color="#757575" />
+                <Text style={styles.eventText}>{event.client}</Text>
+              </View>
+            )}
+          </Card>
+        </TouchableOpacity>
       );
     });
   };
@@ -125,7 +127,7 @@ const CalendarScreen = () => {
   return (
     <View style={styles.container}>
       <Calendar
-        onDayPress={day => setSelectedDate(day.dateString)}
+        onDayPress={(day) => setSelectedDate(day.dateString)}
         markedDates={{
           ...markedDates,
           [selectedDate]: {
@@ -154,13 +156,13 @@ const styles = StyleSheet.create({
   },
   eventsContainer: {
     flex: 1,
-    padding: 8,
+    padding: 16,
   },
   emptyCard: {
     borderRadius: 10,
     padding: 24,
     alignItems: 'center',
-    marginTop: 16,
+    elevation: 4,
   },
   emptyText: {
     marginTop: 16,
@@ -171,6 +173,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
     marginBottom: 8,
+    elevation: 4,
   },
   eventHeader: {
     flexDirection: 'row',
@@ -178,27 +181,27 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   eventType: {
+    flex: 1,
     marginLeft: 8,
     fontSize: 14,
     color: '#757575',
-    flex: 1,
   },
   eventTime: {
     fontSize: 14,
-    color: '#757575',
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
     color: '#000000',
   },
-  eventDetail: {
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#000000',
+  },
+  eventInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 8,
   },
-  detailText: {
+  eventText: {
     marginLeft: 8,
     fontSize: 14,
     color: '#000000',

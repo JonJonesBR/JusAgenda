@@ -1,61 +1,101 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Input, Button, Text, Card, ButtonGroup } from '@rneui/themed';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
+import { Text, Input, Button } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { addEvent, updateEvent } from '../services/EventService';
-
-const eventTypes = ['Audiência', 'Reunião', 'Prazo', 'Outro'];
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useEvents } from '../contexts/EventContext';
+import { requestPermissions, scheduleEventNotification } from '../services/NotificationService';
 
 const AddEventScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const editingEvent = route.params?.event;
-  const isEditing = !!editingEvent;
+  const { addEvent, updateEvent } = useEvents();
 
   const [title, setTitle] = useState(editingEvent?.title || '');
-  const [date, setDate] = useState(new Date(editingEvent?.date || Date.now()));
+  const [date, setDate] = useState(editingEvent ? new Date(editingEvent.date) : new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [type, setType] = useState(editingEvent?.type || 'audiencia');
   const [location, setLocation] = useState(editingEvent?.location || '');
   const [client, setClient] = useState(editingEvent?.client || '');
   const [description, setDescription] = useState(editingEvent?.description || '');
-  const [selectedTypeIndex, setSelectedTypeIndex] = useState(
-    editingEvent ? eventTypes.findIndex(type => 
-      type.toLowerCase() === editingEvent.type.toLowerCase()
-    ) : 0
-  );
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [customMessage, setCustomMessage] = useState(`Você tem um evento "${title}" amanhã`);
+
+  useEffect(() => {
+    requestPermissions();
+  }, []);
 
   const handleSave = async () => {
-    const eventData = {
-      title,
-      date: date.toISOString(),
-      location,
-      client,
-      description,
-      type: eventTypes[selectedTypeIndex].toLowerCase(),
-    };
-
-    if (isEditing) {
-      await updateEvent(editingEvent.id, eventData);
-    } else {
-      await addEvent(eventData);
+    if (!title.trim()) {
+      Alert.alert('Erro', 'O título é obrigatório');
+      return;
     }
 
-    navigation.goBack();
+    const eventData = {
+      title: title.trim(),
+      date: date.toISOString(),
+      type,
+      location: location.trim(),
+      client: client.trim(),
+      description: description.trim(),
+    };
+
+    try {
+      let savedEvent;
+
+      if (editingEvent) {
+        const success = await updateEvent(editingEvent.id, eventData);
+        if (success) {
+          savedEvent = { ...eventData, id: editingEvent.id };
+        }
+      } else {
+        savedEvent = await addEvent(eventData);
+      }
+
+      if (!savedEvent) {
+        throw new Error('Falha ao salvar evento');
+      }
+
+      // Agenda a notificação
+      await scheduleEventNotification(savedEvent, customMessage);
+
+      navigation.goBack();
+    } catch (error) {
+      console.error('Erro ao salvar evento:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao salvar o evento. Por favor, tente novamente.');
+    }
   };
 
-  const onDateChange = (event, selectedDate) => {
+  const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
     if (selectedDate) {
       setDate(selectedDate);
     }
   };
 
+  const formatDate = (date) => {
+    return date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const eventTypes = [
+    { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
+    { id: 'reuniao', label: 'Reunião', icon: 'groups' },
+    { id: 'prazo', label: 'Prazo', icon: 'timer' },
+    { id: 'outros', label: 'Outros', icon: 'event' },
+  ];
+
   return (
     <ScrollView style={styles.container}>
-      <Card containerStyle={styles.card}>
-        <Text h4 style={styles.screenTitle}>
-          {isEditing ? 'Editar Evento' : 'Novo Evento'}
+      <View style={styles.content}>
+        <Text h4 style={styles.title}>
+          {editingEvent ? 'Editar Evento' : 'Novo Evento'}
         </Text>
 
         <Input
@@ -63,21 +103,22 @@ const AddEventScreen = () => {
           value={title}
           onChangeText={setTitle}
           placeholder="Digite o título do evento"
-          leftIcon={{ type: 'material', name: 'event', color: '#6200ee' }}
+          leftIcon={{ type: 'material', name: 'edit', color: '#757575' }}
+          autoFocus
         />
 
         <View style={styles.dateContainer}>
-          <Text style={styles.dateLabel}>Data</Text>
+          <Text style={styles.label}>Data e Hora</Text>
           <Button
-            title={date.toLocaleDateString('pt-BR')}
+            title={formatDate(date)}
             type="outline"
-            buttonStyle={styles.dateButton}
-            titleStyle={styles.dateButtonText}
             icon={{
               name: 'calendar-today',
               size: 20,
               color: '#6200ee',
             }}
+            buttonStyle={styles.dateButton}
+            titleStyle={styles.dateButtonText}
             onPress={() => setShowDatePicker(true)}
           />
         </View>
@@ -85,22 +126,36 @@ const AddEventScreen = () => {
         {showDatePicker && (
           <DateTimePicker
             value={date}
-            mode="date"
+            mode="datetime"
+            is24Hour={true}
             display="default"
-            onChange={onDateChange}
+            onChange={handleDateChange}
           />
         )}
 
+        <Text style={[styles.label, { marginTop: 16 }]}>Tipo</Text>
         <View style={styles.typeContainer}>
-          <Text style={styles.typeLabel}>Tipo de Evento</Text>
-          <ButtonGroup
-            buttons={eventTypes}
-            selectedIndex={selectedTypeIndex}
-            onPress={setSelectedTypeIndex}
-            containerStyle={styles.buttonGroup}
-            selectedButtonStyle={styles.selectedButton}
-            textStyle={styles.buttonGroupText}
-          />
+          {eventTypes.map((eventType) => (
+            <Button
+              key={eventType.id}
+              title={eventType.label}
+              icon={{
+                name: eventType.icon,
+                size: 20,
+                color: type === eventType.id ? 'white' : '#6200ee',
+              }}
+              type={type === eventType.id ? 'solid' : 'outline'}
+              buttonStyle={[
+                styles.typeButton,
+                type === eventType.id && styles.typeButtonActive,
+              ]}
+              titleStyle={[
+                styles.typeButtonText,
+                type === eventType.id && styles.typeButtonTextActive,
+              ]}
+              onPress={() => setType(eventType.id)}
+            />
+          ))}
         </View>
 
         <Input
@@ -108,7 +163,7 @@ const AddEventScreen = () => {
           value={location}
           onChangeText={setLocation}
           placeholder="Digite o local do evento"
-          leftIcon={{ type: 'material', name: 'location-on', color: '#6200ee' }}
+          leftIcon={{ type: 'material', name: 'location-on', color: '#757575' }}
         />
 
         <Input
@@ -116,45 +171,38 @@ const AddEventScreen = () => {
           value={client}
           onChangeText={setClient}
           placeholder="Digite o nome do cliente"
-          leftIcon={{ type: 'material', name: 'person', color: '#6200ee' }}
+          leftIcon={{ type: 'material', name: 'person', color: '#757575' }}
         />
 
         <Input
           label="Descrição"
           value={description}
           onChangeText={setDescription}
-          placeholder="Digite a descrição do evento"
+          placeholder="Digite uma descrição do evento"
+          leftIcon={{ type: 'material', name: 'description', color: '#757575' }}
           multiline
-          numberOfLines={4}
-          leftIcon={{ type: 'material', name: 'description', color: '#6200ee' }}
+          numberOfLines={3}
         />
 
-        <View style={styles.buttonContainer}>
-          <Button
-            title={isEditing ? 'Salvar Alterações' : 'Criar Evento'}
-            icon={{
-              name: 'save',
-              size: 20,
-              color: 'white',
-            }}
-            buttonStyle={styles.saveButton}
-            onPress={handleSave}
-          />
+        <Input
+          label="Mensagem da Notificação"
+          value={customMessage}
+          onChangeText={setCustomMessage}
+          placeholder="Digite a mensagem da notificação"
+          leftIcon={{ type: 'material', name: 'notifications', color: '#757575' }}
+        />
 
-          <Button
-            title="Cancelar"
-            type="outline"
-            icon={{
-              name: 'close',
-              size: 20,
-              color: '#6200ee',
-            }}
-            buttonStyle={styles.cancelButton}
-            titleStyle={styles.cancelButtonText}
-            onPress={() => navigation.goBack()}
-          />
-        </View>
-      </Card>
+        <Button
+          title="Salvar"
+          icon={{
+            name: 'save',
+            size: 20,
+            color: 'white',
+          }}
+          buttonStyle={styles.saveButton}
+          onPress={handleSave}
+        />
+      </View>
     </ScrollView>
   );
 };
@@ -164,70 +212,57 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  card: {
-    borderRadius: 10,
-    margin: 16,
+  content: {
     padding: 16,
-    elevation: 4,
   },
-  screenTitle: {
-    marginBottom: 20,
+  title: {
+    marginBottom: 24,
+    color: '#000000',
     textAlign: 'center',
-    color: '#6200ee',
+  },
+  label: {
+    fontSize: 16,
+    color: '#86939e',
+    marginBottom: 8,
   },
   dateContainer: {
     marginBottom: 16,
-    paddingHorizontal: 10,
-  },
-  dateLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#86939e',
-    marginBottom: 8,
   },
   dateButton: {
     borderColor: '#6200ee',
     borderRadius: 10,
+    height: 50,
   },
   dateButtonText: {
     color: '#6200ee',
   },
   typeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 16,
-    paddingHorizontal: 10,
   },
-  typeLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#86939e',
+  typeButton: {
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    backgroundColor: 'transparent',
+    borderColor: '#6200ee',
     marginBottom: 8,
   },
-  buttonGroup: {
-    borderRadius: 10,
-    borderColor: '#6200ee',
-  },
-  selectedButton: {
+  typeButtonActive: {
     backgroundColor: '#6200ee',
   },
-  buttonGroupText: {
+  typeButtonText: {
+    color: '#6200ee',
     fontSize: 14,
   },
-  buttonContainer: {
-    gap: 12,
-    marginTop: 16,
+  typeButtonTextActive: {
+    color: 'white',
   },
   saveButton: {
     backgroundColor: '#6200ee',
     borderRadius: 10,
     height: 50,
-  },
-  cancelButton: {
-    borderColor: '#6200ee',
-    borderRadius: 10,
-    height: 50,
-  },
-  cancelButtonText: {
-    color: '#6200ee',
   },
 });
 
