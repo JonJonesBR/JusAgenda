@@ -1,23 +1,32 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Input, Button, Text, Card, ButtonGroup } from '@rneui/themed';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { addEvent, updateEvent } from '../services/EventService';
 
 const eventTypes = ['Audiência', 'Reunião', 'Prazo', 'Outro'];
 
 const AddEventScreen = () => {
   const navigation = useNavigation();
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(new Date());
-  const [location, setLocation] = useState('');
-  const [client, setClient] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedTypeIndex, setSelectedTypeIndex] = useState(0);
+  const route = useRoute();
+  const editingEvent = route.params?.event;
+  const isEditing = !!editingEvent;
+
+  const [title, setTitle] = useState(editingEvent?.title || '');
+  const [date, setDate] = useState(new Date(editingEvent?.date || Date.now()));
+  const [location, setLocation] = useState(editingEvent?.location || '');
+  const [client, setClient] = useState(editingEvent?.client || '');
+  const [description, setDescription] = useState(editingEvent?.description || '');
+  const [selectedTypeIndex, setSelectedTypeIndex] = useState(
+    editingEvent ? eventTypes.findIndex(type => 
+      type.toLowerCase() === editingEvent.type.toLowerCase()
+    ) : 0
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleSave = async () => {
-    const newEvent = {
+    const eventData = {
       title,
       date: date.toISOString(),
       location,
@@ -26,7 +35,12 @@ const AddEventScreen = () => {
       type: eventTypes[selectedTypeIndex].toLowerCase(),
     };
 
-    // TODO: Implementar a lógica de salvar o novo evento
+    if (isEditing) {
+      await updateEvent(editingEvent.id, eventData);
+    } else {
+      await addEvent(eventData);
+    }
+
     navigation.goBack();
   };
 
@@ -40,6 +54,10 @@ const AddEventScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <Card containerStyle={styles.card}>
+        <Text h4 style={styles.screenTitle}>
+          {isEditing ? 'Editar Evento' : 'Novo Evento'}
+        </Text>
+
         <Input
           label="Título"
           value={title}
@@ -113,7 +131,7 @@ const AddEventScreen = () => {
 
         <View style={styles.buttonContainer}>
           <Button
-            title="Salvar"
+            title={isEditing ? 'Salvar Alterações' : 'Criar Evento'}
             icon={{
               name: 'save',
               size: 20,
@@ -151,6 +169,11 @@ const styles = StyleSheet.create({
     margin: 16,
     padding: 16,
     elevation: 4,
+  },
+  screenTitle: {
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#6200ee',
   },
   dateContainer: {
     marginBottom: 16,

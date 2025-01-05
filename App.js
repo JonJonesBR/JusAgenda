@@ -6,7 +6,6 @@ import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
-import EditEventScreen from './src/screens/EditEventScreen';
 import SearchResultsScreen from './src/screens/SearchResultsScreen';
 
 const Stack = createNativeStackNavigator();
@@ -58,11 +57,6 @@ export default function App() {
               name="EventDetails"
               component={EventDetailsScreen}
               options={{ title: 'Detalhes do Evento' }}
-            />
-            <Stack.Screen
-              name="EditEvent"
-              component={EditEventScreen}
-              options={{ title: 'Editar Evento' }}
             />
             <Stack.Screen
               name="SearchResults"

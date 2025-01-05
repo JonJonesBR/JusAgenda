@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Text, Button, FAB } from '@rneui/themed';
+import { Text, Button } from '@rneui/themed';
 import { useNavigation } from '@react-navigation/native';
 import UpcomingEvents from '../components/UpcomingEvents';
 
@@ -64,18 +64,7 @@ const HomeScreen = () => {
             />
           </View>
         </View>
-        
-        {/* Espaço extra no final do ScrollView para evitar sobreposição com o FAB */}
-        <View style={styles.fabSpace} />
       </ScrollView>
-
-      <FAB
-        icon={{ name: 'add', color: 'white' }}
-        color="#6200ee"
-        placement="right"
-        style={styles.fab}
-        onPress={() => navigation.navigate('AddEvent')}
-      />
     </View>
   );
 };
@@ -92,7 +81,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 16, // Padding extra no final do conteúdo
+    paddingBottom: 24, // Padding extra no final do conteúdo
   },
   header: {
     padding: 16,
@@ -141,18 +130,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
-  },
-  fab: {
-    margin: 16,
-    marginBottom: 32,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.30,
-    shadowRadius: 4.65,
-  },
-  fabSpace: {
-    height: 80, // Espaço extra para evitar sobreposição com o FAB
   },
 });
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Icon, Button } from '@rneui/themed';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { deleteEvent } from '../services/EventService';
 
 const EventDetailsScreen = () => {
   const navigation = useNavigation();
@@ -38,6 +39,15 @@ const EventDetailsScreen = () => {
       month: 'long',
       year: 'numeric',
     });
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteEvent(event.id);
+      navigation.goBack();
+    } catch (error) {
+      console.error('Erro ao deletar evento:', error);
+    }
   };
 
   const icon = getEventTypeIcon(event.type);
@@ -97,7 +107,18 @@ const EventDetailsScreen = () => {
               color: 'white',
             }}
             buttonStyle={styles.editButton}
-            onPress={() => navigation.navigate('EditEvent', { event })}
+            onPress={() => navigation.navigate('AddEvent', { event })}
+          />
+
+          <Button
+            title="Excluir"
+            icon={{
+              name: 'delete',
+              size: 20,
+              color: 'white',
+            }}
+            buttonStyle={styles.deleteButton}
+            onPress={handleDelete}
           />
         </View>
       </Card>
@@ -109,6 +130,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#b00020',
   },
   card: {
     borderRadius: 10,
@@ -127,12 +159,12 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
   infoSection: {
-    marginVertical: 8,
+    marginTop: 8,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
+    marginBottom: 12,
   },
   infoText: {
     marginLeft: 12,
@@ -142,7 +174,8 @@ const styles = StyleSheet.create({
   descriptionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginVertical: 8,
+    marginTop: 8,
+    marginBottom: 8,
     color: '#000000',
   },
   description: {
@@ -151,23 +184,22 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 24,
+    gap: 12,
   },
   editButton: {
+    flex: 1,
     backgroundColor: '#6200ee',
     borderRadius: 10,
     height: 50,
   },
-  errorContainer: {
+  deleteButton: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#b00020',
+    backgroundColor: '#b00020',
+    borderRadius: 10,
+    height: 50,
   },
 });
 
