@@ -9,6 +9,8 @@ import SearchScreen from './src/screens/SearchScreen';
 import AddEventScreen from './src/screens/AddEventScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import { EventProvider } from './src/contexts/EventContext';
+import moment from 'moment';
+import 'moment/locale/pt-br';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -150,6 +152,7 @@ const MainNavigator = () => {
 };
 
 const App = () => {
+  moment.locale('pt-br'); // Configura o locale para português
   return (
     <EventProvider>
       <NavigationContainer>

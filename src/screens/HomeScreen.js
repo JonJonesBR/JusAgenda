@@ -1,15 +1,16 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, FAB, Card, Icon } from '@rneui/themed';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
 import UpcomingEvents from '../components/UpcomingEvents';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getUpcomingCompromissos } from '../services/EventService';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const { refreshEvents } = useEvents();
+  const { refreshEvents, events } = useEvents();
 
   useEffect(() => {
     if (isFocused) {
@@ -30,9 +31,31 @@ const HomeScreen = () => {
     navigation.navigate('EventDetails', { event });
   };
 
+  const getEventTypeIcon = (type) => {
+    switch (type) {
+      case 'audiencia':
+        return { name: 'gavel', color: '#6200ee' }; // Martelinho roxo do juiz
+      case 'reuniao':
+        return { name: 'groups', color: '#03dac6' };
+      case 'prazo':
+        return { name: 'timer', color: '#ff0266' };
+      default:
+        return { name: 'event', color: '#018786' };
+    }
+  };
+
+  const formatDate = (date) => {
+    const formattedDate = new Date(date);
+    return formattedDate.toLocaleTimeString('pt-BR');
+  };
+
+  // Filtrando compromissos de hoje
+  const today = new Date().toLocaleDateString('pt-BR');
+  const todayCompromissos = events.filter(compromisso => new Date(compromisso.date).toLocaleDateString('pt-BR') === today);
+
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 16 }}>
         <Card containerStyle={styles.welcomeCard}>
           <LinearGradient
             colors={['#6200ee', '#9747FF']}
@@ -55,8 +78,50 @@ const HomeScreen = () => {
           </LinearGradient>
         </Card>
 
+        {/* Seção de Compromissos de Hoje */}
         <View style={styles.section}>
-          <Text h4 style={styles.sectionTitle}>Próximos Eventos</Text>
+          <Text h4 style={[styles.sectionTitle, { marginBottom: 8 }]}>Compromissos de Hoje</Text>
+          {todayCompromissos.length > 0 ? (
+            todayCompromissos.map(compromisso => {
+              const icon = getEventTypeIcon(compromisso.type);
+              return (
+                <TouchableOpacity
+                  key={compromisso.id}
+                  onPress={() => handleEventPress(compromisso)}
+                >
+                  <Card containerStyle={styles.card}>
+                    <View style={styles.cardHeader}>
+                      <Icon name={icon.name} color={icon.color} size={24} />
+                      <Text style={styles.eventType}>{compromisso.type?.charAt(0).toUpperCase() + compromisso.type?.slice(1)}</Text>
+                    </View>
+                    <Text style={styles.title}><Text style={{fontWeight: 'bold'}}>{compromisso.title}</Text></Text>
+                    <View style={styles.dateContainer}>
+                      <Icon name="calendar-today" size={16} color="#757575" />
+                      <Text style={styles.date}>{formatDate(compromisso.date)}</Text>
+                    </View>
+                    {compromisso.location && (
+                      <View style={styles.locationContainer}>
+                        <Icon name="location-on" size={16} color="#757575" />
+                        <Text style={styles.location} numberOfLines={1}>{compromisso.location}</Text>
+                      </View>
+                    )}
+                    {compromisso.client && (
+                      <View style={styles.clientContainer}>
+                        <Icon name="person" size={16} color="#757575" />
+                        <Text style={styles.client} numberOfLines={1}>{compromisso.client}</Text>
+                      </View>
+                    )}
+                  </Card>
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <Text>Nenhum compromisso para hoje.</Text>
+          )}
+        </View>
+
+        <View style={[styles.section, {marginTop: -32}]}>
+          <Text h4 style={styles.sectionTitle}>Próximos Compromissos</Text>
           <UpcomingEvents onEventPress={handleEventPress} />
         </View>
       </ScrollView>
@@ -121,6 +186,62 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: 16,
     color: '#000000',
+  },
+  card: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
+    borderWidth: 0,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  eventType: {
+    fontSize: 16,
+    color: '#6200ee',
+    marginLeft: 8,
+  },
+  title: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  date: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 4,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  location: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 4,
+  },
+  clientContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  client: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 4,
   },
   fab: {
     margin: 16,

@@ -4,6 +4,8 @@ import { Text, Card, Icon } from '@rneui/themed';
 import { Calendar } from 'react-native-calendars';
 import { useNavigation } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
+import moment from 'moment';
+import 'moment/locale/pt-br';
 
 const CalendarScreen = () => {
   const navigation = useNavigation();
@@ -12,6 +14,7 @@ const CalendarScreen = () => {
   const [markedDates, setMarkedDates] = useState({});
 
   useEffect(() => {
+    moment.locale('pt-br'); // Configura o locale para português
     refreshEvents();
   }, [refreshEvents]);
 
@@ -53,6 +56,10 @@ const CalendarScreen = () => {
       default:
         return { name: 'event', color: '#018786' };
     }
+  };
+
+  const formatDate = (date) => {
+    return moment(date).format('LL'); // Formata a data para exibir em português
   };
 
   const formatTime = (dateString) => {
@@ -141,6 +148,7 @@ const CalendarScreen = () => {
           selectedDayBackgroundColor: '#6200ee',
           arrowColor: '#6200ee',
         }}
+        locale="pt-BR"
       />
       <ScrollView style={styles.eventsContainer}>
         {renderEvents()}

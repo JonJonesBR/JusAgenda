@@ -57,7 +57,7 @@ const SearchFilter = ({ onSearch }) => {
         <TextInput
           accessibilityRole="search"
           style={[styles.searchInput, { color: lightTheme.text }]}
-          placeholder="Buscar eventos (Ex: Reunião, audiência...)"
+          placeholder="Buscar compromissos (Ex: Reunião, audiência...)"
           placeholderTextColor={lightTheme.text + '60'}
           value={searchTerm}
           onChangeText={setSearchTerm}

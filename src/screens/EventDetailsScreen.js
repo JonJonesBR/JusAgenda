@@ -30,7 +30,7 @@ const EventDetailsScreen = () => {
   const handleDelete = async () => {
     Alert.alert(
       'Confirmar Exclusão',
-      'Tem certeza que deseja excluir este evento?',
+      'Tem certeza que deseja excluir este compromisso?',
       [
         {
           text: 'Cancelar',
@@ -53,11 +53,11 @@ const EventDetailsScreen = () => {
               if (success) {
                 navigation.goBack();
               } else {
-                Alert.alert('Erro', 'Não foi possível excluir o evento');
+                Alert.alert('Erro', 'Não foi possível excluir o compromisso');
               }
             } catch (error) {
-              console.error('Erro ao excluir evento:', error);
-              Alert.alert('Erro', 'Ocorreu um erro ao excluir o evento');
+              console.error('Erro ao excluir compromisso:', error);
+              Alert.alert('Erro', 'Ocorreu um erro ao excluir o compromisso');
             }
           },
         },
@@ -104,7 +104,7 @@ const EventDetailsScreen = () => {
         <View style={styles.notificationInfo}>
           <Icon name="notifications" color="#6200ee" size={20} />
           <Text style={styles.notificationText}>
-            Lembrete agendado para 24h antes do evento
+            Lembrete agendado para 24h antes do compromisso
             {event.calendarEventId && ' (Adicionado à agenda do dispositivo)'}
           </Text>
         </View>

@@ -8,7 +8,7 @@ const UpcomingEvents = () => {
   const navigation = useNavigation();
   const { events } = useEvents();
 
-  // Calcula os próximos eventos
+  // Calcula os próximos compromissos
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     return [...events]
@@ -43,7 +43,7 @@ const UpcomingEvents = () => {
     return (
       <Card containerStyle={styles.emptyCard}>
         <Icon name="event-busy" size={48} color="#757575" />
-        <Text style={styles.emptyText}>Nenhum evento próximo</Text>
+        <Text style={styles.emptyText}>Nenhum compromisso próximo</Text>
       </Card>
     );
   }

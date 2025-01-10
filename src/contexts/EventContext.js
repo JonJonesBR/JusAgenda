@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { getAllEvents, addEvent as addEventService, updateEvent as updateEventService, deleteEvent as deleteEventService, searchEvents as searchEventsService, getEventById as getEventByIdService, updateEventNotifications as updateEventNotificationsService } from '../services/EventService';
+import { getAllCompromissos, addCompromisso as addCompromissoService, updateEvent as updateEventService, deleteCompromisso as deleteCompromissoService, searchEvents as searchEventsService, getEventById as getEventByIdService, updateEventNotifications as updateEventNotificationsService } from '../services/EventService';
 
 const EventContext = createContext();
 
@@ -7,13 +7,13 @@ export const EventProvider = ({ children }) => {
   const [events, setEvents] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
 
-  // Carrega os eventos quando o provider é montado ou quando há uma atualização
+  // Carrega os compromissos quando o provider é montado ou quando há uma atualização
   useEffect(() => {
     refreshEvents();
   }, [lastUpdate]);
 
   const refreshEvents = useCallback(() => {
-    const allEvents = getAllEvents();
+    const allEvents = getAllCompromissos();
     setEvents(allEvents);
   }, []);
 
@@ -23,14 +23,14 @@ export const EventProvider = ({ children }) => {
 
   const addEvent = useCallback(async (eventData) => {
     try {
-      const newEvent = await addEventService(eventData);
+      const newEvent = await addCompromissoService(eventData);
       if (newEvent) {
         triggerUpdate();
         return true;
       }
       return false;
     } catch (error) {
-      console.error('Erro ao adicionar evento:', error);
+      console.error('Erro ao adicionar compromisso:', error);
       return false;
     }
   }, [triggerUpdate]);
@@ -44,20 +44,20 @@ export const EventProvider = ({ children }) => {
       }
       return false;
     } catch (error) {
-      console.error('Erro ao atualizar evento:', error);
+      console.error('Erro ao atualizar compromisso:', error);
       return false;
     }
   }, [triggerUpdate]);
 
   const deleteEvent = useCallback(async (id) => {
     try {
-      const success = await deleteEventService(id);
+      const success = await deleteCompromissoService(id);
       if (success) {
         triggerUpdate();
       }
       return success;
     } catch (error) {
-      console.error('Erro ao excluir evento:', error);
+      console.error('Erro ao excluir compromisso:', error);
       return false;
     }
   }, [triggerUpdate]);

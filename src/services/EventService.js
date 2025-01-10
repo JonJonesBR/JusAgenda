@@ -1,5 +1,5 @@
-// Simulando um banco de dados local com alguns eventos de exemplo
-let events = [
+// Simulando um banco de dados local com alguns compromissos de exemplo
+let compromissos = [
   {
     id: '1',
     title: 'Audiência Criminal',
@@ -35,87 +35,87 @@ let events = [
   }
 ];
 
-// Gera um ID único para novos eventos
+// Gera um ID único para novos compromissos
 const generateId = () => {
   return Math.random().toString(36).substr(2, 9);
 };
 
-// Retorna todos os eventos ordenados por data
-export const getAllEvents = () => {
-  return [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+// Retorna todos os compromissos ordenados por data
+export const getAllCompromissos = () => {
+  return [...compromissos].sort((a, b) => new Date(a.date) - new Date(b.date));
 };
 
-// Retorna eventos futuros ordenados por data
-export const getUpcomingEvents = () => {
+// Retorna compromissos futuros ordenados por data
+export const getUpcomingCompromissos = () => {
   const now = new Date();
-  return events
-    .filter(event => new Date(event.date) >= now)
+  return compromissos
+    .filter(compromisso => new Date(compromisso.date) >= now)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 };
 
-// Adiciona um novo evento
-export const addEvent = (event) => {
-  const newEvent = {
-    ...event,
+// Adiciona um novo compromisso
+export const addCompromisso = (compromisso) => {
+  const newCompromisso = {
+    ...compromisso,
     id: generateId(),
     notificationId: null,
     calendarEventId: null,
   };
-  events.push(newEvent);
-  return newEvent;
+  compromissos.push(newCompromisso);
+  return newCompromisso;
 };
 
-// Atualiza um evento existente
-export const updateEvent = (id, updatedEvent) => {
-  const index = events.findIndex(event => event.id === id);
+// Atualiza um compromisso existente
+export const updateCompromisso = (id, updatedCompromisso) => {
+  const index = compromissos.findIndex(compromisso => compromisso.id === id);
   if (index !== -1) {
-    events[index] = { 
-      ...events[index], 
-      ...updatedEvent,
-      notificationId: events[index].notificationId,
-      calendarEventId: events[index].calendarEventId,
+    compromissos[index] = { 
+      ...compromissos[index], 
+      ...updatedCompromisso,
+      notificationId: compromissos[index].notificationId,
+      calendarEventId: compromissos[index].calendarEventId,
     };
-    return events[index];
+    return compromissos[index];
   }
   return null;
 };
 
-// Remove um evento
-export const deleteEvent = (id) => {
-  const index = events.findIndex(event => event.id === id);
+// Remove um compromisso
+export const deleteCompromisso = (id) => {
+  const index = compromissos.findIndex(compromisso => compromisso.id === id);
   if (index !== -1) {
-    events = events.filter(event => event.id !== id);
+    compromissos = compromissos.filter(compromisso => compromisso.id !== id);
     return true;
   }
   return false;
 };
 
-// Busca eventos por texto
-export const searchEvents = (query) => {
+// Busca compromissos por texto
+export const searchCompromissos = (query) => {
   query = query.toLowerCase();
-  return events.filter(event => 
-    event.title.toLowerCase().includes(query) ||
-    event.client?.toLowerCase().includes(query) ||
-    event.description?.toLowerCase().includes(query) ||
-    event.location?.toLowerCase().includes(query)
+  return compromissos.filter(compromisso => 
+    compromisso.title.toLowerCase().includes(query) ||
+    compromisso.client?.toLowerCase().includes(query) ||
+    compromisso.description?.toLowerCase().includes(query) ||
+    compromisso.location?.toLowerCase().includes(query)
   );
 };
 
-// Busca um evento específico por ID
-export const getEventById = (id) => {
-  return events.find(event => event.id === id);
+// Busca um compromisso específico por ID
+export const getCompromissoById = (id) => {
+  return compromissos.find(compromisso => compromisso.id === id);
 };
 
 // Atualiza os IDs de notificação e calendário
-export const updateEventNotifications = (id, { notificationId, calendarEventId }) => {
-  const index = events.findIndex(event => event.id === id);
+export const updateCompromissoNotifications = (id, { notificationId, calendarEventId }) => {
+  const index = compromissos.findIndex(compromisso => compromisso.id === id);
   if (index !== -1) {
-    events[index] = {
-      ...events[index],
-      notificationId: notificationId ?? events[index].notificationId,
-      calendarEventId: calendarEventId ?? events[index].calendarEventId,
+    compromissos[index] = {
+      ...compromissos[index],
+      notificationId: notificationId ?? compromissos[index].notificationId,
+      calendarEventId: calendarEventId ?? compromissos[index].calendarEventId,
     };
-    return events[index];
+    return compromissos[index];
   }
   return null;
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, Input, Button } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -15,15 +15,26 @@ const AddEventScreen = () => {
   const [title, setTitle] = useState(editingEvent?.title || '');
   const [date, setDate] = useState(editingEvent ? new Date(editingEvent.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [type, setType] = useState(editingEvent?.type || 'audiencia');
   const [location, setLocation] = useState(editingEvent?.location || '');
   const [client, setClient] = useState(editingEvent?.client || '');
   const [description, setDescription] = useState(editingEvent?.description || '');
-  const [customMessage, setCustomMessage] = useState(`Você tem um evento "${title}" amanhã`);
+  const [customMessage, setCustomMessage] = useState(`Você tem um compromisso "${title}" amanhã`);
 
   useEffect(() => {
     requestPermissions();
   }, []);
+
+  useEffect(() => {
+    updateNotificationMessage();
+  }, [title, date, type, location]);
+
+  const updateNotificationMessage = () => {
+    const formattedDate = date.toLocaleDateString('pt-BR');
+    const formattedTime = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    setCustomMessage(`Compromisso: ${type.charAt(0).toUpperCase() + type.slice(1)} de ${client} no dia ${formattedDate} às ${formattedTime} no Fórum de ${location}`);
+  };
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -40,6 +51,11 @@ const AddEventScreen = () => {
       description: description.trim(),
     };
 
+    if (date < new Date()) {
+      Alert.alert('Erro', 'A data/hora não pode ser no passado.');
+      return;
+    }
+
     try {
       let savedEvent;
 
@@ -53,7 +69,7 @@ const AddEventScreen = () => {
       }
 
       if (!savedEvent) {
-        throw new Error('Falha ao salvar evento');
+        throw new Error('Falha ao salvar compromisso');
       }
 
       // Agenda a notificação
@@ -61,16 +77,33 @@ const AddEventScreen = () => {
 
       navigation.goBack();
     } catch (error) {
-      console.error('Erro ao salvar evento:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar o evento. Por favor, tente novamente.');
+      console.error('Erro ao salvar compromisso:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao salvar o compromisso. Por favor, tente novamente.');
     }
   };
 
   const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
     if (selectedDate) {
-      setDate(selectedDate);
+      setDate(new Date(selectedDate)); 
+      updateNotificationMessage();
     }
+  };
+
+  const handleTimeChange = (event, selectedTime) => {
+    if (selectedTime) {
+      const newDate = new Date(date);
+      newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+      setDate(newDate);
+      updateNotificationMessage();
+    }
+  };
+
+  const openDatePicker = () => {
+    setShowDatePicker(true);
+  };
+
+  const openTimePicker = () => {
+    setShowTimePicker(true);
   };
 
   const formatDate = (date) => {
@@ -79,6 +112,11 @@ const AddEventScreen = () => {
       day: '2-digit',
       month: 'long',
       year: 'numeric',
+    });
+  };
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -91,119 +129,190 @@ const AddEventScreen = () => {
     { id: 'outros', label: 'Outros', icon: 'event' },
   ];
 
+  const handleTitleChange = (text) => {
+    setTitle(text);
+    updateNotificationMessage();
+  };
+
+  const handleClientChange = (text) => {
+    setClient(text);
+    updateNotificationMessage();
+  };
+
+  const handleLocationChange = (text) => {
+    setLocation(text);
+    updateNotificationMessage();
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text h4 style={styles.title}>
-          {editingEvent ? 'Editar Evento' : 'Novo Evento'}
-        </Text>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
+      <ScrollView>
+        <View style={styles.content}>
+          <Text h4 style={styles.title}>{editingEvent ? 'Editar Compromisso' : 'Novo Compromisso'}</Text>
 
-        <Input
-          label="Título"
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Digite o título do evento"
-          leftIcon={{ type: 'material', name: 'edit', color: '#757575' }}
-          autoFocus
-        />
-
-        <View style={styles.dateContainer}>
-          <Text style={styles.label}>Data e Hora</Text>
-          <Button
-            title={formatDate(date)}
-            type="outline"
-            icon={{
-              name: 'calendar-today',
-              size: 20,
-              color: '#6200ee',
+          <Input
+            label="Título"
+            value={title}
+            onChangeText={handleTitleChange}
+            placeholder="Digite o título do compromisso"
+            leftIcon={{ type: 'material', name: 'edit', color: '#757575' }}
+            autoFocus
+            onFocus={() => {
+              setShowDatePicker(false);
+              setShowTimePicker(false);
             }}
-            buttonStyle={styles.dateButton}
-            titleStyle={styles.dateButtonText}
-            onPress={() => setShowDatePicker(true)}
           />
-        </View>
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="datetime"
-            is24Hour={true}
-            display="default"
-            onChange={handleDateChange}
-          />
-        )}
-
-        <Text style={[styles.label, { marginTop: 16 }]}>Tipo</Text>
-        <View style={styles.typeContainer}>
-          {eventTypes.map((eventType) => (
+          <View style={styles.dateContainer}>
+            <Text style={styles.label}>Data</Text>
             <Button
-              key={eventType.id}
-              title={eventType.label}
+              title={formatDate(date)}
+              type="outline"
               icon={{
-                name: eventType.icon,
+                name: 'calendar-today',
                 size: 20,
-                color: type === eventType.id ? 'white' : '#6200ee',
+                color: '#6200ee',
               }}
-              type={type === eventType.id ? 'solid' : 'outline'}
-              buttonStyle={[
-                styles.typeButton,
-                type === eventType.id && styles.typeButtonActive,
-              ]}
-              titleStyle={[
-                styles.typeButtonText,
-                type === eventType.id && styles.typeButtonTextActive,
-              ]}
-              onPress={() => setType(eventType.id)}
+              buttonStyle={styles.dateButton}
+              titleStyle={styles.dateButtonText}
+              onPress={openDatePicker}
             />
-          ))}
+          </View>
+
+          {showDatePicker && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                locale="pt-BR"
+              />
+              <Button title="OK" onPress={() => setShowDatePicker(false)} style={styles.okButton} />
+            </View>
+          )}
+
+          <View style={styles.timeContainer}>
+            <Text style={styles.label}>Hora</Text>
+            <Button
+              title={formatTime(date)}
+              type="outline"
+              icon={{
+                name: 'access-time',
+                size: 20,
+                color: '#6200ee',
+              }}
+              buttonStyle={styles.dateButton}
+              titleStyle={styles.dateButtonText}
+              onPress={openTimePicker}
+            />
+          </View>
+
+          {showTimePicker && (
+            <View style={styles.timePickerContainer}>
+              <DateTimePicker
+                value={date}
+                mode="time"
+                display="spinner"
+                onChange={handleTimeChange}
+                locale="pt-BR"
+              />
+              <Button title="OK" onPress={() => setShowTimePicker(false)} style={styles.okButton} />
+            </View>
+          )}
+
+          <Text style={[styles.label, { marginTop: 16 }]}>Tipo</Text>
+          <View style={styles.typeContainer}>
+            {eventTypes.map((eventType) => (
+              <Button
+                key={eventType.id}
+                title={eventType.label}
+                icon={{
+                  name: eventType.icon,
+                  size: 20,
+                  color: type === eventType.id ? 'white' : '#6200ee',
+                }}
+                type={type === eventType.id ? 'solid' : 'outline'}
+                buttonStyle={[
+                  styles.typeButton,
+                  type === eventType.id && styles.typeButtonActive,
+                ]}
+                titleStyle={[
+                  styles.typeButtonText,
+                  type === eventType.id && styles.typeButtonTextActive,
+                ]}
+                onPress={() => setType(eventType.id)}
+              />
+            ))}
+          </View>
+
+          <Input
+            label="Local"
+            value={location}
+            onChangeText={handleLocationChange}
+            placeholder="Digite o local do compromisso"
+            leftIcon={{ type: 'material', name: 'location-on', color: '#757575' }}
+            onFocus={() => {
+              setShowDatePicker(false);
+              setShowTimePicker(false);
+            }}
+          />
+
+          <Input
+            label="Cliente"
+            value={client}
+            onChangeText={handleClientChange}
+            placeholder="Digite o nome do cliente"
+            leftIcon={{ type: 'material', name: 'person', color: '#757575' }}
+            onFocus={() => {
+              setShowDatePicker(false);
+              setShowTimePicker(false);
+            }}
+          />
+
+          <Input
+            label="Descrição"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Digite uma descrição do compromisso"
+            leftIcon={{ type: 'material', name: 'description', color: '#757575' }}
+            multiline
+            numberOfLines={3}
+            onFocus={() => {
+              setShowDatePicker(false);
+              setShowTimePicker(false);
+              // Adicionando um delay para permitir que o teclado apareça
+              setTimeout(() => {
+                // Ajustar a posição da tela se necessário
+              }, 100);
+            }}
+          />
+
+          <Input
+            label="Mensagem da Notificação"
+            value={customMessage}
+            onChangeText={setCustomMessage}
+            placeholder="Digite a mensagem da notificação"
+            leftIcon={{ type: 'material', name: 'notifications', color: '#757575' }}
+            onFocus={() => {
+              setShowDatePicker(false);
+              setShowTimePicker(false);
+            }}
+          />
+
+          <Button
+            title="Salvar"
+            icon={{
+              name: 'save',
+              size: 20,
+              color: 'white',
+            }}
+            buttonStyle={styles.saveButton}
+            onPress={handleSave}
+          />
         </View>
-
-        <Input
-          label="Local"
-          value={location}
-          onChangeText={setLocation}
-          placeholder="Digite o local do evento"
-          leftIcon={{ type: 'material', name: 'location-on', color: '#757575' }}
-        />
-
-        <Input
-          label="Cliente"
-          value={client}
-          onChangeText={setClient}
-          placeholder="Digite o nome do cliente"
-          leftIcon={{ type: 'material', name: 'person', color: '#757575' }}
-        />
-
-        <Input
-          label="Descrição"
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Digite uma descrição do evento"
-          leftIcon={{ type: 'material', name: 'description', color: '#757575' }}
-          multiline
-          numberOfLines={3}
-        />
-
-        <Input
-          label="Mensagem da Notificação"
-          value={customMessage}
-          onChangeText={setCustomMessage}
-          placeholder="Digite a mensagem da notificação"
-          leftIcon={{ type: 'material', name: 'notifications', color: '#757575' }}
-        />
-
-        <Button
-          title="Salvar"
-          icon={{
-            name: 'save',
-            size: 20,
-            color: 'white',
-          }}
-          buttonStyle={styles.saveButton}
-          onPress={handleSave}
-        />
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -226,6 +335,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dateContainer: {
+    marginBottom: 16,
+  },
+  timeContainer: {
     marginBottom: 16,
   },
   dateButton: {
@@ -263,6 +375,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#6200ee',
     borderRadius: 10,
     height: 50,
+  },
+  datePickerContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  timePickerContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  okButton: {
+    backgroundColor: '#6200ee',
+    borderRadius: 10,
+    height: 50,
+    marginTop: 16,
   },
 });
 

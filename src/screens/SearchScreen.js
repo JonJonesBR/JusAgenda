@@ -12,14 +12,14 @@ const SearchScreen = () => {
   const { events, refreshEvents } = useEvents();
   const isFocused = useIsFocused();
 
-  // Atualiza os eventos quando a tela recebe foco
+  // Atualiza os compromissos quando a tela recebe foco
   useEffect(() => {
     if (isFocused) {
       refreshEvents();
     }
   }, [isFocused, refreshEvents]);
 
-  // Atualiza os resultados da busca quando os eventos mudam
+  // Atualiza os resultados da busca quando os compromissos mudam
   useEffect(() => {
     if (searchTerm || selectedFilters.length > 0) {
       handleSearch();
@@ -84,7 +84,7 @@ const SearchScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text h4 style={styles.title}>Buscar Eventos</Text>
+        <Text h4 style={styles.title}>Buscar Compromissos</Text>
         <Text style={styles.subtitle}>
           Pesquise por título, cliente, descrição ou local
         </Text>
@@ -202,7 +202,7 @@ const SearchScreen = () => {
         <Card containerStyle={styles.noResultsCard}>
           <Icon name="search-off" size={48} color="#757575" />
           <Text style={styles.noResultsText}>
-            Nenhum evento encontrado
+            Nenhum compromisso encontrado
           </Text>
         </Card>
       ) : (
@@ -217,7 +217,7 @@ const SearchScreen = () => {
           <View style={styles.tipItem}>
             <Icon name="info" color="#6200ee" size={20} />
             <Text style={styles.tipText}>
-              Use palavras-chave específicas para encontrar eventos mais facilmente
+              Use palavras-chave específicas para encontrar compromissos mais facilmente
             </Text>
           </View>
           <View style={styles.tipItem}>

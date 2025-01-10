@@ -57,7 +57,7 @@ const SearchResultsScreen = () => {
       <View style={styles.emptyContainer}>
         <Icon name="search-off" size={48} color="#757575" />
         <Text style={styles.emptyText}>
-          Nenhum evento encontrado
+          Nenhum compromisso encontrado
           {term ? ` para "${term}"` : ''}
         </Text>
       </View>
@@ -67,7 +67,7 @@ const SearchResultsScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.resultsText}>
-        {events.length} {events.length === 1 ? 'evento encontrado' : 'eventos encontrados'}
+        {events.length} {events.length === 1 ? 'compromisso encontrado' : 'compromissos encontrados'}
         {term ? ` para "${term}"` : ''}
       </Text>
 
