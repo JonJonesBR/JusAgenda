@@ -59,7 +59,13 @@ const CalendarScreen = () => {
   };
 
   const formatDate = (date) => {
-    return moment(date).format('LL'); // Formata a data para exibir em português
+    const formattedDate = new Date(date);
+    return formattedDate.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
   };
 
   const formatTime = (dateString) => {

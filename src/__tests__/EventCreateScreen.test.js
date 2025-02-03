@@ -61,6 +61,24 @@ describe('EventCreateScreen', () => {
     });
   });
 
+  it('validates all required fields', async () => {
+    const { getByText, getByPlaceholderText } = render(
+        <EventCreateScreen
+            navigation={mockNavigation}
+            route={{ params: { eventType: 'audiencia' } }}
+        />, 
+        { wrapper }
+    );
+
+    // Tenta salvar sem preencher campos obrigatórios
+    fireEvent.press(getByText('Salvar'));
+
+    await waitFor(() => {
+        expect(saveEvent).not.toHaveBeenCalled();
+        expect(getByText('O título é obrigatório')).toBeTruthy();
+    });
+  });
+
   it('saves event successfully', async () => {
     const { getByPlaceholderText, getByText } = render(
       <EventCreateScreen

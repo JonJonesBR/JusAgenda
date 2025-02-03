@@ -54,4 +54,17 @@ describe('HomeScreen', () => {
       eventType: 'audiencia',
     });
   });
+
+  it('navigates to event details when an event is pressed', () => {
+    const { getByText } = render(
+        <HomeScreen navigation={mockNavigation} route={{}} />, 
+        { wrapper }
+    );
+
+    // Simula a pressão em um evento
+    fireEvent.press(getByText('Audiência'));
+
+    // Verifica se a navegação foi chamada com os parâmetros corretos
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('EventDetails', { event: expect.any(Object) });
+  });
 });

@@ -15,7 +15,7 @@ export const requestPermissions = async () => {
   try {
     const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
     if (notificationStatus !== 'granted') {
-      return false;
+      throw new Error("Permissões de notificação não concedidas.");
     }
 
     if (Platform.OS === 'android') {
@@ -28,8 +28,8 @@ export const requestPermissions = async () => {
     }
     return true;
   } catch (error) {
-    console.error('Erro ao solicitar permissões:', error);
-    return false;
+    console.error('Erro ao solicitar permissões:', error.message);
+    throw new Error("Erro ao solicitar permissões de notificação.");
   }
 };
 

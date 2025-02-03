@@ -55,14 +55,19 @@ export const getUpcomingCompromissos = () => {
 
 // Adiciona um novo compromisso
 export const addCompromisso = (compromisso) => {
-  const newCompromisso = {
-    ...compromisso,
-    id: generateId(),
-    notificationId: null,
-    calendarEventId: null,
-  };
-  compromissos.push(newCompromisso);
-  return newCompromisso;
+  try {
+    const newCompromisso = {
+      ...compromisso,
+      id: generateId(),
+      notificationId: null,
+      calendarEventId: null,
+    };
+    compromissos.push(newCompromisso);
+    return newCompromisso;
+  } catch (error) {
+    console.error("Erro ao adicionar compromisso:", error.message);
+    throw new Error("Não foi possível adicionar o compromisso.");
+  }
 };
 
 // Atualiza um compromisso existente

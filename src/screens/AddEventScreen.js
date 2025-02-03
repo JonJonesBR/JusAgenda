@@ -37,8 +37,13 @@ const AddEventScreen = () => {
   };
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      Alert.alert('Erro', 'O título é obrigatório');
+    if (!title.trim() || !location.trim() || !client.trim()) {
+      Alert.alert('Erro', 'Todos os campos são obrigatórios');
+      return;
+    }
+
+    if (date < new Date()) {
+      Alert.alert('Erro', 'A data/hora não pode ser no passado.');
       return;
     }
 
@@ -50,11 +55,6 @@ const AddEventScreen = () => {
       client: client.trim(),
       description: description.trim(),
     };
-
-    if (date < new Date()) {
-      Alert.alert('Erro', 'A data/hora não pode ser no passado.');
-      return;
-    }
 
     try {
       let savedEvent;
