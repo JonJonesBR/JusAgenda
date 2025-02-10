@@ -1,28 +1,23 @@
 {
   "compilerOptions": {
-    // Diretório base para imports
     "baseUrl": "./src",
-    
-    // Configuração de paths para imports
     "paths": {
       "*": ["*"]
-    }
+    },
+    "strict": true,
+    "jsx": "react-native",
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
-  
-  // Herda configurações do tsconfig.base do Expo
   "extends": "expo/tsconfig.base",
-  
-  // Arquivos e pastas a serem incluídos na compilação
   "include": [
     "src/**/*",
     "src/contexts/theme.js",
     "src/constants/eventTypes.js"
   ],
-  
-  // Arquivos e pastas a serem excluídos da compilação
   "exclude": [
     "node_modules",
     "babel.config.js",
     "metro.config.js"
-  ]
+  ]
 }

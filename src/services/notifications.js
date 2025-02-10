@@ -1,33 +1,40 @@
 import * as Notifications from 'expo-notifications';
-import * as Permissions from 'expo-permissions';
 
 /**
- * Configures the notifications system.
- * @returns {Promise<boolean>} True if permission is granted, false otherwise.
+ * Configura e solicita permissões para notificações.
+ *
+ * @returns {Promise<boolean>} True se as permissões forem concedidas, false caso contrário.
  */
 export const configureNotifications = async () => {
-  const { status: existingStatus } = await Permissions.getAsync(Permissions.NOTIFICATIONS);
-  let finalStatus = existingStatus;
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Permissions.askAsync(Permissions.NOTIFICATIONS);
-    finalStatus = status;
-  }
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
 
-  if (finalStatus !== 'granted') {
-    console.warn('Notification permissions not granted');
+    if (finalStatus !== 'granted') {
+      console.warn('Notification permissions not granted');
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error configuring notifications:', error);
     return false;
   }
-
-  return true;
 };
 
 /**
- * Schedules a notification.
- * @param {Object} options
- * @param {string} options.title - The title of the notification.
- * @param {string} options.body - The body content of the notification.
- * @param {number} options.time - Time in milliseconds to trigger the notification.
+ * Agenda uma notificação.
+ *
+ * @param {Object} options - Opções da notificação.
+ * @param {string} options.title - Título da notificação.
+ * @param {string} options.body - Corpo da notificação.
+ * @param {number} options.time - Tempo em milissegundos para acionar a notificação.
+ * @returns {Promise<void>}
  */
 export const scheduleNotification = async ({ title, body, time }) => {
   try {
@@ -35,18 +42,21 @@ export const scheduleNotification = async ({ title, body, time }) => {
       content: {
         title,
         body,
-        sound: true,
+        sound: 'default',
       },
       trigger: { seconds: time / 1000 },
     });
     console.log('Notification scheduled successfully!');
   } catch (error) {
     console.error('Error scheduling notification:', error);
+    throw error;
   }
 };
 
 /**
- * Cancels all scheduled notifications.
+ * Cancela todas as notificações agendadas.
+ *
+ * @returns {Promise<void>}
  */
 export const cancelAllNotifications = async () => {
   try {
@@ -54,5 +64,6 @@ export const cancelAllNotifications = async () => {
     console.log('All notifications have been canceled.');
   } catch (error) {
     console.error('Error canceling notifications:', error);
+    throw error;
   }
 };

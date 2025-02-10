@@ -1,5 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
 import { useNavigation } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
@@ -8,15 +13,16 @@ const UpcomingEvents = () => {
   const navigation = useNavigation();
   const { events } = useEvents();
 
-  // Calcula os próximos compromissos
+  // Calcula os próximos compromissos a partir da data atual
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     return [...events]
-      .filter(event => new Date(event.date) >= now)
+      .filter((event) => new Date(event.date) >= now)
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(0, 5);
   }, [events]);
 
+  // Retorna o ícone correspondente ao tipo de evento
   const getEventTypeIcon = (type) => {
     switch (type?.toLowerCase()) {
       case 'audiencia':
@@ -30,6 +36,7 @@ const UpcomingEvents = () => {
     }
   };
 
+  // Formata a data para o padrão 'pt-BR'
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
@@ -55,7 +62,9 @@ const UpcomingEvents = () => {
         return (
           <TouchableOpacity
             key={event.id}
-            onPress={() => navigation.navigate('EventDetails', { event })}
+            onPress={() =>
+              navigation.navigate('EventDetails', { event })
+            }
           >
             <Card containerStyle={styles.card}>
               <View style={styles.cardHeader}>
@@ -133,7 +142,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
-    color: '#000000',
+    color: '#000',
   },
   dateContainer: {
     flexDirection: 'row',
@@ -143,7 +152,7 @@ const styles = StyleSheet.create({
   date: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#000000',
+    color: '#000',
   },
   locationContainer: {
     flexDirection: 'row',
@@ -153,7 +162,7 @@ const styles = StyleSheet.create({
   location: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#000000',
+    color: '#000',
     flex: 1,
   },
   clientContainer: {
@@ -163,7 +172,7 @@ const styles = StyleSheet.create({
   client: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#000000',
+    color: '#000',
     flex: 1,
   },
 });

@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Configura as notificações para o app
+// Configura o manipulador de notificações para o app.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -10,7 +10,12 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Solicita permissões para notificações
+/**
+ * Solicita permissões para notificações e configura o canal (Android).
+ *
+ * @returns {Promise<boolean>} True se as permissões forem concedidas.
+ * @throws {Error} Se as permissões não forem concedidas.
+ */
 export const requestPermissions = async () => {
   try {
     const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
@@ -33,10 +38,17 @@ export const requestPermissions = async () => {
   }
 };
 
-// Agenda uma notificação para um evento
+/**
+ * Agenda uma notificação para um evento.
+ *
+ * @param {Object} event - Objeto do evento.
+ * @param {string} customMessage - Mensagem customizada para a notificação.
+ * @returns {Promise<string|null>} ID da notificação se agendada, ou null em caso de erro.
+ */
 export const scheduleEventNotification = async (event, customMessage) => {
   const notificationDate = new Date(event.date);
-  notificationDate.setDate(notificationDate.getDate() - 1); // 24 horas antes
+  // Agenda a notificação 24 horas antes do evento.
+  notificationDate.setDate(notificationDate.getDate() - 1);
 
   try {
     const notificationId = await Notifications.scheduleNotificationAsync({
@@ -47,9 +59,7 @@ export const scheduleEventNotification = async (event, customMessage) => {
         priority: Notifications.AndroidNotificationPriority.HIGH,
         data: { eventId: event.id },
       },
-      trigger: {
-        date: notificationDate,
-      },
+      trigger: { date: notificationDate },
     });
 
     return notificationId;
@@ -59,7 +69,12 @@ export const scheduleEventNotification = async (event, customMessage) => {
   }
 };
 
-// Remove uma notificação agendada
+/**
+ * Cancela uma notificação agendada.
+ *
+ * @param {string} notificationId - ID da notificação.
+ * @returns {Promise<boolean>} True se cancelada, false caso contrário.
+ */
 export const cancelEventNotification = async (notificationId) => {
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);

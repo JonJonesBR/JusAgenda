@@ -1,7 +1,11 @@
-// Simulando um banco de dados local com alguns compromissos de exemplo
+// Gera um ID único sem dependências externas.
+const generateId = () =>
+  Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+
+// Simula um banco de dados local com alguns compromissos de exemplo.
 let compromissos = [
   {
-    id: '1',
+    id: generateId(),
     title: 'Audiência Criminal',
     date: '2025-01-10T14:00:00.000Z',
     location: 'Fórum Central',
@@ -12,7 +16,7 @@ let compromissos = [
     calendarEventId: null,
   },
   {
-    id: '2',
+    id: generateId(),
     title: 'Reunião com Cliente',
     date: '2025-01-15T10:00:00.000Z',
     location: 'Escritório',
@@ -23,7 +27,7 @@ let compromissos = [
     calendarEventId: null,
   },
   {
-    id: '3',
+    id: generateId(),
     title: 'Prazo Recursal',
     date: '2025-01-20T23:59:59.000Z',
     location: 'Online',
@@ -35,25 +39,33 @@ let compromissos = [
   }
 ];
 
-// Gera um ID único para novos compromissos
-const generateId = () => {
-  return Math.random().toString(36).substr(2, 9);
-};
-
-// Retorna todos os compromissos ordenados por data
+/**
+ * Retorna todos os compromissos ordenados por data.
+ * @returns {Array} Lista ordenada de compromissos.
+ */
 export const getAllCompromissos = () => {
-  return [...compromissos].sort((a, b) => new Date(a.date) - new Date(b.date));
+  return [...compromissos].sort(
+    (a, b) => new Date(a.date) - new Date(b.date)
+  );
 };
 
-// Retorna compromissos futuros ordenados por data
+/**
+ * Retorna os compromissos futuros ordenados por data.
+ * @returns {Array} Lista ordenada de compromissos futuros.
+ */
 export const getUpcomingCompromissos = () => {
   const now = new Date();
   return compromissos
-    .filter(compromisso => new Date(compromisso.date) >= now)
+    .filter((compromisso) => new Date(compromisso.date) >= now)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 };
 
-// Adiciona um novo compromisso
+/**
+ * Adiciona um novo compromisso.
+ * @param {Object} compromisso - Dados do compromisso.
+ * @returns {Object} O compromisso adicionado.
+ * @throws {Error} Se não for possível adicionar o compromisso.
+ */
 export const addCompromisso = (compromisso) => {
   try {
     const newCompromisso = {
@@ -62,7 +74,7 @@ export const addCompromisso = (compromisso) => {
       notificationId: null,
       calendarEventId: null,
     };
-    compromissos.push(newCompromisso);
+    compromissos = [...compromissos, newCompromisso];
     return newCompromisso;
   } catch (error) {
     console.error("Erro ao adicionar compromisso:", error.message);
@@ -70,57 +82,77 @@ export const addCompromisso = (compromisso) => {
   }
 };
 
-// Atualiza um compromisso existente
+/**
+ * Atualiza um compromisso existente.
+ * @param {string} id - ID do compromisso.
+ * @param {Object} updatedCompromisso - Dados atualizados do compromisso.
+ * @returns {Object|null} O compromisso atualizado ou null se não encontrado.
+ */
 export const updateCompromisso = (id, updatedCompromisso) => {
-  const index = compromissos.findIndex(compromisso => compromisso.id === id);
-  if (index !== -1) {
-    compromissos[index] = { 
-      ...compromissos[index], 
-      ...updatedCompromisso,
-      notificationId: compromissos[index].notificationId,
-      calendarEventId: compromissos[index].calendarEventId,
-    };
-    return compromissos[index];
-  }
-  return null;
+  compromissos = compromissos.map((compromisso) =>
+    compromisso.id === id
+      ? { ...compromisso, ...updatedCompromisso }
+      : compromisso
+  );
+  return compromissos.find((compromisso) => compromisso.id === id) || null;
 };
 
-// Remove um compromisso
+/**
+ * Remove um compromisso.
+ * @param {string} id - ID do compromisso.
+ * @returns {boolean} True se a remoção for bem-sucedida, false caso contrário.
+ */
 export const deleteCompromisso = (id) => {
-  const index = compromissos.findIndex(compromisso => compromisso.id === id);
-  if (index !== -1) {
-    compromissos = compromissos.filter(compromisso => compromisso.id !== id);
+  const exists = compromissos.some((compromisso) => compromisso.id === id);
+  if (exists) {
+    compromissos = compromissos.filter(
+      (compromisso) => compromisso.id !== id
+    );
     return true;
   }
   return false;
 };
 
-// Busca compromissos por texto
+/**
+ * Busca compromissos que correspondam à consulta de texto.
+ * @param {string} query - Texto para busca.
+ * @returns {Array} Lista de compromissos que correspondem à consulta.
+ */
 export const searchCompromissos = (query) => {
-  query = query.toLowerCase();
-  return compromissos.filter(compromisso => 
-    compromisso.title.toLowerCase().includes(query) ||
-    compromisso.client?.toLowerCase().includes(query) ||
-    compromisso.description?.toLowerCase().includes(query) ||
-    compromisso.location?.toLowerCase().includes(query)
+  const lowerQuery = query.toLowerCase();
+  return compromissos.filter(
+    (compromisso) =>
+      compromisso.title.toLowerCase().includes(lowerQuery) ||
+      compromisso.client?.toLowerCase().includes(lowerQuery) ||
+      compromisso.description?.toLowerCase().includes(lowerQuery) ||
+      compromisso.location?.toLowerCase().includes(lowerQuery)
   );
 };
 
-// Busca um compromisso específico por ID
+/**
+ * Retorna um compromisso específico pelo ID.
+ * @param {string} id - ID do compromisso.
+ * @returns {Object|undefined} O compromisso ou undefined se não encontrado.
+ */
 export const getCompromissoById = (id) => {
-  return compromissos.find(compromisso => compromisso.id === id);
+  return compromissos.find((compromisso) => compromisso.id === id);
 };
 
-// Atualiza os IDs de notificação e calendário
+/**
+ * Atualiza os IDs de notificação e calendário de um compromisso.
+ * @param {string} id - ID do compromisso.
+ * @param {Object} ids - Objeto contendo notificationId e/ou calendarEventId.
+ * @returns {Object|null} O compromisso atualizado ou null se não encontrado.
+ */
 export const updateCompromissoNotifications = (id, { notificationId, calendarEventId }) => {
-  const index = compromissos.findIndex(compromisso => compromisso.id === id);
-  if (index !== -1) {
-    compromissos[index] = {
-      ...compromissos[index],
-      notificationId: notificationId ?? compromissos[index].notificationId,
-      calendarEventId: calendarEventId ?? compromissos[index].calendarEventId,
-    };
-    return compromissos[index];
-  }
-  return null;
+  compromissos = compromissos.map((compromisso) =>
+    compromisso.id === id
+      ? {
+          ...compromisso,
+          notificationId: notificationId ?? compromisso.notificationId,
+          calendarEventId: calendarEventId ?? compromisso.calendarEventId,
+        }
+      : compromisso
+  );
+  return compromissos.find((compromisso) => compromisso.id === id) || null;
 };

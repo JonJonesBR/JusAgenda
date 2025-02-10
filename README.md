@@ -11,6 +11,7 @@
 ## 📧 Sincronização com E-mail: Todas as tarefas sincronizadas com seu e-mail preferido.
 ## 📝 Cadastro de Tarefas: Insira tarefas, prazos, audiências e reuniões de forma prática.
 ## 🔔 Alertas Personalizados: Configure alarmes e notificações, incluindo envio de e-mails.
+## 🔔 Exportar compromissos: Exporte compromissos agendados em word, excel e pdf.
 
 # 🛠️ Tecnologias Utilizadas
 

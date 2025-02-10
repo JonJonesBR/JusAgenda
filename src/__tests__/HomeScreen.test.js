@@ -3,68 +3,72 @@ import { render, fireEvent } from '@testing-library/react-native';
 import HomeScreen from '../screens/HomeScreen';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
+import { EventProvider } from '../contexts/EventContext';
+
+// Mock do serviço de Email para evitar chamadas reais
+jest.mock('../services/EmailService', () => ({
+  sendEmail: jest.fn(),
+}));
 
 // Mock das dependências de navegação
 const mockNavigation = {
   navigate: jest.fn(),
 };
 
-// Mock do useNavigation
-jest.mock('@react-navigation/native', () => ({
-  ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => mockNavigation,
-  useFocusEffect: jest.fn(),
-}));
+// Mock do hook useNavigation e useFocusEffect do React Navigation
+jest.mock('@react-navigation/native', () => {
+  const actualNav = jest.requireActual('@react-navigation/native');
+  return {
+    ...actualNav,
+    useNavigation: () => mockNavigation,
+    useFocusEffect: jest.fn(),
+  };
+});
 
 describe('HomeScreen', () => {
-  const wrapper = ({ children }) => (
-    <ThemeProvider>
-      <LanguageProvider>
-        {children}
-      </LanguageProvider>
-    </ThemeProvider>
-  );
+  // Função auxiliar para renderizar o componente com os provedores necessários
+  const renderComponent = () =>
+    render(<HomeScreen navigation={mockNavigation} route={{}} />, {
+      wrapper: ({ children }) => (
+        <ThemeProvider>
+          <LanguageProvider>
+            <EventProvider>{children}</EventProvider>
+          </LanguageProvider>
+        </ThemeProvider>
+      ),
+    });
 
   beforeEach(() => {
-    // Limpa os mocks antes de cada teste
     jest.clearAllMocks();
   });
 
   it('renders correctly', () => {
-    const { getByText } = render(
-      <HomeScreen navigation={mockNavigation} route={{}} />,
-      { wrapper }
-    );
+    const { getByText } = renderComponent();
 
-    // Verifica se o título está presente
+    // Verifica se os textos principais estão presentes na tela
     expect(getByText('JusAgenda')).toBeTruthy();
+    expect(getByText(/próximos compromissos/i)).toBeTruthy();
   });
 
   it('navigates to event creation when event type is selected', () => {
-    const { getByText } = render(
-      <HomeScreen navigation={mockNavigation} route={{}} />,
-      { wrapper }
-    );
+    const { getByText } = renderComponent();
 
-    // Encontra e clica no botão de audiência
+    // Aciona a seleção do tipo de evento "Audiência"
     fireEvent.press(getByText('Audiência'));
 
-    // Verifica se a navegação foi chamada com os parâmetros corretos
     expect(mockNavigation.navigate).toHaveBeenCalledWith('EventCreate', {
       eventType: 'audiencia',
     });
   });
 
   it('navigates to event details when an event is pressed', () => {
-    const { getByText } = render(
-        <HomeScreen navigation={mockNavigation} route={{}} />, 
-        { wrapper }
-    );
+    const { getByText } = renderComponent();
 
-    // Simula a pressão em um evento
+    // Simula a ação de pressionar em um evento listado (ex.: "Audiência")
     fireEvent.press(getByText('Audiência'));
 
-    // Verifica se a navegação foi chamada com os parâmetros corretos
-    expect(mockNavigation.navigate).toHaveBeenCalledWith('EventDetails', { event: expect.any(Object) });
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('EventDetails', {
+      event: expect.any(Object),
+    });
   });
 });

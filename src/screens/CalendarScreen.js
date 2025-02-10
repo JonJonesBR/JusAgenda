@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
 import { Calendar } from 'react-native-calendars';
@@ -14,16 +14,15 @@ const CalendarScreen = () => {
   const [markedDates, setMarkedDates] = useState({});
 
   useEffect(() => {
-    moment.locale('pt-br'); // Configura o locale para português
+    moment.locale('pt-br');
     refreshEvents();
   }, [refreshEvents]);
 
   useEffect(() => {
-    // Atualiza as marcações do calendário quando os eventos mudam
     const marks = {};
-    events.forEach(event => {
-      const date = new Date(event.date);
-      const dateString = date.toISOString().split('T')[0];
+    events.forEach((event) => {
+      const dateObj = new Date(event.date);
+      const dateString = dateObj.toISOString().split('T')[0];
       marks[dateString] = {
         marked: true,
         dotColor: getEventColor(event.type),
@@ -58,9 +57,9 @@ const CalendarScreen = () => {
     }
   };
 
-  const formatDate = (date) => {
-    const formattedDate = new Date(date);
-    return formattedDate.toLocaleDateString('pt-BR', {
+  const formatDate = (dateStr) => {
+    const dateObj = new Date(dateStr);
+    return dateObj.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
@@ -68,28 +67,26 @@ const CalendarScreen = () => {
     });
   };
 
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('pt-BR', {
+  const formatTime = (dateStr) => {
+    const dateObj = new Date(dateStr);
+    return dateObj.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
     });
   };
 
   const getDayEvents = (dateString) => {
-    return events.filter(event => {
-      const eventDate = new Date(event.date);
-      return eventDate.toISOString().split('T')[0] === dateString;
-    });
+    return events.filter(
+      (event) => event.date.split('T')[0] === dateString
+    );
   };
 
   const handleEventPress = (event) => {
     navigation.navigate('EventDetails', { event });
   };
 
-  const renderEvents = () => {
+  const renderEvents = useCallback(() => {
     if (!selectedDate) return null;
-
     const dayEvents = getDayEvents(selectedDate);
     if (dayEvents.length === 0) {
       return (
@@ -99,14 +96,10 @@ const CalendarScreen = () => {
         </Card>
       );
     }
-
-    return dayEvents.map(event => {
+    return dayEvents.map((event) => {
       const icon = getEventTypeIcon(event.type);
       return (
-        <TouchableOpacity
-          key={event.id}
-          onPress={() => handleEventPress(event)}
-        >
+        <TouchableOpacity key={event.id} onPress={() => handleEventPress(event)}>
           <Card containerStyle={styles.eventCard}>
             <View style={styles.eventHeader}>
               <Icon name={icon.name} color={icon.color} size={24} />
@@ -115,16 +108,13 @@ const CalendarScreen = () => {
               </Text>
               <Text style={styles.eventTime}>{formatTime(event.date)}</Text>
             </View>
-
             <Text style={styles.eventTitle}>{event.title}</Text>
-
             {event.location && (
               <View style={styles.eventInfo}>
                 <Icon name="location-on" size={16} color="#757575" />
                 <Text style={styles.eventText}>{event.location}</Text>
               </View>
             )}
-
             {event.client && (
               <View style={styles.eventInfo}>
                 <Icon name="person" size={16} color="#757575" />
@@ -135,7 +125,7 @@ const CalendarScreen = () => {
         </TouchableOpacity>
       );
     });
-  };
+  }, [selectedDate, events, navigation]);
 
   return (
     <View style={styles.container}>
@@ -156,33 +146,21 @@ const CalendarScreen = () => {
         }}
         locale="pt-BR"
       />
-      <ScrollView style={styles.eventsContainer}>
-        {renderEvents()}
-      </ScrollView>
+      <ScrollView style={styles.eventsContainer}>{renderEvents()}</ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  eventsContainer: {
-    flex: 1,
-    padding: 16,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  eventsContainer: { flex: 1, padding: 16 },
   emptyCard: {
     borderRadius: 10,
     padding: 24,
     alignItems: 'center',
     elevation: 4,
   },
-  emptyText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#757575',
-  },
+  emptyText: { marginTop: 16, fontSize: 16, color: '#757575' },
   eventCard: {
     borderRadius: 10,
     padding: 16,
@@ -194,32 +172,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  eventType: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#757575',
-  },
-  eventTime: {
-    fontSize: 14,
-    color: '#000000',
-  },
-  eventTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#000000',
-  },
-  eventInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  eventText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#000000',
-  },
+  eventType: { flex: 1, marginLeft: 8, fontSize: 14, color: '#757575' },
+  eventTime: { fontSize: 14, color: '#000' },
+  eventTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#000' },
+  eventInfo: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  eventText: { marginLeft: 8, fontSize: 14, color: '#000' },
 });
 
 export default CalendarScreen;

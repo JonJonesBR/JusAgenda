@@ -1,9 +1,13 @@
 /**
  * @typedef {Object} EventType
- * @property {string} id Unique identifier for the event type.
- * @property {string} label Label displayed in the interface.
+ * @property {string} id - Identificador único para o tipo de evento.
+ * @property {string} label - Rótulo exibido na interface.
  */
 
+/**
+ * Coleção dos tipos de eventos.
+ * @type {Record<string, EventType>}
+ */
 export const eventTypes = {
   audiencia: {
     id: 'hearing',
@@ -24,17 +28,16 @@ export const eventTypes = {
 };
 
 /**
- * Retrieves the label for a given event type.
- * @param {string} type Identifier for the event type.
- * @returns {string} The label corresponding to the event type.
+ * Retorna o rótulo correspondente a um identificador de tipo de evento.
+ *
+ * @param {string} type - Identificador do tipo de evento.
+ * @returns {string} O rótulo correspondente ou o próprio identificador caso não seja encontrado.
  */
 export const getEventTypeLabel = (type) => {
   const eventType = Object.values(eventTypes).find((e) => e.id === type);
-
   if (!eventType) {
     console.warn(`Event type not found: ${type}`);
-    return type; // Fallback to the identifier
+    return type;
   }
-
-  return eventType.label; // Always returns the label
+  return eventType.label;
 };

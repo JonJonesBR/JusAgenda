@@ -1,10 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, Input, Button } from '@rneui/themed';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { Text, Input, Button, CheckBox } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
-import { requestPermissions, scheduleEventNotification } from '../services/NotificationService';
+import {
+  requestPermissions,
+  scheduleEventNotification,
+} from '../services/NotificationService';
+
+const eventTypes = [
+  { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
+  { id: 'reuniao', label: 'Reunião', icon: 'groups' },
+  { id: 'prazo', label: 'Prazo', icon: 'timer' },
+  { id: 'outros', label: 'Outros', icon: 'event' },
+];
 
 const AddEventScreen = () => {
   const navigation = useNavigation();
@@ -13,28 +30,43 @@ const AddEventScreen = () => {
   const { addEvent, updateEvent } = useEvents();
 
   const [title, setTitle] = useState(editingEvent?.title || '');
-  const [date, setDate] = useState(editingEvent ? new Date(editingEvent.date) : new Date());
+  const [date, setDate] = useState(
+    editingEvent ? new Date(editingEvent.date) : new Date()
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [type, setType] = useState(editingEvent?.type || 'audiencia');
   const [location, setLocation] = useState(editingEvent?.location || '');
   const [client, setClient] = useState(editingEvent?.client || '');
   const [description, setDescription] = useState(editingEvent?.description || '');
-  const [customMessage, setCustomMessage] = useState(`Você tem um compromisso "${title}" amanhã`);
+  const [customMessage, setCustomMessage] = useState(
+    `Você tem um compromisso "${title}" amanhã`
+  );
+  const [sendEmail, setSendEmail] = useState(false);
 
+  // Solicita as permissões para notificações ao montar o componente
   useEffect(() => {
     requestPermissions();
   }, []);
 
+  // Atualiza a mensagem de notificação sempre que título, data, tipo ou local mudam
   useEffect(() => {
     updateNotificationMessage();
-  }, [title, date, type, location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, date, type, location, client]);
 
-  const updateNotificationMessage = () => {
+  const updateNotificationMessage = useCallback(() => {
     const formattedDate = date.toLocaleDateString('pt-BR');
-    const formattedTime = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    setCustomMessage(`Compromisso: ${type.charAt(0).toUpperCase() + type.slice(1)} de ${client} no dia ${formattedDate} às ${formattedTime} no Fórum de ${location}`);
-  };
+    const formattedTime = date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const eventLabel =
+      type.charAt(0).toUpperCase() + type.slice(1);
+    setCustomMessage(
+      `Compromisso: ${eventLabel} de ${client} no dia ${formattedDate} às ${formattedTime} no Fórum de ${location}`
+    );
+  }, [date, type, client, location]);
 
   const handleSave = async () => {
     if (!title.trim() || !location.trim() || !client.trim()) {
@@ -60,31 +92,34 @@ const AddEventScreen = () => {
       let savedEvent;
 
       if (editingEvent) {
-        const success = await updateEvent(editingEvent.id, eventData);
+        const success = await updateEvent(editingEvent.id, eventData, sendEmail);
         if (success) {
           savedEvent = { ...eventData, id: editingEvent.id };
         }
       } else {
-        savedEvent = await addEvent(eventData);
+        savedEvent = await addEvent(eventData, sendEmail);
       }
 
       if (!savedEvent) {
         throw new Error('Falha ao salvar compromisso');
       }
 
-      // Agenda a notificação
+      // Agenda a notificação para o evento
       await scheduleEventNotification(savedEvent, customMessage);
 
       navigation.goBack();
     } catch (error) {
       console.error('Erro ao salvar compromisso:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar o compromisso. Por favor, tente novamente.');
+      Alert.alert(
+        'Erro',
+        'Ocorreu um erro ao salvar o compromisso. Por favor, tente novamente.'
+      );
     }
   };
 
   const handleDateChange = (event, selectedDate) => {
     if (selectedDate) {
-      setDate(new Date(selectedDate)); 
+      setDate(new Date(selectedDate));
       updateNotificationMessage();
     }
   };
@@ -98,36 +133,19 @@ const AddEventScreen = () => {
     }
   };
 
-  const openDatePicker = () => {
-    setShowDatePicker(true);
-  };
-
-  const openTimePicker = () => {
-    setShowTimePicker(true);
-  };
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('pt-BR', {
+  const formatDate = (dt) =>
+    dt.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
       year: 'numeric',
     });
-  };
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('pt-BR', {
+  const formatTime = (dt) =>
+    dt.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  const eventTypes = [
-    { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
-    { id: 'reuniao', label: 'Reunião', icon: 'groups' },
-    { id: 'prazo', label: 'Prazo', icon: 'timer' },
-    { id: 'outros', label: 'Outros', icon: 'event' },
-  ];
 
   const handleTitleChange = (text) => {
     setTitle(text);
@@ -145,10 +163,16 @@ const AddEventScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+    >
       <ScrollView>
         <View style={styles.content}>
-          <Text h4 style={styles.title}>{editingEvent ? 'Editar Compromisso' : 'Novo Compromisso'}</Text>
+          <Text h4 style={styles.title}>
+            {editingEvent ? 'Editar Compromisso' : 'Novo Compromisso'}
+          </Text>
 
           <Input
             label="Título"
@@ -175,7 +199,7 @@ const AddEventScreen = () => {
               }}
               buttonStyle={styles.dateButton}
               titleStyle={styles.dateButtonText}
-              onPress={openDatePicker}
+              onPress={() => setShowDatePicker(true)}
             />
           </View>
 
@@ -188,7 +212,11 @@ const AddEventScreen = () => {
                 onChange={handleDateChange}
                 locale="pt-BR"
               />
-              <Button title="OK" onPress={() => setShowDatePicker(false)} style={styles.okButton} />
+              <Button
+                title="OK"
+                onPress={() => setShowDatePicker(false)}
+                buttonStyle={styles.okButton}
+              />
             </View>
           )}
 
@@ -204,7 +232,7 @@ const AddEventScreen = () => {
               }}
               buttonStyle={styles.dateButton}
               titleStyle={styles.dateButtonText}
-              onPress={openTimePicker}
+              onPress={() => setShowTimePicker(true)}
             />
           </View>
 
@@ -217,7 +245,11 @@ const AddEventScreen = () => {
                 onChange={handleTimeChange}
                 locale="pt-BR"
               />
-              <Button title="OK" onPress={() => setShowTimePicker(false)} style={styles.okButton} />
+              <Button
+                title="OK"
+                onPress={() => setShowTimePicker(false)}
+                buttonStyle={styles.okButton}
+              />
             </View>
           )}
 
@@ -281,10 +313,8 @@ const AddEventScreen = () => {
             onFocus={() => {
               setShowDatePicker(false);
               setShowTimePicker(false);
-              // Adicionando um delay para permitir que o teclado apareça
-              setTimeout(() => {
-                // Ajustar a posição da tela se necessário
-              }, 100);
+              // Delay opcional para ajuste de layout com o teclado
+              setTimeout(() => {}, 100);
             }}
           />
 
@@ -300,13 +330,15 @@ const AddEventScreen = () => {
             }}
           />
 
+          <CheckBox
+            title="Enviar e-mail de notificação"
+            checked={sendEmail}
+            onPress={() => setSendEmail(!sendEmail)}
+          />
+
           <Button
             title="Salvar"
-            icon={{
-              name: 'save',
-              size: 20,
-              color: 'white',
-            }}
+            icon={{ name: 'save', size: 20, color: 'white' }}
             buttonStyle={styles.saveButton}
             onPress={handleSave}
           />
@@ -317,37 +349,18 @@ const AddEventScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    padding: 16,
-  },
-  title: {
-    marginBottom: 24,
-    color: '#000000',
-    textAlign: 'center',
-  },
-  label: {
-    fontSize: 16,
-    color: '#86939e',
-    marginBottom: 8,
-  },
-  dateContainer: {
-    marginBottom: 16,
-  },
-  timeContainer: {
-    marginBottom: 16,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  content: { padding: 16 },
+  title: { marginBottom: 24, color: '#000', textAlign: 'center' },
+  label: { fontSize: 16, color: '#86939e', marginBottom: 8 },
+  dateContainer: { marginBottom: 16 },
+  timeContainer: { marginBottom: 16 },
   dateButton: {
     borderColor: '#6200ee',
     borderRadius: 10,
     height: 50,
   },
-  dateButtonText: {
-    color: '#6200ee',
-  },
+  dateButtonText: { color: '#6200ee' },
   typeContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -361,16 +374,9 @@ const styles = StyleSheet.create({
     borderColor: '#6200ee',
     marginBottom: 8,
   },
-  typeButtonActive: {
-    backgroundColor: '#6200ee',
-  },
-  typeButtonText: {
-    color: '#6200ee',
-    fontSize: 14,
-  },
-  typeButtonTextActive: {
-    color: 'white',
-  },
+  typeButtonActive: { backgroundColor: '#6200ee' },
+  typeButtonText: { color: '#6200ee', fontSize: 14 },
+  typeButtonTextActive: { color: 'white' },
   saveButton: {
     backgroundColor: '#6200ee',
     borderRadius: 10,
@@ -380,21 +386,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 16,
     borderRadius: 10,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
   },
   timePickerContainer: {
     backgroundColor: '#fff',
     padding: 16,
     borderRadius: 10,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
   },
   okButton: {
     backgroundColor: '#6200ee',

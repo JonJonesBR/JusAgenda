@@ -1,10 +1,11 @@
 /**
  * @typedef {Object} EventField
- * @property {string} name Field name.
- * @property {string} label Label displayed in the interface.
- * @property {string} type Field type (e.g., text, textarea, select).
+ * @property {string} name - Nome do campo.
+ * @property {string} label - Rótulo exibido na interface.
+ * @property {string} type - Tipo do campo (ex.: text, textarea, select).
  */
 
+// Definição dos campos comuns compartilhados entre os tipos de evento.
 const commonFields = {
   title: { name: 'title', label: 'Título', type: 'text' },
   date: { name: 'date', label: 'Data', type: 'date' },
@@ -12,7 +13,8 @@ const commonFields = {
 };
 
 /**
- * @type {Object<string, EventField[]>}
+ * Mapeamento dos tipos de eventos para seus respectivos campos.
+ * @type {Record<string, EventField[]>}
  */
 export const eventFields = {
   audiencia: [
@@ -38,10 +40,15 @@ export const eventFields = {
 };
 
 /**
- * Adds a field to a specific event type.
- * @param {string} eventType Type of event (e.g., audiencia, reuniao).
- * @param {EventField} field Field to be added.
+ * Adiciona um campo a um tipo específico de evento.
+ *
+ * @param {string} eventType - Tipo de evento (ex.: audiencia, reuniao).
+ * @param {EventField} field - Campo a ser adicionado.
+ * @throws {Error} Lança erro se o tipo de evento não existir.
  */
 export function addField(eventType, field) {
+  if (!eventFields[eventType]) {
+    throw new Error(`Event type "${eventType}" does not exist.`);
+  }
   eventFields[eventType].push(field);
 }

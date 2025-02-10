@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Modal, Text } from 'react-native';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Text,
+} from 'react-native';
 import { lightTheme } from '../constants/colors';
 import { Feather } from '@expo/vector-icons';
 
-// Tipos de eventos sem acentos para corresponder ao que é salvo
+// Lista dos tipos de eventos (sem acentos) para compatibilidade com os dados salvos
 const filters = ['audiencia', 'reuniao', 'prazo', 'outros'];
 
 const SearchFilter = ({ onSearch }) => {
@@ -11,40 +18,39 @@ const SearchFilter = ({ onSearch }) => {
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState({});
 
-  // Processa a busca e aplica os filtros
+  // Processa a busca e aplica os filtros selecionados
   const handleSearchSubmit = () => {
-    const activeFilters = Object.keys(selectedFilters).filter((key) => selectedFilters[key]);
-    console.log('Filtros ativos:', activeFilters); // Debug
-  
+    const activeFilters = Object.keys(selectedFilters).filter(
+      (key) => selectedFilters[key]
+    );
+
     const searchParams = {
       term: searchTerm.trim(),
       filters: activeFilters,
     };
-  
-    console.log('Parâmetros de busca:', searchParams); // Debug
+
     onSearch(searchParams);
   };
 
-  // Alterna o estado dos filtros
+  // Alterna o estado (ligado/desligado) de um filtro específico
   const toggleFilter = (filterKey) => {
-    console.log('Alternando filtro:', filterKey); // Debug
-    setSelectedFilters((prev) => {
-      const newState = { ...prev, [filterKey]: !prev[filterKey] };
-      console.log('Novo estado dos filtros:', newState); // Debug
-      return newState;
-    });
+    setSelectedFilters((prev) => ({
+      ...prev,
+      [filterKey]: !prev[filterKey],
+    }));
   };
 
-  // Conta os filtros ativos
-  const activeFilterCount = Object.values(selectedFilters).filter(Boolean).length;
+  // Quantifica os filtros atualmente ativos
+  const activeFilterCount = Object.values(selectedFilters).filter(Boolean)
+    .length;
 
-  // Função para obter o rótulo do filtro com acento
+  // Retorna o rótulo formatado com acento para exibição
   const getFilterLabel = (filter) => {
     const labels = {
-      'audiencia': 'Audiência',
-      'reuniao': 'Reunião',
-      'prazo': 'Prazo',
-      'outros': 'Outros'
+      audiencia: 'Audiência',
+      reuniao: 'Reunião',
+      prazo: 'Prazo',
+      outros: 'Outros',
     };
     return labels[filter] || filter;
   };
@@ -52,8 +58,18 @@ const SearchFilter = ({ onSearch }) => {
   return (
     <View style={styles.container}>
       {/* Campo de busca */}
-      <View style={[styles.searchContainer, { backgroundColor: lightTheme.card, borderColor: lightTheme.primary }]}>
-        <Feather name="search" size={20} color={lightTheme.primary} aria-label="Ícone de busca" />
+      <View
+        style={[
+          styles.searchContainer,
+          { backgroundColor: lightTheme.card, borderColor: lightTheme.primary },
+        ]}
+      >
+        <Feather
+          name="search"
+          size={20}
+          color={lightTheme.primary}
+          accessibilityLabel="Ícone de busca"
+        />
         <TextInput
           accessibilityRole="search"
           style={[styles.searchInput, { color: lightTheme.text }]}
@@ -63,10 +79,15 @@ const SearchFilter = ({ onSearch }) => {
           onChangeText={setSearchTerm}
           onSubmitEditing={handleSearchSubmit}
         />
-        {/* Botão de filtro */}
+        {/* Botão para abrir o modal de filtros */}
         <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
           <View style={styles.filterButton}>
-            <Feather name="filter" size={20} color={lightTheme.primary} aria-label="Ícone de filtro" />
+            <Feather
+              name="filter"
+              size={20}
+              color={lightTheme.primary}
+              accessibilityLabel="Ícone de filtro"
+            />
             {activeFilterCount > 0 && (
               <View style={styles.filterBadge}>
                 <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -76,22 +97,28 @@ const SearchFilter = ({ onSearch }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Modal de filtros */}
+      {/* Modal para seleção dos filtros */}
       <Modal
         animationType="slide"
-        transparent={true}
+        transparent
         visible={isFilterModalVisible}
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { backgroundColor: lightTheme.card }]}>
-            <Text style={[styles.modalTitle, { color: lightTheme.text }]}>Filtrar por tipo</Text>
+          <View
+            style={[styles.modalContent, { backgroundColor: lightTheme.card }]}
+          >
+            <Text style={[styles.modalTitle, { color: lightTheme.text }]}>
+              Filtrar por tipo
+            </Text>
             {filters.map((filter) => (
               <TouchableOpacity
                 key={filter}
                 style={[
                   styles.filterItem,
-                  selectedFilters[filter] && { backgroundColor: lightTheme.primary + '20' },
+                  selectedFilters[filter] && {
+                    backgroundColor: lightTheme.primary + '20',
+                  },
                 ]}
                 onPress={() => toggleFilter(filter)}
               >
@@ -99,7 +126,12 @@ const SearchFilter = ({ onSearch }) => {
                   {getFilterLabel(filter)}
                 </Text>
                 {selectedFilters[filter] && (
-                  <Feather name="check" size={20} color={lightTheme.primary} />
+                  <Feather
+                    name="check"
+                    size={20}
+                    color={lightTheme.primary}
+                    accessibilityLabel="Filtro selecionado"
+                  />
                 )}
               </TouchableOpacity>
             ))}

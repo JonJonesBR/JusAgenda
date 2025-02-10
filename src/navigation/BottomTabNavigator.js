@@ -7,6 +7,9 @@ import CalendarScreen from '../screens/CalendarScreen';
 
 const Tab = createBottomTabNavigator();
 
+/**
+ * Navigator de abas inferior, definindo a navegação entre as principais telas.
+ */
 const BottomTabNavigator = () => {
   return (
     <Tab.Navigator

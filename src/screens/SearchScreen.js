@@ -12,19 +12,9 @@ const SearchScreen = () => {
   const { events, refreshEvents } = useEvents();
   const isFocused = useIsFocused();
 
-  // Atualiza os compromissos quando a tela recebe foco
   useEffect(() => {
-    if (isFocused) {
-      refreshEvents();
-    }
+    if (isFocused) refreshEvents();
   }, [isFocused, refreshEvents]);
-
-  // Atualiza os resultados da busca quando os compromissos mudam
-  useEffect(() => {
-    if (searchTerm || selectedFilters.length > 0) {
-      handleSearch();
-    }
-  }, [events, handleSearch]);
 
   const filters = [
     { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
@@ -44,29 +34,28 @@ const SearchScreen = () => {
   const handleSearch = useCallback(() => {
     const term = searchTerm.toLowerCase().trim();
     let filtered = events;
-
-    // Filtrar por termo de busca
     if (term) {
-      filtered = filtered.filter(event =>
-        event.title?.toLowerCase().includes(term) ||
-        event.client?.toLowerCase().includes(term) ||
-        event.description?.toLowerCase().includes(term) ||
-        event.location?.toLowerCase().includes(term)
+      filtered = filtered.filter(
+        (event) =>
+          event.title?.toLowerCase().includes(term) ||
+          event.client?.toLowerCase().includes(term) ||
+          event.description?.toLowerCase().includes(term) ||
+          event.location?.toLowerCase().includes(term)
       );
     }
-
-    // Filtrar por tipos selecionados
     if (selectedFilters.length > 0) {
-      filtered = filtered.filter(event =>
+      filtered = filtered.filter((event) =>
         selectedFilters.includes(event.type?.toLowerCase())
       );
     }
-
-    // Ordenar por data
     filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
     setSearchResults(filtered);
   }, [searchTerm, selectedFilters, events]);
+
+  useEffect(() => {
+    if (searchTerm || selectedFilters.length > 0) handleSearch();
+    else setSearchResults([]);
+  }, [events, handleSearch, searchTerm, selectedFilters]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -115,9 +104,13 @@ const SearchScreen = () => {
               icon={{
                 name: filter.icon,
                 size: 20,
-                color: selectedFilters.includes(filter.id) ? 'white' : '#6200ee',
+                color: selectedFilters.includes(filter.id)
+                  ? 'white'
+                  : '#6200ee',
               }}
-              type={selectedFilters.includes(filter.id) ? 'solid' : 'outline'}
+              type={
+                selectedFilters.includes(filter.id) ? 'solid' : 'outline'
+              }
               buttonStyle={[
                 styles.filterButton,
                 selectedFilters.includes(filter.id) && styles.filterButtonActive,
@@ -128,9 +121,7 @@ const SearchScreen = () => {
               ]}
               onPress={() => {
                 toggleFilter(filter.id);
-                if (searchTerm || selectedFilters.length > 0) {
-                  handleSearch();
-                }
+                handleSearch();
               }}
             />
           ))}
@@ -138,11 +129,7 @@ const SearchScreen = () => {
 
         <Button
           title="Buscar"
-          icon={{
-            name: 'search',
-            size: 20,
-            color: 'white',
-          }}
+          icon={{ name: 'search', size: 20, color: 'white' }}
           buttonStyle={styles.searchButton}
           onPress={handleSearch}
           disabled={!searchTerm && selectedFilters.length === 0}
@@ -152,18 +139,20 @@ const SearchScreen = () => {
       {searchResults.length > 0 ? (
         <View style={styles.resultsContainer}>
           <Text style={styles.resultsTitle}>
-            {searchResults.length} {searchResults.length === 1 ? 'resultado encontrado' : 'resultados encontrados'}
+            {searchResults.length}{' '}
+            {searchResults.length === 1
+              ? 'resultado encontrado'
+              : 'resultados encontrados'}
           </Text>
           {searchResults.map((event) => {
-            const icon = filters.find(f => f.id === event.type?.toLowerCase());
+            const icon =
+              filters.find((f) => f.id === event.type?.toLowerCase()) || { icon: 'event' };
             return (
               <Card key={event.id} containerStyle={styles.resultCard}>
-                <TouchableOpacity
-                  onPress={() => handleEventPress(event)}
-                >
+                <TouchableOpacity onPress={() => handleEventPress(event)}>
                   <View style={styles.resultHeader}>
                     <Icon
-                      name={icon?.icon || 'event'}
+                      name={icon.icon}
                       color="#6200ee"
                       size={24}
                       style={styles.resultIcon}
@@ -175,7 +164,6 @@ const SearchScreen = () => {
                       </Text>
                     </View>
                   </View>
-
                   {event.location && (
                     <View style={styles.resultDetail}>
                       <Icon name="location-on" size={16} color="#757575" />
@@ -184,7 +172,6 @@ const SearchScreen = () => {
                       </Text>
                     </View>
                   )}
-
                   {event.client && (
                     <View style={styles.resultDetail}>
                       <Icon name="person" size={16} color="#757575" />
@@ -217,13 +204,13 @@ const SearchScreen = () => {
           <View style={styles.tipItem}>
             <Icon name="info" color="#6200ee" size={20} />
             <Text style={styles.tipText}>
-              Use palavras-chave específicas para encontrar compromissos mais facilmente
+              Use palavras-chave específicas para encontrar compromissos mais facilmente.
             </Text>
           </View>
           <View style={styles.tipItem}>
             <Icon name="filter-list" color="#6200ee" size={20} />
             <Text style={styles.tipText}>
-              Combine filtros para refinar sua busca
+              Combine filtros para refinar sua busca.
             </Text>
           </View>
         </Card>
@@ -233,161 +220,37 @@ const SearchScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: '#6200ee',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  title: {
-    color: '#ffffff',
-    marginBottom: 5,
-  },
-  subtitle: {
-    color: '#ffffff',
-    opacity: 0.8,
-    fontSize: 16,
-  },
-  searchCard: {
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: -20,
-    elevation: 4,
-    padding: 15,
-  },
-  searchBarContainer: {
-    backgroundColor: 'transparent',
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
-    padding: 0,
-  },
-  searchBarInput: {
-    backgroundColor: '#f5f5f5',
-  },
-  filterTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
-    color: '#000000',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 15,
-  },
-  filterButton: {
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    backgroundColor: 'transparent',
-    borderColor: '#6200ee',
-    marginBottom: 8,
-  },
-  filterButtonActive: {
-    backgroundColor: '#6200ee',
-  },
-  filterButtonText: {
-    color: '#6200ee',
-    fontSize: 14,
-  },
-  filterButtonTextActive: {
-    color: 'white',
-  },
-  searchButton: {
-    backgroundColor: '#6200ee',
-    borderRadius: 10,
-    height: 50,
-  },
-  resultsContainer: {
-    padding: 16,
-  },
-  resultsTitle: {
-    fontSize: 16,
-    color: '#757575',
-    marginBottom: 8,
-  },
-  resultCard: {
-    borderRadius: 10,
-    marginBottom: 8,
-    padding: 12,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  resultIcon: {
-    backgroundColor: 'rgba(98, 0, 238, 0.1)',
-    padding: 8,
-    borderRadius: 20,
-  },
-  resultInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  resultTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  resultDate: {
-    fontSize: 14,
-    color: '#757575',
-  },
-  resultDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  resultDetailText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#000000',
-  },
-  noResultsCard: {
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 24,
-    alignItems: 'center',
-  },
-  noResultsText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#757575',
-  },
-  tipsCard: {
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 20,
-    elevation: 4,
-  },
-  cardTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 18,
-    marginLeft: 8,
-    color: '#6200ee',
-  },
-  tipItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  tipText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#000000',
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { padding: 20, backgroundColor: '#6200ee', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  title: { color: '#fff', marginBottom: 5 },
+  subtitle: { color: '#fff', opacity: 0.8, fontSize: 16 },
+  searchCard: { borderRadius: 10, marginHorizontal: 16, marginTop: -20, elevation: 4, padding: 15 },
+  searchBarContainer: { backgroundColor: 'transparent', borderTopWidth: 0, borderBottomWidth: 0, padding: 0 },
+  searchBarInput: { backgroundColor: '#f5f5f5' },
+  filterTitle: { fontSize: 16, fontWeight: 'bold', marginTop: 15, marginBottom: 10, color: '#000' },
+  filterContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 15 },
+  filterButton: { borderRadius: 20, paddingHorizontal: 15, backgroundColor: 'transparent', borderColor: '#6200ee', marginBottom: 8 },
+  filterButtonActive: { backgroundColor: '#6200ee' },
+  filterButtonText: { color: '#6200ee', fontSize: 14 },
+  filterButtonTextActive: { color: 'white' },
+  searchButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50 },
+  resultsContainer: { padding: 16 },
+  resultsTitle: { fontSize: 16, color: '#757575', marginBottom: 8 },
+  resultCard: { borderRadius: 10, marginBottom: 8, padding: 12 },
+  resultHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  resultIcon: { backgroundColor: 'rgba(98, 0, 238, 0.1)', padding: 8, borderRadius: 20 },
+  resultInfo: { marginLeft: 12, flex: 1 },
+  resultTitle: { fontSize: 16, fontWeight: 'bold', color: '#000' },
+  resultDate: { fontSize: 14, color: '#757575' },
+  resultDetail: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  resultDetailText: { marginLeft: 8, fontSize: 14, color: '#000' },
+  noResultsCard: { borderRadius: 10, marginHorizontal: 16, marginTop: 16, padding: 24, alignItems: 'center' },
+  noResultsText: { marginTop: 16, fontSize: 16, color: '#757575' },
+  tipsCard: { borderRadius: 10, marginHorizontal: 16, marginTop: 16, marginBottom: 20, elevation: 4 },
+  cardTitleContainer: { flexDirection: 'row', alignItems: 'center' },
+  cardTitle: { fontSize: 18, marginLeft: 8, color: '#6200ee' },
+  tipItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  tipText: { marginLeft: 12, fontSize: 14, color: '#000', flex: 1 },
 });
 
 export default SearchScreen;
