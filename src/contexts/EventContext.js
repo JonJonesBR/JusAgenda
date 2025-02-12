@@ -33,7 +33,6 @@ export const EventProvider = ({ children }) => {
   // Atualiza a lista de eventos sempre que lastUpdate mudar
   useEffect(() => {
     refreshEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastUpdate]);
 
   /**
@@ -160,7 +159,7 @@ export const EventProvider = ({ children }) => {
   const searchEvents = useCallback(
     (term, filters) => {
       let results = term ? searchEventsService(term) : [...events];
-      if (filters && filters.length > 0) {
+      if (filters?.length > 0) {
         results = results.filter((event) =>
           filters.includes(event.type?.toLowerCase())
         );
@@ -176,9 +175,7 @@ export const EventProvider = ({ children }) => {
    * @param {string} id - Identificador do evento.
    * @returns {object} Evento correspondente.
    */
-  const getEventById = useCallback((id) => {
-    return getEventByIdService(id);
-  }, []);
+  const getEventById = useCallback((id) => getEventByIdService(id), []);
 
   /**
    * Atualiza as notificações associadas a um evento.

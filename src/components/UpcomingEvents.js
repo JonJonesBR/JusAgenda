@@ -13,17 +13,15 @@ const UpcomingEvents = () => {
   const navigation = useNavigation();
   const { events } = useEvents();
 
-  // Calcula os próximos compromissos a partir da data atual
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     return [...events]
-      .filter((event) => new Date(event.date) >= now)
+      .filter(event => new Date(event.date) >= now)
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(0, 5);
   }, [events]);
 
-  // Retorna o ícone correspondente ao tipo de evento
-  const getEventTypeIcon = (type) => {
+  const getEventTypeIcon = type => {
     switch (type?.toLowerCase()) {
       case 'audiencia':
         return { name: 'gavel', color: '#6200ee' };
@@ -36,14 +34,17 @@ const UpcomingEvents = () => {
     }
   };
 
-  // Formata a data para o padrão 'pt-BR'
-  const formatDate = (dateString) => {
+  const formatDate = dateString => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
     });
+  };
+
+  const handleEditEvent = (event) => {
+    navigation.navigate('EventDetails', { event });
   };
 
   if (upcomingEvents.length === 0) {
@@ -57,14 +58,12 @@ const UpcomingEvents = () => {
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      {upcomingEvents.map((event) => {
+      {upcomingEvents.map(event => {
         const icon = getEventTypeIcon(event.type);
         return (
           <TouchableOpacity
             key={event.id}
-            onPress={() =>
-              navigation.navigate('EventDetails', { event })
-            }
+            onPress={() => handleEditEvent(event)}
           >
             <Card containerStyle={styles.card}>
               <View style={styles.cardHeader}>
@@ -73,16 +72,13 @@ const UpcomingEvents = () => {
                   {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
                 </Text>
               </View>
-
               <Text style={styles.title} numberOfLines={2}>
                 {event.title}
               </Text>
-
               <View style={styles.dateContainer}>
                 <Icon name="calendar-today" size={16} color="#757575" />
                 <Text style={styles.date}>{formatDate(event.date)}</Text>
               </View>
-
               {event.location && (
                 <View style={styles.locationContainer}>
                   <Icon name="location-on" size={16} color="#757575" />
@@ -91,7 +87,6 @@ const UpcomingEvents = () => {
                   </Text>
                 </View>
               )}
-
               {event.client && (
                 <View style={styles.clientContainer}>
                   <Icon name="person" size={16} color="#757575" />

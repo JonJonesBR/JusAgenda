@@ -39,11 +39,9 @@
     },
     "plugins": [
       [
-        "expo-notifications",
+        "expo-file-system",
         {
-          "icon": "./assets/notification-icon.png",
-          "color": "#6200ee",
-          "sounds": ["./assets/notification.wav"]
+          "filePermission": "Permissão necessária para salvar arquivos."
         }
       ]
     ],

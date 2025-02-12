@@ -1,21 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Switch,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { Text, Input, Button } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
-import {
-  requestPermissions,
-  scheduleEventNotification,
-} from '../services/NotificationService';
+import { requestPermissions, scheduleEventNotification } from '../services/NotificationService';
 
 const eventTypes = [
   { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
@@ -31,41 +20,32 @@ const EventDetailsScreen = () => {
   const { addEvent, updateEvent } = useEvents();
 
   const [title, setTitle] = useState(editingEvent?.title || '');
-  const [date, setDate] = useState(
-    editingEvent ? new Date(editingEvent.date) : new Date()
-  );
+  const [date, setDate] = useState(editingEvent ? new Date(editingEvent.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [type, setType] = useState(editingEvent?.type || 'audiencia');
   const [location, setLocation] = useState(editingEvent?.location || '');
   const [client, setClient] = useState(editingEvent?.client || '');
   const [description, setDescription] = useState(editingEvent?.description || '');
-  const [customMessage, setCustomMessage] = useState(
-    `Você tem um compromisso "${title}" amanhã`
-  );
+  const [customMessage, setCustomMessage] = useState(`Você tem um compromisso "${title}" amanhã`);
   const [sendEmailFlag, setSendEmailFlag] = useState(false);
 
   useEffect(() => {
     requestPermissions();
   }, []);
 
-  useEffect(() => {
-    updateNotificationMessage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, date, type, location, client]);
-
   const updateNotificationMessage = useCallback(() => {
     const formattedDate = date.toLocaleDateString('pt-BR');
-    const formattedTime = date.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    const eventLabel =
-      type.charAt(0).toUpperCase() + type.slice(1);
+    const formattedTime = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const eventLabel = type.charAt(0).toUpperCase() + type.slice(1);
     setCustomMessage(
       `Compromisso: ${eventLabel} de ${client} no dia ${formattedDate} às ${formattedTime} no Fórum de ${location}`
     );
   }, [date, type, client, location]);
+
+  useEffect(() => {
+    updateNotificationMessage();
+  }, [title, date, type, location, client, updateNotificationMessage]);
 
   const handleSave = async () => {
     if (!title.trim() || !location.trim() || !client.trim()) {
@@ -76,7 +56,6 @@ const EventDetailsScreen = () => {
       Alert.alert('Erro', 'A data/hora não pode ser no passado.');
       return;
     }
-
     const eventData = {
       title: title.trim(),
       date: date.toISOString(),
@@ -85,7 +64,6 @@ const EventDetailsScreen = () => {
       client: client.trim(),
       description: description.trim(),
     };
-
     try {
       let savedEvent;
       if (editingEvent) {
@@ -96,9 +74,7 @@ const EventDetailsScreen = () => {
       } else {
         savedEvent = await addEvent(eventData, sendEmailFlag);
       }
-      if (!savedEvent) {
-        throw new Error('Falha ao salvar compromisso');
-      }
+      if (!savedEvent) throw new Error('Falha ao salvar compromisso');
       await scheduleEventNotification(savedEvent, customMessage);
       navigation.goBack();
     } catch (error) {
@@ -127,29 +103,17 @@ const EventDetailsScreen = () => {
   };
 
   const formatDate = (dt) =>
-    dt.toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-
+    dt.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
   const formatTime = (dt) =>
-    dt.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
+    dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const handleTitleChange = (text) => {
     setTitle(text);
     updateNotificationMessage();
   };
-
   const handleClientChange = (text) => {
     setClient(text);
     updateNotificationMessage();
   };
-
   const handleLocationChange = (text) => {
     setLocation(text);
     updateNotificationMessage();
@@ -166,7 +130,6 @@ const EventDetailsScreen = () => {
           <Text h4 style={styles.title}>
             {editingEvent ? 'Editar Compromisso' : 'Novo Compromisso'}
           </Text>
-
           <Input
             label="Título"
             value={title}
@@ -179,23 +142,17 @@ const EventDetailsScreen = () => {
               setShowTimePicker(false);
             }}
           />
-
           <View style={styles.dateContainer}>
             <Text style={styles.label}>Data</Text>
             <Button
               title={formatDate(date)}
               type="outline"
-              icon={{
-                name: 'calendar-today',
-                size: 20,
-                color: '#6200ee',
-              }}
+              icon={{ name: 'calendar-today', size: 20, color: '#6200ee' }}
               buttonStyle={styles.dateButton}
               titleStyle={styles.dateButtonText}
               onPress={() => setShowDatePicker(true)}
             />
           </View>
-
           {showDatePicker && (
             <View style={styles.datePickerContainer}>
               <DateTimePicker
@@ -205,30 +162,20 @@ const EventDetailsScreen = () => {
                 onChange={handleDateChange}
                 locale="pt-BR"
               />
-              <Button
-                title="OK"
-                onPress={() => setShowDatePicker(false)}
-                buttonStyle={styles.okButton}
-              />
+              <Button title="OK" onPress={() => setShowDatePicker(false)} buttonStyle={styles.okButton} />
             </View>
           )}
-
           <View style={styles.timeContainer}>
             <Text style={styles.label}>Hora</Text>
             <Button
               title={formatTime(date)}
               type="outline"
-              icon={{
-                name: 'access-time',
-                size: 20,
-                color: '#6200ee',
-              }}
+              icon={{ name: 'access-time', size: 20, color: '#6200ee' }}
               buttonStyle={styles.dateButton}
               titleStyle={styles.dateButtonText}
               onPress={() => setShowTimePicker(true)}
             />
           </View>
-
           {showTimePicker && (
             <View style={styles.timePickerContainer}>
               <DateTimePicker
@@ -238,14 +185,9 @@ const EventDetailsScreen = () => {
                 onChange={handleTimeChange}
                 locale="pt-BR"
               />
-              <Button
-                title="OK"
-                onPress={() => setShowTimePicker(false)}
-                buttonStyle={styles.okButton}
-              />
+              <Button title="OK" onPress={() => setShowTimePicker(false)} buttonStyle={styles.okButton} />
             </View>
           )}
-
           <Text style={[styles.label, { marginTop: 16 }]}>Tipo</Text>
           <View style={styles.typeContainer}>
             {eventTypes.map((eventType) => (
@@ -258,19 +200,12 @@ const EventDetailsScreen = () => {
                   color: type === eventType.id ? 'white' : '#6200ee',
                 }}
                 type={type === eventType.id ? 'solid' : 'outline'}
-                buttonStyle={[
-                  styles.typeButton,
-                  type === eventType.id && styles.typeButtonActive,
-                ]}
-                titleStyle={[
-                  styles.typeButtonText,
-                  type === eventType.id && styles.typeButtonTextActive,
-                ]}
+                buttonStyle={[styles.typeButton, type === eventType.id && styles.typeButtonActive]}
+                titleStyle={[styles.typeButtonText, type === eventType.id && styles.typeButtonTextActive]}
                 onPress={() => setType(eventType.id)}
               />
             ))}
           </View>
-
           <Input
             label="Local"
             value={location}
@@ -282,7 +217,6 @@ const EventDetailsScreen = () => {
               setShowTimePicker(false);
             }}
           />
-
           <Input
             label="Cliente"
             value={client}
@@ -294,7 +228,6 @@ const EventDetailsScreen = () => {
               setShowTimePicker(false);
             }}
           />
-
           <Input
             label="Descrição"
             value={description}
@@ -306,10 +239,8 @@ const EventDetailsScreen = () => {
             onFocus={() => {
               setShowDatePicker(false);
               setShowTimePicker(false);
-              setTimeout(() => {}, 100);
             }}
           />
-
           <Input
             label="Mensagem da Notificação"
             value={customMessage}
@@ -321,15 +252,10 @@ const EventDetailsScreen = () => {
               setShowTimePicker(false);
             }}
           />
-
           <View style={styles.switchContainer}>
             <Text style={styles.switchLabel}>Enviar por e-mail</Text>
-            <Switch
-              value={sendEmailFlag}
-              onValueChange={setSendEmailFlag}
-            />
+            <Switch value={sendEmailFlag} onValueChange={setSendEmailFlag} />
           </View>
-
           <Button
             title="Salvar"
             icon={{ name: 'save', size: 20, color: 'white' }}
@@ -349,33 +275,14 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, color: '#86939e', marginBottom: 8 },
   dateContainer: { marginBottom: 16 },
   timeContainer: { marginBottom: 16 },
-  dateButton: {
-    borderColor: '#6200ee',
-    borderRadius: 10,
-    height: 50,
-  },
+  dateButton: { borderColor: '#6200ee', borderRadius: 10, height: 50 },
   dateButtonText: { color: '#6200ee' },
-  typeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  typeButton: {
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    backgroundColor: 'transparent',
-    borderColor: '#6200ee',
-    marginBottom: 8,
-  },
+  typeContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  typeButton: { borderRadius: 20, paddingHorizontal: 15, backgroundColor: 'transparent', borderColor: '#6200ee', marginBottom: 8 },
   typeButtonActive: { backgroundColor: '#6200ee' },
   typeButtonText: { color: '#6200ee', fontSize: 14 },
   typeButtonTextActive: { color: 'white' },
-  saveButton: {
-    backgroundColor: '#6200ee',
-    borderRadius: 10,
-    height: 50,
-  },
+  saveButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50 },
   datePickerContainer: {
     backgroundColor: '#fff',
     padding: 16,
@@ -396,17 +303,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  okButton: {
-    backgroundColor: '#6200ee',
-    borderRadius: 10,
-    height: 50,
-    marginTop: 16,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
+  okButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50, marginTop: 16 },
+  switchContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
   switchLabel: { flex: 1, fontSize: 16, color: '#86939e' },
 });
 

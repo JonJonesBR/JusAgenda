@@ -1,168 +1,151 @@
-import RNHTMLtoPDF from 'react-native-html-to-pdf';
-import ExcelJS from 'exceljs';
-import { Document, Packer, Paragraph, HeadingLevel } from 'docx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import moment from 'moment';
 
-/**
- * Exporta os compromissos para um arquivo e inicia o compartilhamento.
- *
- * @param {Array} events - Lista de compromissos a exportar.
- * @param {string} format - Formato de exportação ('pdf', 'excel', 'word' ou 'csv').
- * @returns {Promise<void>}
- * @throws {Error} Se a exportação falhar.
- */
-export const exportEvents = async (events, format) => {
-  try {
-    let filePath;
-    let fileType;
+export default class ExportService {
+  static async exportToExcel(data) {
+    try {
+      // Converte dados para CSV (formato simplificado)
+      const header = Object.keys(data[0]).join(',') + '\n';
+      const rows = data
+        .map(obj =>
+          Object.values(obj)
+            .map(value => (typeof value === 'string' ? `"${value}"` : value))
+            .join(',')
+        )
+        .join('\n');
+      const csvContent = header + rows;
 
-    switch (format) {
-      case 'pdf':
-        filePath = await generatePDFFile(events);
-        fileType = 'application/pdf';
-        break;
-      case 'excel':
-        filePath = await generateExcelFile(events);
-        fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        break;
-      case 'word':
-        filePath = await generateWordFile(events);
-        fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        break;
-      case 'csv':
-        filePath = await generateCSVFile(events);
-        fileType = 'text/csv';
-        break;
-      default:
-        throw new Error('Unsupported format');
+      // Cria arquivo temporário
+      const fileUri = `${FileSystem.documentDirectory}export.csv`;
+      await FileSystem.writeAsStringAsync(fileUri, csvContent);
+
+      // Verifica se o compartilhamento está disponível
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error('Compartilhamento não disponível');
+      }
+
+      // Compartilha o arquivo
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        UTI: 'public.comma-separated-values-text',
+        dialogTitle: 'Exportar dados'
+      });
+    } catch (error) {
+      console.error('Erro na exportação Excel:', error);
+      throw error;
     }
+  }
 
-    if (!(await Sharing.isAvailableAsync())) {
-      throw new Error('Sharing is not available');
+  static async exportToPDF(data, filename = 'export.pdf') {
+    try {
+      // Cria um conteúdo HTML com os dados dos eventos
+      const htmlContent = `
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Exportação de Eventos</title>
+            <style>
+              table { width: 100%; border-collapse: collapse; }
+              th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            </style>
+          </head>
+          <body>
+            <h1>Exportação de Eventos</h1>
+            <table>
+              <tr>
+                <th>Título</th>
+                <th>Data</th>
+                <th>Local</th>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th>Descrição</th>
+              </tr>
+              ${data
+                .map(
+                  event => `
+              <tr>
+                <td>${event.title}</td>
+                <td>${event.date}</td>
+                <td>${event.location}</td>
+                <td>${event.client}</td>
+                <td>${event.type}</td>
+                <td>${event.description}</td>
+              </tr>`
+                )
+                .join('')}
+            </table>
+          </body>
+        </html>
+      `;
+
+      // Gera o arquivo PDF utilizando o expo-print
+      const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
+
+      // Compartilha o arquivo PDF
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Exportar PDF'
+      });
+    } catch (error) {
+      console.error('Erro na exportação para PDF:', error);
+      throw error;
     }
-
-    await Sharing.shareAsync(filePath, {
-      mimeType: fileType,
-      dialogTitle: 'Export Events',
-      UTI: fileType,
-    });
-  } catch (error) {
-    console.error('Error exporting events:', error);
-    throw new Error('Failed to export events');
-  }
-};
-
-const generatePDFFile = async (events) => {
-  let html = '<h1>Compromissos</h1>';
-  events.forEach((event) => {
-    html += `<h2>Título: ${event.title}</h2>`;
-    html += `<p>Data: ${moment(event.date).format('DD/MM/YYYY HH:mm')}</p>`;
-    html += `<p>Local: ${event.location}</p>`;
-    html += `<p>Cliente: ${event.client}</p>`;
-    html += `<p>Tipo: ${event.type}</p>`;
-    html += `<p>Descrição: ${event.description}</p>`;
-    html += '<hr>';
-  });
-
-  const options = {
-    html,
-    fileName: 'compromissos',
-    directory: 'Documents',
-  };
-
-  const result = await RNHTMLtoPDF.convert(options);
-  if (!result || !result.filePath) {
-    throw new Error("Falha ao gerar o PDF.");
-  }
-  return result.filePath;
-};
-
-const generateExcelFile = async (events) => {
-  const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Compromissos');
-
-  worksheet.columns = [
-    { header: 'Título', key: 'title' },
-    { header: 'Data', key: 'date' },
-    { header: 'Local', key: 'location' },
-    { header: 'Cliente', key: 'client' },
-    { header: 'Tipo', key: 'type' },
-    { header: 'Descrição', key: 'description' },
-  ];
-
-  events.forEach((event) => {
-    worksheet.addRow({
-      title: event.title,
-      date: moment(event.date).format('DD/MM/YYYY HH:mm'),
-      location: event.location,
-      client: event.client,
-      type: event.type,
-      description: event.description,
-    });
-  });
-
-  const filePath = `${FileSystem.documentDirectory}compromissos.xlsx`;
-  await workbook.xlsx.writeFile(filePath);
-  return filePath;
-};
-
-const generateWordFile = async (events) => {
-  const doc = new Document({
-    creator: "JusAgenda",
-    title: "Compromissos",
-    description: "Exportação dos compromissos para Word",
-  });
-
-  if (events.length === 0) {
-    throw new Error("Nenhum evento para exportar.");
   }
 
-  events.forEach((event) => {
-    doc.addSection({
-      children: [
-        new Paragraph({
-          text: `Título: ${event.title || 'Sem título'}`,
-          heading: HeadingLevel.HEADING_1,
-        }),
-        new Paragraph(`Data: ${moment(event.date).format('DD/MM/YYYY HH:mm')}`),
-        new Paragraph(`Local: ${event.location || 'Sem local definido'}`),
-        new Paragraph(`Cliente: ${event.client || 'Sem cliente definido'}`),
-        new Paragraph(`Tipo: ${event.type || 'Sem tipo definido'}`),
-        new Paragraph(`Descrição: ${event.description || 'Sem descrição'}`),
-      ],
-    });
-  });
+  static async exportToWord(data, filename = 'export.doc') {
+    try {
+      // Cria um conteúdo HTML compatível com o Word
+      const htmlContent = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office'
+              xmlns:w='urn:schemas-microsoft-com:office:word'
+              xmlns='http://www.w3.org/TR/REC-html40'>
+          <head>
+            <meta charset="utf-8">
+            <title>Exportação de Eventos</title>
+          </head>
+          <body>
+            <h1>Exportação de Eventos</h1>
+            <table border="1" style="border-collapse: collapse;">
+              <tr>
+                <th>Título</th>
+                <th>Data</th>
+                <th>Local</th>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th>Descrição</th>
+              </tr>
+              ${data
+                .map(
+                  event => `
+              <tr>
+                <td>${event.title}</td>
+                <td>${event.date}</td>
+                <td>${event.location}</td>
+                <td>${event.client}</td>
+                <td>${event.type}</td>
+                <td>${event.description}</td>
+              </tr>`
+                )
+                .join('')}
+            </table>
+          </body>
+        </html>
+      `;
 
-  const packer = new Packer();
-  const buffer = await packer.toBuffer(doc);
-  const filePath = `${FileSystem.documentDirectory}compromissos.docx`;
-  const base64Data = Buffer.from(buffer).toString('base64');
-  await FileSystem.writeAsStringAsync(filePath, base64Data, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  return filePath;
-};
+      // Define o caminho do arquivo Word
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, htmlContent, { encoding: FileSystem.EncodingType.UTF8 });
 
-const generateCSVFile = async (events) => {
-  const headers = ['Título', 'Data', 'Local', 'Cliente', 'Tipo', 'Descrição'];
-  const rows = events.map((event) => [
-    event.title,
-    new Date(event.date).toLocaleString(),
-    event.location,
-    event.client,
-    event.type,
-    event.description,
-  ]);
-
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell}"`).join(','))
-    .join('\n');
-
-  const filePath = `${FileSystem.documentDirectory}compromissos.csv`;
-  await FileSystem.writeAsStringAsync(filePath, csvContent, {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
-  return filePath;
-};
+      // Compartilha o arquivo Word
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/msword',
+        dialogTitle: 'Exportar Word'
+      });
+    } catch (error) {
+      console.error('Erro na exportação para Word:', error);
+      throw error;
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -10,50 +10,30 @@ import {
 import { lightTheme } from '../constants/colors';
 import { Feather } from '@expo/vector-icons';
 
-// Lista dos tipos de eventos (sem acentos) para compatibilidade com os dados salvos
-const filters = ['audiencia', 'reuniao', 'prazo', 'outros'];
+const FILTERS = ['audiencia', 'reuniao', 'prazo', 'outros'];
+
+const FILTER_LABELS = {
+  audiencia: 'Audiência',
+  reuniao: 'Reunião',
+  prazo: 'Prazo',
+  outros: 'Outros',
+};
 
 const SearchFilter = ({ onSearch }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState({});
 
-  // Processa a busca e aplica os filtros selecionados
-  const handleSearchSubmit = () => {
-    const activeFilters = Object.keys(selectedFilters).filter(
-      (key) => selectedFilters[key]
-    );
+  const handleSearchSubmit = useCallback(() => {
+    const activeFilters = Object.keys(selectedFilters).filter(key => selectedFilters[key]);
+    onSearch({ term: searchTerm.trim(), filters: activeFilters });
+  }, [selectedFilters, searchTerm, onSearch]);
 
-    const searchParams = {
-      term: searchTerm.trim(),
-      filters: activeFilters,
-    };
-
-    onSearch(searchParams);
+  const toggleFilter = filterKey => {
+    setSelectedFilters(prev => ({ ...prev, [filterKey]: !prev[filterKey] }));
   };
 
-  // Alterna o estado (ligado/desligado) de um filtro específico
-  const toggleFilter = (filterKey) => {
-    setSelectedFilters((prev) => ({
-      ...prev,
-      [filterKey]: !prev[filterKey],
-    }));
-  };
-
-  // Quantifica os filtros atualmente ativos
-  const activeFilterCount = Object.values(selectedFilters).filter(Boolean)
-    .length;
-
-  // Retorna o rótulo formatado com acento para exibição
-  const getFilterLabel = (filter) => {
-    const labels = {
-      audiencia: 'Audiência',
-      reuniao: 'Reunião',
-      prazo: 'Prazo',
-      outros: 'Outros',
-    };
-    return labels[filter] || filter;
-  };
+  const activeFilterCount = Object.values(selectedFilters).filter(Boolean).length;
 
   return (
     <View style={styles.container}>
@@ -74,7 +54,7 @@ const SearchFilter = ({ onSearch }) => {
           accessibilityRole="search"
           style={[styles.searchInput, { color: lightTheme.text }]}
           placeholder="Buscar compromissos (Ex: Reunião, audiência...)"
-          placeholderTextColor={lightTheme.text + '60'}
+          placeholderTextColor={`${lightTheme.text}60`}
           value={searchTerm}
           onChangeText={setSearchTerm}
           onSubmitEditing={handleSearchSubmit}
@@ -111,19 +91,19 @@ const SearchFilter = ({ onSearch }) => {
             <Text style={[styles.modalTitle, { color: lightTheme.text }]}>
               Filtrar por tipo
             </Text>
-            {filters.map((filter) => (
+            {FILTERS.map((filter) => (
               <TouchableOpacity
                 key={filter}
                 style={[
                   styles.filterItem,
                   selectedFilters[filter] && {
-                    backgroundColor: lightTheme.primary + '20',
+                    backgroundColor: `${lightTheme.primary}20`,
                   },
                 ]}
                 onPress={() => toggleFilter(filter)}
               >
                 <Text style={[styles.filterText, { color: lightTheme.text }]}>
-                  {getFilterLabel(filter)}
+                  {FILTER_LABELS[filter]}
                 </Text>
                 {selectedFilters[filter] && (
                   <Feather

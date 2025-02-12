@@ -69,20 +69,19 @@ const CalendarScreen = () => {
 
   const formatTime = (dateStr) => {
     const dateObj = new Date(dateStr);
-    return dateObj.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
 
   const getDayEvents = (dateString) => {
-    return events.filter(
-      (event) => event.date.split('T')[0] === dateString
-    );
+    return events.filter((event) => event.date.split('T')[0] === dateString);
   };
 
   const handleEventPress = (event) => {
     navigation.navigate('EventDetails', { event });
+  };
+
+  const handleAddEvent = () => {
+    navigation.navigate('EventDetails');
   };
 
   const renderEvents = useCallback(() => {
@@ -154,24 +153,10 @@ const CalendarScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   eventsContainer: { flex: 1, padding: 16 },
-  emptyCard: {
-    borderRadius: 10,
-    padding: 24,
-    alignItems: 'center',
-    elevation: 4,
-  },
+  emptyCard: { borderRadius: 10, padding: 24, alignItems: 'center', elevation: 4 },
   emptyText: { marginTop: 16, fontSize: 16, color: '#757575' },
-  eventCard: {
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 8,
-    elevation: 4,
-  },
-  eventHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
+  eventCard: { borderRadius: 10, padding: 16, marginBottom: 8, elevation: 4 },
+  eventHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   eventType: { flex: 1, marginLeft: 8, fontSize: 14, color: '#757575' },
   eventTime: { fontSize: 14, color: '#000' },
   eventTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#000' },

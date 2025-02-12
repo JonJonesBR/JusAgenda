@@ -10,7 +10,6 @@ import 'moment/locale/pt-br';
 import HomeScreen from './src/screens/HomeScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import SearchScreen from './src/screens/SearchScreen';
-import AddEventScreen from './src/screens/AddEventScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import { EventProvider } from './src/contexts/EventContext';
 
@@ -144,14 +143,6 @@ const App = () => {
             name="Main"
             component={MainNavigator}
             options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="AddEvent"
-            component={AddEventScreen}
-            options={({ route }) => {
-              const hasEvent = route?.params?.event ?? false;
-              return { title: hasEvent ? 'Editar Evento' : 'Novo Evento' };
-            }}
           />
         </Stack.Navigator>
       </NavigationContainer>

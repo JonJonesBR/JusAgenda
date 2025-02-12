@@ -20,7 +20,7 @@ const SearchScreen = () => {
     { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
     { id: 'reuniao', label: 'Reunião', icon: 'groups' },
     { id: 'prazo', label: 'Prazo', icon: 'timer' },
-    { id: 'outros', label: 'Outros', icon: 'event' },
+    { id: 'outros', label: 'Outros', icon: 'event' }
   ];
 
   const toggleFilter = (filterId) => {
@@ -32,15 +32,14 @@ const SearchScreen = () => {
   };
 
   const handleSearch = useCallback(() => {
-    const term = searchTerm.toLowerCase().trim();
+    const termLower = searchTerm.toLowerCase().trim();
     let filtered = events;
-    if (term) {
-      filtered = filtered.filter(
-        (event) =>
-          event.title?.toLowerCase().includes(term) ||
-          event.client?.toLowerCase().includes(term) ||
-          event.description?.toLowerCase().includes(term) ||
-          event.location?.toLowerCase().includes(term)
+    if (termLower) {
+      filtered = filtered.filter((event) =>
+        event.title?.toLowerCase().includes(termLower) ||
+        event.client?.toLowerCase().includes(termLower) ||
+        event.description?.toLowerCase().includes(termLower) ||
+        event.location?.toLowerCase().includes(termLower)
       );
     }
     if (selectedFilters.length > 0) {
@@ -53,8 +52,11 @@ const SearchScreen = () => {
   }, [searchTerm, selectedFilters, events]);
 
   useEffect(() => {
-    if (searchTerm || selectedFilters.length > 0) handleSearch();
-    else setSearchResults([]);
+    if (searchTerm || selectedFilters.length > 0) {
+      handleSearch();
+    } else {
+      setSearchResults([]);
+    }
   }, [events, handleSearch, searchTerm, selectedFilters]);
 
   const formatDate = (dateString) => {
@@ -62,7 +64,7 @@ const SearchScreen = () => {
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
-      year: 'numeric',
+      year: 'numeric'
     });
   };
 
@@ -104,20 +106,16 @@ const SearchScreen = () => {
               icon={{
                 name: filter.icon,
                 size: 20,
-                color: selectedFilters.includes(filter.id)
-                  ? 'white'
-                  : '#6200ee',
+                color: selectedFilters.includes(filter.id) ? 'white' : '#6200ee'
               }}
-              type={
-                selectedFilters.includes(filter.id) ? 'solid' : 'outline'
-              }
+              type={selectedFilters.includes(filter.id) ? 'solid' : 'outline'}
               buttonStyle={[
                 styles.filterButton,
-                selectedFilters.includes(filter.id) && styles.filterButtonActive,
+                selectedFilters.includes(filter.id) && styles.filterButtonActive
               ]}
               titleStyle={[
                 styles.filterButtonText,
-                selectedFilters.includes(filter.id) && styles.filterButtonTextActive,
+                selectedFilters.includes(filter.id) && styles.filterButtonTextActive
               ]}
               onPress={() => {
                 toggleFilter(filter.id);
@@ -139,45 +137,35 @@ const SearchScreen = () => {
       {searchResults.length > 0 ? (
         <View style={styles.resultsContainer}>
           <Text style={styles.resultsTitle}>
-            {searchResults.length}{' '}
-            {searchResults.length === 1
-              ? 'resultado encontrado'
-              : 'resultados encontrados'}
+            {searchResults.length} {searchResults.length === 1 ? 'resultado encontrado' : 'resultados encontrados'}
           </Text>
           {searchResults.map((event) => {
-            const icon =
-              filters.find((f) => f.id === event.type?.toLowerCase()) || { icon: 'event' };
+            const filterObj = filters.find((f) => f.id === event.type?.toLowerCase()) || { icon: 'event' };
             return (
               <Card key={event.id} containerStyle={styles.resultCard}>
                 <TouchableOpacity onPress={() => handleEventPress(event)}>
                   <View style={styles.resultHeader}>
                     <Icon
-                      name={icon.icon}
+                      name={filterObj.icon}
                       color="#6200ee"
                       size={24}
                       style={styles.resultIcon}
                     />
                     <View style={styles.resultInfo}>
                       <Text style={styles.resultTitle}>{event.title}</Text>
-                      <Text style={styles.resultDate}>
-                        {formatDate(event.date)}
-                      </Text>
+                      <Text style={styles.resultDate}>{formatDate(event.date)}</Text>
                     </View>
                   </View>
                   {event.location && (
                     <View style={styles.resultDetail}>
                       <Icon name="location-on" size={16} color="#757575" />
-                      <Text style={styles.resultDetailText}>
-                        {event.location}
-                      </Text>
+                      <Text style={styles.resultDetailText}>{event.location}</Text>
                     </View>
                   )}
                   {event.client && (
                     <View style={styles.resultDetail}>
                       <Icon name="person" size={16} color="#757575" />
-                      <Text style={styles.resultDetailText}>
-                        {event.client}
-                      </Text>
+                      <Text style={styles.resultDetailText}>{event.client}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -185,12 +173,10 @@ const SearchScreen = () => {
             );
           })}
         </View>
-      ) : searchTerm || selectedFilters.length > 0 ? (
+      ) : (searchTerm || selectedFilters.length > 0) ? (
         <Card containerStyle={styles.noResultsCard}>
           <Icon name="search-off" size={48} color="#757575" />
-          <Text style={styles.noResultsText}>
-            Nenhum compromisso encontrado
-          </Text>
+          <Text style={styles.noResultsText}>Nenhum compromisso encontrado</Text>
         </Card>
       ) : (
         <Card containerStyle={styles.tipsCard}>
@@ -204,7 +190,7 @@ const SearchScreen = () => {
           <View style={styles.tipItem}>
             <Icon name="info" color="#6200ee" size={20} />
             <Text style={styles.tipText}>
-              Use palavras-chave específicas para encontrar compromissos mais facilmente.
+              Use palavras-chave específicas para encontrar compromissos com facilidade.
             </Text>
           </View>
           <View style={styles.tipItem}>
@@ -250,7 +236,7 @@ const styles = StyleSheet.create({
   cardTitleContainer: { flexDirection: 'row', alignItems: 'center' },
   cardTitle: { fontSize: 18, marginLeft: 8, color: '#6200ee' },
   tipItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  tipText: { marginLeft: 12, fontSize: 14, color: '#000', flex: 1 },
+  tipText: { marginLeft: 12, fontSize: 14, color: '#000', flex: 1 }
 });
 
 export default SearchScreen;

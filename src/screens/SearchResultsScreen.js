@@ -14,7 +14,7 @@ const SearchResultsScreen = () => {
   const searchForEvents = () => {
     const results = searchEvents(term || '');
     if (filters && filters.length > 0) {
-      const filteredResults = results.filter((event) =>
+      const filteredResults = results.filter(event =>
         filters.includes(event.type?.toLowerCase())
       );
       setEvents(filteredResults);
@@ -48,7 +48,7 @@ const SearchResultsScreen = () => {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
-      year: 'numeric',
+      year: 'numeric'
     });
   };
 
@@ -72,7 +72,10 @@ const SearchResultsScreen = () => {
       {events.map((event) => {
         const icon = getEventTypeIcon(event.type);
         return (
-          <TouchableOpacity key={event.id} onPress={() => navigation.navigate('EventDetails', { event })}>
+          <TouchableOpacity
+            key={event.id}
+            onPress={() => navigation.navigate('EventDetails', { event })}
+          >
             <Card containerStyle={styles.card}>
               <View style={styles.cardHeader}>
                 <Icon name={icon.name} color={icon.color} size={24} />
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
   locationContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   location: { marginLeft: 8, fontSize: 14, color: '#000', flex: 1 },
   clientContainer: { flexDirection: 'row', alignItems: 'center' },
-  client: { marginLeft: 8, fontSize: 14, color: '#000', flex: 1 },
+  client: { marginLeft: 8, fontSize: 14, color: '#000', flex: 1 }
 });
 
 export default SearchResultsScreen;

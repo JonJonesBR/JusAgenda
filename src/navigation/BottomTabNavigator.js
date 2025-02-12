@@ -4,12 +4,10 @@ import { Icon } from '@rneui/themed';
 import HomeScreen from '../screens/HomeScreen';
 import SearchScreen from '../screens/SearchScreen';
 import CalendarScreen from '../screens/CalendarScreen';
+import UpcomingEventsScreen from '../screens/UpcomingEventsScreen';
 
 const Tab = createBottomTabNavigator();
 
-/**
- * Navigator de abas inferior, definindo a navegação entre as principais telas.
- */
 const BottomTabNavigator = () => {
   return (
     <Tab.Navigator
@@ -57,6 +55,16 @@ const BottomTabNavigator = () => {
           title: 'Agenda',
           tabBarIcon: ({ color }) => (
             <Icon name="calendar-today" type="material" color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="UpcomingEvents"
+        component={UpcomingEventsScreen}
+        options={{
+          title: 'Eventos Próximos',
+          tabBarIcon: ({ color }) => (
+            <Icon name="event" type="material" color={color} />
           ),
         }}
       />

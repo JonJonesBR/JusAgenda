@@ -15,7 +15,7 @@ class ErrorBoundary extends React.Component {
   // Registra o erro e informações adicionais para fins de depuração
   componentDidCatch(error, errorInfo) {
     console.error('Erro capturado pelo ErrorBoundary:', error, errorInfo);
-    // Aqui é possível integrar com serviços de monitoramento de erros (ex.: Sentry)
+    // Integração com serviços de monitoramento (ex: Sentry) pode ser feita aqui
   }
 
   // Método para resetar o estado e tentar renderizar novamente os filhos
