@@ -1,73 +1,37 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Icon } from '@rneui/themed';
-import HomeScreen from '../screens/HomeScreen';
-import SearchScreen from '../screens/SearchScreen';
-import CalendarScreen from '../screens/CalendarScreen';
-import UpcomingEventsScreen from '../screens/UpcomingEventsScreen';
+import HomeStack from './stacks/HomeStack';
+import CalendarStack from './stacks/CalendarStack';
+import SearchStack from './stacks/SearchStack';
+import { Tab, tabConfig } from './navigationConfig';
 
-const Tab = createBottomTabNavigator();
+const getTabIcon = (routeName) => {
+  switch (routeName) {
+    case 'Home':
+      return 'home';
+    case 'Calendar':
+      return 'calendar-today';
+    case 'Search':
+      return 'search';
+    default:
+      return 'circle';
+  }
+};
 
 const BottomTabNavigator = () => {
   return (
     <Tab.Navigator
-      screenOptions={{
-        tabBarActiveTintColor: '#6200ee',
-        tabBarInactiveTintColor: '#757575',
-        tabBarStyle: {
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        headerStyle: {
-          backgroundColor: '#6200ee',
-        },
-        headerTintColor: '#ffffff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
+      {...tabConfig}
+      screenOptions={({ route }) => ({
+        ...tabConfig.screenOptions,
+        tabBarIcon: ({ color, size }) => (
+          <Icon name={getTabIcon(route.name)} size={size} color={color} />
+        ),
+      })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          title: 'Início',
-          tabBarIcon: ({ color }) => (
-            <Icon name="home" type="material" color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Search"
-        component={SearchScreen}
-        options={{
-          title: 'Buscar',
-          tabBarIcon: ({ color }) => (
-            <Icon name="search" type="material" color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Calendar"
-        component={CalendarScreen}
-        options={{
-          title: 'Agenda',
-          tabBarIcon: ({ color }) => (
-            <Icon name="calendar-today" type="material" color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="UpcomingEvents"
-        component={UpcomingEventsScreen}
-        options={{
-          title: 'Eventos Próximos',
-          tabBarIcon: ({ color }) => (
-            <Icon name="event" type="material" color={color} />
-          ),
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeStack} options={{ title: 'Início' }} />
+      <Tab.Screen name="Calendar" component={CalendarStack} options={{ title: 'Agenda' }} />
+      <Tab.Screen name="Search" component={SearchStack} options={{ title: 'Buscar' }} />
     </Tab.Navigator>
   );
 };

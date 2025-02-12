@@ -1,6 +1,4 @@
-// Gera um ID único sem dependências externas.
-const generateId = () =>
-  Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+import { generateId, EVENT_TYPES } from '../utils/common';
 
 // Simula um banco de dados local com alguns compromissos de exemplo.
 let compromissos = [
@@ -10,7 +8,7 @@ let compromissos = [
     date: '2025-01-10T14:00:00.000Z',
     location: 'Fórum Central',
     client: 'João Silva',
-    type: 'audiencia',
+    type: EVENT_TYPES.AUDIENCIA,
     description: 'Audiência de instrução e julgamento',
     notificationId: null,
     calendarEventId: null,
@@ -21,7 +19,7 @@ let compromissos = [
     date: '2025-01-15T10:00:00.000Z',
     location: 'Escritório',
     client: 'Maria Santos',
-    type: 'reuniao',
+    type: EVENT_TYPES.REUNIAO,
     description: 'Discussão sobre novo caso',
     notificationId: null,
     calendarEventId: null,
@@ -32,7 +30,7 @@ let compromissos = [
     date: '2025-01-20T23:59:59.000Z',
     location: 'Online',
     client: 'Pedro Oliveira',
-    type: 'prazo',
+    type: EVENT_TYPES.PRAZO,
     description: 'Último dia para apresentar recurso',
     notificationId: null,
     calendarEventId: null,

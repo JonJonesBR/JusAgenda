@@ -4,6 +4,7 @@ import {
   ScrollView,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
 import { useNavigation } from '@react-navigation/native';
@@ -43,8 +44,26 @@ const UpcomingEvents = () => {
     });
   };
 
-  const handleEditEvent = (event) => {
-    navigation.navigate('EventDetails', { event });
+  const handleEventPress = (event) => {
+    Alert.alert(
+      'Opções',
+      'O que você deseja fazer?',
+      [
+        {
+          text: 'Visualizar',
+          onPress: () => navigation.navigate('EventView', { event }),
+        },
+        {
+          text: 'Editar',
+          onPress: () => navigation.navigate('EventDetails', { event }),
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   if (upcomingEvents.length === 0) {
@@ -63,7 +82,7 @@ const UpcomingEvents = () => {
         return (
           <TouchableOpacity
             key={event.id}
-            onPress={() => handleEditEvent(event)}
+            onPress={() => handleEventPress(event)}
           >
             <Card containerStyle={styles.card}>
               <View style={styles.cardHeader}>

@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
 import { Calendar } from 'react-native-calendars';
 import { useNavigation } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
-import moment from 'moment';
-import 'moment/locale/pt-br';
+import { formatDate, formatTime } from '../utils/dateUtils';
 
 const CalendarScreen = () => {
   const navigation = useNavigation();
@@ -14,7 +13,6 @@ const CalendarScreen = () => {
   const [markedDates, setMarkedDates] = useState({});
 
   useEffect(() => {
-    moment.locale('pt-br');
     refreshEvents();
   }, [refreshEvents]);
 
@@ -57,27 +55,30 @@ const CalendarScreen = () => {
     }
   };
 
-  const formatDate = (dateStr) => {
-    const dateObj = new Date(dateStr);
-    return dateObj.toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const formatTime = (dateStr) => {
-    const dateObj = new Date(dateStr);
-    return dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  };
-
   const getDayEvents = (dateString) => {
     return events.filter((event) => event.date.split('T')[0] === dateString);
   };
 
   const handleEventPress = (event) => {
-    navigation.navigate('EventDetails', { event });
+    Alert.alert(
+      'Opções',
+      'O que você deseja fazer?',
+      [
+        {
+          text: 'Visualizar',
+          onPress: () => navigation.navigate('EventView', { event }),
+        },
+        {
+          text: 'Editar',
+          onPress: () => navigation.navigate('EventDetails', { event }),
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleAddEvent = () => {
@@ -98,7 +99,10 @@ const CalendarScreen = () => {
     return dayEvents.map((event) => {
       const icon = getEventTypeIcon(event.type);
       return (
-        <TouchableOpacity key={event.id} onPress={() => handleEventPress(event)}>
+        <TouchableOpacity 
+          key={event.id} 
+          onPress={() => handleEventPress(event)}
+        >
           <Card containerStyle={styles.eventCard}>
             <View style={styles.eventHeader}>
               <Icon name={icon.name} color={icon.color} size={24} />

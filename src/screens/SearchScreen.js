@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SearchBar, Button, Text, Card, Icon } from '@rneui/themed';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
@@ -69,7 +69,25 @@ const SearchScreen = () => {
   };
 
   const handleEventPress = (event) => {
-    navigation.navigate('EventDetails', { event });
+    Alert.alert(
+      'Opções',
+      'O que você deseja fazer?',
+      [
+        {
+          text: 'Visualizar',
+          onPress: () => navigation.navigate('EventView', { event }),
+        },
+        {
+          text: 'Editar',
+          onPress: () => navigation.navigate('EventDetails', { event }),
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   return (

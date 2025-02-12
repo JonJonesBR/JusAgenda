@@ -39,48 +39,33 @@ export const requestPermissions = async () => {
 };
 
 /**
- * Agenda uma notificação para um evento.
- *
- * @param {Object} event - Objeto do evento.
- * @param {string} customMessage - Mensagem customizada para a notificação.
- * @returns {Promise<string|null>} ID da notificação se agendada, ou null em caso de erro.
+ * Gerencia notificações do aplicativo.
+ * Requer permissões do usuário para funcionar.
  */
-export const scheduleEventNotification = async (event, customMessage) => {
-  const notificationDate = new Date(event.date);
-  // Agenda a notificação 24 horas antes do evento.
-  notificationDate.setDate(notificationDate.getDate() - 1);
+class NotificationService {
+  /**
+   * Agenda uma notificação para um evento
+   * @param {Object} event - Evento para notificar
+   * @param {string} customMessage - Mensagem personalizada (opcional)
+   * @returns {string} ID da notificação agendada
+   */
+  async scheduleNotification(event, customMessage) {
+    const trigger = new Date(event.date);
+    trigger.setDate(trigger.getDate() - 1); // Notifica 1 dia antes
 
-  try {
-    const notificationId = await Notifications.scheduleNotificationAsync({
+    return await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Lembrete de Evento',
-        body: customMessage || `Você tem um evento "${event.title}" amanhã`,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        data: { eventId: event.id },
+        title: 'Lembrete de Compromisso',
+        body: customMessage || `Você tem ${event.title} amanhã`,
       },
-      trigger: { date: notificationDate },
+      trigger,
     });
-
-    return notificationId;
-  } catch (error) {
-    console.error('Erro ao agendar notificação:', error);
-    return null;
   }
-};
 
-/**
- * Cancela uma notificação agendada.
- *
- * @param {string} notificationId - ID da notificação.
- * @returns {Promise<boolean>} True se cancelada, false caso contrário.
- */
-export const cancelEventNotification = async (notificationId) => {
-  try {
+  // Métodos utilitários simples não precisam de documentação extensa
+  async cancelNotification(notificationId) {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
-    return true;
-  } catch (error) {
-    console.error('Erro ao cancelar notificação:', error);
-    return false;
   }
-};
+}
+
+export default new NotificationService();

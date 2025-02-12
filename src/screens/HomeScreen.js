@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, Text, Button, StatusBar, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, Text, Button, StatusBar, Dimensions, Alert } from 'react-native';
 import { FAB, Card, Icon } from '@rneui/themed';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
 import UpcomingEvents from '../components/UpcomingEvents';
 import { LinearGradient } from 'expo-linear-gradient';
 import ExportService from '../services/ExportService';
-import moment from 'moment';
-import 'moment/locale/pt-br';
+import { formatDateTime, isToday } from '../utils/dateUtils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,7 +28,25 @@ const HomeScreen = () => {
   };
 
   const handleEventPress = (event) => {
-    navigation.navigate('EventDetails', { event });
+    Alert.alert(
+      'Opções',
+      'O que você deseja fazer?',
+      [
+        {
+          text: 'Visualizar',
+          onPress: () => navigation.navigate('EventView', { event }),
+        },
+        {
+          text: 'Editar',
+          onPress: () => navigation.navigate('EventDetails', { event }),
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleExport = async (format) => {
@@ -52,9 +69,9 @@ const HomeScreen = () => {
     }
   };
 
-  const today = moment().format('YYYY-MM-DD');
+  const today = isToday(new Date());
   const todayEvents = events.filter((event) =>
-    moment(event.date).format('YYYY-MM-DD') === today
+    isToday(new Date(event.date))
   );
 
   return (
@@ -83,7 +100,7 @@ const HomeScreen = () => {
                   <View style={styles.dateContainer}>
                     <Icon name="calendar-today" size={20} color="#757575" />
                     <Text style={styles.date}>
-                      {moment(event.date).format('DD/MM/YYYY HH:mm')}
+                      {formatDateTime(event.date)}
                     </Text>
                   </View>
                 </Card>

@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
-import moment from 'moment';
+import { formatDateTime } from '../utils/dateUtils';
 
 export default class ExportService {
   static async exportToExcel(data) {
@@ -67,7 +67,7 @@ export default class ExportService {
                   event => `
               <tr>
                 <td>${event.title}</td>
-                <td>${event.date}</td>
+                <td>${formatDateTime(event.date)}</td>
                 <td>${event.location}</td>
                 <td>${event.client}</td>
                 <td>${event.type}</td>
@@ -121,7 +121,7 @@ export default class ExportService {
                   event => `
               <tr>
                 <td>${event.title}</td>
-                <td>${event.date}</td>
+                <td>${formatDateTime(event.date)}</td>
                 <td>${event.location}</td>
                 <td>${event.client}</td>
                 <td>${event.type}</td>
