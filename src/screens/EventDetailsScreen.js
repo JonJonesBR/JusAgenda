@@ -1,17 +1,33 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Switch } from 'react-native';
-import { Text, Input, Button } from '@rneui/themed';
+import { Text, Input, Button, Divider, ButtonGroup } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
 import { requestPermissions, scheduleEventNotification } from '../services/NotificationService';
+import { Picker } from '@react-native-picker/picker';
+import { COLORS } from '../utils/common';
 
-const eventTypes = [
-  { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
-  { id: 'reuniao', label: 'Reunião', icon: 'groups' },
-  { id: 'prazo', label: 'Prazo', icon: 'timer' },
-  { id: 'outros', label: 'Outros', icon: 'event' },
-];
+const COMPETENCIAS = {
+  CIVEL: 'Cível',
+  CONSUMIDOR: 'Consumidor',
+  CRIMINAL: 'Criminal',
+  TRABALHISTA: 'Trabalhista',
+  PREVIDENCIARIO: 'Previdenciário',
+  TRIBUTARIO: 'Tributário',
+  FAMILIA: 'Família',
+  ADMINISTRATIVO: 'Administrativo',
+};
+
+const TIPOS_COMPROMISSO = {
+  AUDIENCIA: 'Audiência',
+  REUNIAO: 'Reunião',
+  PRAZO: 'Prazo',
+  DESPACHO: 'Despacho',
+  PERICIA: 'Perícia',
+  JULGAMENTO: 'Julgamento',
+  SUSTENTACAO: 'Sustentação Oral',
+};
 
 const EventDetailsScreen = () => {
   const navigation = useNavigation();
@@ -19,15 +35,58 @@ const EventDetailsScreen = () => {
   const editingEvent = route.params?.event;
   const { addEvent, updateEvent } = useEvents();
 
-  const [title, setTitle] = useState(editingEvent?.title || '');
-  const [date, setDate] = useState(editingEvent ? new Date(editingEvent.date) : new Date());
+  const [formData, setFormData] = useState({
+    // Dados do Processo
+    numeroProcesso: '',
+    competencia: '',
+    vara: '',
+    comarca: '',
+    estado: '',
+    
+    // Partes do Processo
+    cliente: '',
+    reu: '',
+    
+    // Contatos
+    telefoneCliente: '',
+    emailCliente: '',
+    telefoneReu: '',
+    emailReu: '',
+    
+    // Dados do Compromisso
+    tipo: '',
+    data: new Date(),
+    descricao: '',
+    observacoes: '',
+    
+    // Localização
+    local: '',
+    sala: '',
+    andar: '',
+    predio: '',
+    
+    // Valores
+    valorCausa: '',
+    honorarios: '',
+    
+    // Status e Prazos
+    statusProcesso: '',
+    proximoPrazo: '',
+    
+    // Documentos Necessários
+    documentosNecessarios: '',
+    
+    // Outros Participantes
+    juiz: '',
+    promotor: '',
+    perito: '',
+    prepostoCliente: '',
+    testemunhas: '',
+  });
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [type, setType] = useState(editingEvent?.type || 'audiencia');
-  const [location, setLocation] = useState(editingEvent?.location || '');
-  const [client, setClient] = useState(editingEvent?.client || '');
-  const [description, setDescription] = useState(editingEvent?.description || '');
-  const [customMessage, setCustomMessage] = useState(`Você tem um compromisso "${title}" amanhã`);
+  const [customMessage, setCustomMessage] = useState(`Você tem um compromisso "${formData.descricao}" amanhã`);
   const [sendEmailFlag, setSendEmailFlag] = useState(false);
 
   useEffect(() => {
@@ -35,34 +94,34 @@ const EventDetailsScreen = () => {
   }, []);
 
   const updateNotificationMessage = useCallback(() => {
-    const formattedDate = date.toLocaleDateString('pt-BR');
-    const formattedTime = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const eventLabel = type.charAt(0).toUpperCase() + type.slice(1);
+    const formattedDate = formData.data.toLocaleDateString('pt-BR');
+    const formattedTime = formData.data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const eventLabel = TIPOS_COMPROMISSO[formData.tipo] || '';
     setCustomMessage(
-      `Compromisso: ${eventLabel} de ${client} no dia ${formattedDate} às ${formattedTime} no Fórum de ${location}`
+      `Compromisso: ${eventLabel} de ${formData.cliente} no dia ${formattedDate} às ${formattedTime} no Fórum de ${formData.local}`
     );
-  }, [date, type, client, location]);
+  }, [formData.data, formData.tipo, formData.cliente, formData.local]);
 
   useEffect(() => {
     updateNotificationMessage();
-  }, [title, date, type, location, client, updateNotificationMessage]);
+  }, [formData.data, formData.tipo, formData.cliente, formData.local, updateNotificationMessage]);
 
   const handleSave = async () => {
-    if (!title.trim() || !location.trim() || !client.trim()) {
+    if (!formData.descricao.trim() || !formData.local.trim() || !formData.cliente.trim()) {
       Alert.alert('Erro', 'Todos os campos são obrigatórios');
       return;
     }
-    if (date < new Date()) {
+    if (formData.data < new Date()) {
       Alert.alert('Erro', 'A data/hora não pode ser no passado.');
       return;
     }
     const eventData = {
-      title: title.trim(),
-      date: date.toISOString(),
-      type,
-      location: location.trim(),
-      client: client.trim(),
-      description: description.trim(),
+      title: formData.descricao.trim(),
+      date: formData.data.toISOString(),
+      type: formData.tipo,
+      location: formData.local.trim(),
+      client: formData.cliente.trim(),
+      description: formData.descricao.trim(),
     };
     try {
       let savedEvent;
@@ -88,16 +147,16 @@ const EventDetailsScreen = () => {
 
   const handleDateChange = (event, selectedDate) => {
     if (selectedDate) {
-      setDate(new Date(selectedDate));
+      setFormData(prev => ({ ...prev, data: new Date(selectedDate) }));
       updateNotificationMessage();
     }
   };
 
   const handleTimeChange = (event, selectedTime) => {
     if (selectedTime) {
-      const newDate = new Date(date);
+      const newDate = new Date(formData.data);
       newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
-      setDate(newDate);
+      setFormData(prev => ({ ...prev, data: newDate }));
       updateNotificationMessage();
     }
   };
@@ -106,17 +165,49 @@ const EventDetailsScreen = () => {
     dt.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
   const formatTime = (dt) =>
     dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const handleTitleChange = (text) => {
-    setTitle(text);
+  const handleDescricaoChange = (text) => {
+    setFormData(prev => ({ ...prev, descricao: text }));
     updateNotificationMessage();
   };
-  const handleClientChange = (text) => {
-    setClient(text);
+  const handleClienteChange = (text) => {
+    setFormData(prev => ({ ...prev, cliente: text }));
     updateNotificationMessage();
   };
-  const handleLocationChange = (text) => {
-    setLocation(text);
+  const handleLocalChange = (text) => {
+    setFormData(prev => ({ ...prev, local: text }));
     updateNotificationMessage();
+  };
+
+  // Função atualizada para renderizar os seletores
+  const renderSelector = (label, value, options, onChange) => {
+    const buttons = Object.values(options);
+    // Divide os botões em linhas de 2 para melhor visualização
+    const rows = [];
+    for (let i = 0; i < buttons.length; i += 2) {
+      rows.push(buttons.slice(i, i + 2));
+    }
+
+    return (
+      <View style={styles.selectorContainer}>
+        <Text style={styles.selectorLabel}>{label}</Text>
+        {rows.map((row, rowIndex) => (
+          <ButtonGroup
+            key={rowIndex}
+            buttons={row}
+            selectedIndex={row.indexOf(value)}
+            onPress={(index) => {
+              const actualIndex = rowIndex * 2 + index;
+              onChange(Object.keys(options)[actualIndex]);
+            }}
+            containerStyle={styles.buttonGroupContainer}
+            selectedButtonStyle={styles.selectedButton}
+            buttonStyle={styles.selectorButton}
+            textStyle={styles.selectorButtonText}
+            selectedTextStyle={styles.selectedButtonText}
+          />
+        ))}
+      </View>
+    );
   };
 
   return (
@@ -130,128 +221,210 @@ const EventDetailsScreen = () => {
           <Text h4 style={styles.title}>
             {editingEvent ? 'Editar Compromisso' : 'Novo Compromisso'}
           </Text>
-          <Input
-            label="Título"
-            value={title}
-            onChangeText={handleTitleChange}
-            placeholder="Digite o título do compromisso"
-            leftIcon={{ type: 'material', name: 'edit', color: '#757575' }}
-            autoFocus
-            onFocus={() => {
-              setShowDatePicker(false);
-              setShowTimePicker(false);
-            }}
-          />
-          <View style={styles.dateContainer}>
-            <Text style={styles.label}>Data</Text>
-            <Button
-              title={formatDate(date)}
-              type="outline"
-              icon={{ name: 'calendar-today', size: 20, color: '#6200ee' }}
-              buttonStyle={styles.dateButton}
-              titleStyle={styles.dateButtonText}
-              onPress={() => setShowDatePicker(true)}
+          <Text h4 style={styles.sectionTitle}>Dados do Processo</Text>
+          <View style={styles.section}>
+            <Input
+              label="Número do Processo"
+              value={formData.numeroProcesso}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, numeroProcesso: value }))}
+              placeholder="0000000-00.0000.0.00.0000"
+            />
+            
+            {renderSelector(
+              'Competência',
+              COMPETENCIAS[formData.competencia],
+              COMPETENCIAS,
+              (value) => setFormData(prev => ({ ...prev, competencia: value }))
+            )}
+
+            <Input
+              label="Vara"
+              value={formData.vara}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, vara: value }))}
+              placeholder="Ex: 1ª Vara Cível"
+            />
+
+            <Input
+              label="Comarca"
+              value={formData.comarca}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, comarca: value }))}
+            />
+
+            <Input
+              label="Estado"
+              value={formData.estado}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, estado: value }))}
             />
           </View>
-          {showDatePicker && (
-            <View style={styles.datePickerContainer}>
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display="spinner"
-                onChange={handleDateChange}
-                locale="pt-BR"
-              />
-              <Button title="OK" onPress={() => setShowDatePicker(false)} buttonStyle={styles.okButton} />
-            </View>
-          )}
-          <View style={styles.timeContainer}>
-            <Text style={styles.label}>Hora</Text>
-            <Button
-              title={formatTime(date)}
-              type="outline"
-              icon={{ name: 'access-time', size: 20, color: '#6200ee' }}
-              buttonStyle={styles.dateButton}
-              titleStyle={styles.dateButtonText}
-              onPress={() => setShowTimePicker(true)}
+
+          <Divider style={styles.divider} />
+          <Text h4 style={styles.sectionTitle}>Partes do Processo</Text>
+          <View style={styles.section}>
+            <Input
+              label="Cliente"
+              value={formData.cliente}
+              onChangeText={handleClienteChange}
+            />
+            
+            <Input
+              label="Telefone do Cliente"
+              value={formData.telefoneCliente}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, telefoneCliente: value }))}
+              keyboardType="phone-pad"
+            />
+
+            <Input
+              label="E-mail do Cliente"
+              value={formData.emailCliente}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, emailCliente: value }))}
+              keyboardType="email-address"
+            />
+
+            <Input
+              label="Réu/Parte Contrária"
+              value={formData.reu}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, reu: value }))}
+            />
+
+            <Input
+              label="Telefone do Réu"
+              value={formData.telefoneReu}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, telefoneReu: value }))}
+              keyboardType="phone-pad"
+            />
+
+            <Input
+              label="E-mail do Réu"
+              value={formData.emailReu}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, emailReu: value }))}
+              keyboardType="email-address"
             />
           </View>
-          {showTimePicker && (
-            <View style={styles.timePickerContainer}>
-              <DateTimePicker
-                value={date}
-                mode="time"
-                display="spinner"
-                onChange={handleTimeChange}
-                locale="pt-BR"
-              />
-              <Button title="OK" onPress={() => setShowTimePicker(false)} buttonStyle={styles.okButton} />
-            </View>
-          )}
-          <Text style={[styles.label, { marginTop: 16 }]}>Tipo</Text>
-          <View style={styles.typeContainer}>
-            {eventTypes.map((eventType) => (
+
+          <Divider style={styles.divider} />
+          <Text h4 style={styles.sectionTitle}>Dados do Compromisso</Text>
+          <View style={styles.section}>
+            {renderSelector(
+              'Tipo de Compromisso',
+              TIPOS_COMPROMISSO[formData.tipo],
+              TIPOS_COMPROMISSO,
+              (value) => setFormData(prev => ({ ...prev, tipo: value }))
+            )}
+
+            <Text style={styles.label}>Data e Hora</Text>
+            <View style={styles.dateContainer}>
               <Button
-                key={eventType.id}
-                title={eventType.label}
-                icon={{
-                  name: eventType.icon,
-                  size: 20,
-                  color: type === eventType.id ? 'white' : '#6200ee',
-                }}
-                type={type === eventType.id ? 'solid' : 'outline'}
-                buttonStyle={[styles.typeButton, type === eventType.id && styles.typeButtonActive]}
-                titleStyle={[styles.typeButtonText, type === eventType.id && styles.typeButtonTextActive]}
-                onPress={() => setType(eventType.id)}
+                title={formatDate(formData.data)}
+                type="outline"
+                icon={{ name: 'calendar-today', size: 20, color: '#6200ee' }}
+                buttonStyle={styles.dateButton}
+                titleStyle={styles.dateButtonText}
+                onPress={() => setShowDatePicker(true)}
               />
-            ))}
+            </View>
+            {showDatePicker && (
+              <View style={styles.datePickerContainer}>
+                <DateTimePicker
+                  value={formData.data}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDateChange}
+                  locale="pt-BR"
+                />
+                <Button title="OK" onPress={() => setShowDatePicker(false)} buttonStyle={styles.okButton} />
+              </View>
+            )}
+            <View style={styles.timeContainer}>
+              <Button
+                title={formatTime(formData.data)}
+                type="outline"
+                icon={{ name: 'access-time', size: 20, color: '#6200ee' }}
+                buttonStyle={styles.dateButton}
+                titleStyle={styles.dateButtonText}
+                onPress={() => setShowTimePicker(true)}
+              />
+            </View>
+            {showTimePicker && (
+              <View style={styles.timePickerContainer}>
+                <DateTimePicker
+                  value={formData.data}
+                  mode="time"
+                  display="spinner"
+                  onChange={handleTimeChange}
+                  locale="pt-BR"
+                />
+                <Button title="OK" onPress={() => setShowTimePicker(false)} buttonStyle={styles.okButton} />
+              </View>
+            )}
+
+            <Input
+              label="Local"
+              value={formData.local}
+              onChangeText={handleLocalChange}
+            />
+
+            <Input
+              label="Sala/Andar/Prédio"
+              value={formData.sala}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, sala: value }))}
+              placeholder="Ex: Sala 302, 3º andar, Prédio Principal"
+            />
+
+            <Input
+              label="Descrição"
+              value={formData.descricao}
+              onChangeText={handleDescricaoChange}
+              multiline
+              numberOfLines={3}
+            />
+
+            <Input
+              label="Documentos Necessários"
+              value={formData.documentosNecessarios}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, documentosNecessarios: value }))}
+              multiline
+              numberOfLines={3}
+              placeholder="Liste os documentos necessários para o compromisso"
+            />
           </View>
-          <Input
-            label="Local"
-            value={location}
-            onChangeText={handleLocationChange}
-            placeholder="Digite o local do compromisso"
-            leftIcon={{ type: 'material', name: 'location-on', color: '#757575' }}
-            onFocus={() => {
-              setShowDatePicker(false);
-              setShowTimePicker(false);
-            }}
-          />
-          <Input
-            label="Cliente"
-            value={client}
-            onChangeText={handleClientChange}
-            placeholder="Digite o nome do cliente"
-            leftIcon={{ type: 'material', name: 'person', color: '#757575' }}
-            onFocus={() => {
-              setShowDatePicker(false);
-              setShowTimePicker(false);
-            }}
-          />
-          <Input
-            label="Descrição"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Digite uma descrição do compromisso"
-            leftIcon={{ type: 'material', name: 'description', color: '#757575' }}
-            multiline
-            numberOfLines={3}
-            onFocus={() => {
-              setShowDatePicker(false);
-              setShowTimePicker(false);
-            }}
-          />
-          <Input
-            label="Mensagem da Notificação"
-            value={customMessage}
-            onChangeText={setCustomMessage}
-            placeholder="Digite a mensagem da notificação"
-            leftIcon={{ type: 'material', name: 'notifications', color: '#757575' }}
-            onFocus={() => {
-              setShowDatePicker(false);
-              setShowTimePicker(false);
-            }}
-          />
+
+          <Divider style={styles.divider} />
+          <Text h4 style={styles.sectionTitle}>Outros Participantes</Text>
+          <View style={styles.section}>
+            <Input
+              label="Juiz"
+              value={formData.juiz}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, juiz: value }))}
+            />
+
+            <Input
+              label="Promotor"
+              value={formData.promotor}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, promotor: value }))}
+            />
+
+            <Input
+              label="Perito"
+              value={formData.perito}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, perito: value }))}
+            />
+
+            <Input
+              label="Preposto do Cliente"
+              value={formData.prepostoCliente}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, prepostoCliente: value }))}
+            />
+
+            <Input
+              label="Testemunhas"
+              value={formData.testemunhas}
+              onChangeText={(value) => setFormData(prev => ({ ...prev, testemunhas: value }))}
+              multiline
+              numberOfLines={3}
+              placeholder="Nome e qualificação das testemunhas"
+            />
+          </View>
+
           <View style={styles.switchContainer}>
             <Text style={styles.switchLabel}>Enviar por e-mail</Text>
             <Switch value={sendEmailFlag} onValueChange={setSendEmailFlag} />
@@ -272,17 +445,27 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   content: { padding: 16 },
   title: { marginBottom: 24, color: '#000', textAlign: 'center' },
-  label: { fontSize: 16, color: '#86939e', marginBottom: 8 },
+  sectionTitle: {
+    padding: 16,
+    paddingBottom: 0,
+    color: COLORS.primary,
+  },
+  label: { fontSize: 16, color: '#86939e', marginBottom: 8, marginLeft: 10 },
+  section: { padding: 16 },
+  picker: {
+    marginHorizontal: 10,
+    marginBottom: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  divider: {
+    marginVertical: 16,
+    backgroundColor: '#e0e0e0',
+  },
   dateContainer: { marginBottom: 16 },
   timeContainer: { marginBottom: 16 },
   dateButton: { borderColor: '#6200ee', borderRadius: 10, height: 50 },
   dateButtonText: { color: '#6200ee' },
-  typeContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  typeButton: { borderRadius: 20, paddingHorizontal: 15, backgroundColor: 'transparent', borderColor: '#6200ee', marginBottom: 8 },
-  typeButtonActive: { backgroundColor: '#6200ee' },
-  typeButtonText: { color: '#6200ee', fontSize: 14 },
-  typeButtonTextActive: { color: 'white' },
-  saveButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50 },
   datePickerContainer: {
     backgroundColor: '#fff',
     padding: 16,
@@ -306,6 +489,41 @@ const styles = StyleSheet.create({
   okButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50, marginTop: 16 },
   switchContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
   switchLabel: { flex: 1, fontSize: 16, color: '#86939e' },
+  saveButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50 },
+  selectorContainer: {
+    marginBottom: 24,
+    paddingHorizontal: 10,
+  },
+  selectorLabel: {
+    fontSize: 16,
+    color: '#86939e',
+    marginBottom: 12,
+    marginLeft: 10,
+    fontWeight: '600',
+  },
+  buttonGroupContainer: {
+    marginBottom: 8,
+    height: 45,
+    borderRadius: 8,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+  },
+  selectorButton: {
+    backgroundColor: 'white',
+    padding: 12,
+  },
+  selectedButton: {
+    backgroundColor: COLORS.primary,
+  },
+  selectorButtonText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    textAlign: 'center',
+  },
+  selectedButtonText: {
+    color: 'white',
+    fontWeight: '600',
+  },
 });
 
 export default EventDetailsScreen;

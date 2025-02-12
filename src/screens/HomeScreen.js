@@ -49,24 +49,8 @@ const HomeScreen = () => {
     );
   };
 
-  const handleExport = async (format) => {
-    try {
-      switch (format) {
-        case 'Excel':
-          await ExportService.exportToExcel(events, 'compromissos.xlsx');
-          break;
-        case 'PDF':
-          await ExportService.exportToPDF(events, 'compromissos.pdf');
-          break;
-        case 'Word':
-          await ExportService.exportToWord(events, 'compromissos.docx');
-          break;
-      }
-    } catch (error) {
-      console.error('Erro ao exportar:', error);
-    } finally {
-      setModalVisible(false);
-    }
+  const handleExport = () => {
+    navigation.navigate('Export');
   };
 
   const today = isToday(new Date());
@@ -117,39 +101,11 @@ const HomeScreen = () => {
         <View style={styles.exportContainer}>
           <Button
             title="📤 Exportar Compromissos"
-            onPress={() => setModalVisible(true)}
+            onPress={handleExport}
             color="#6200ee"
           />
         </View>
       </ScrollView>
-      <Modal
-        animationType="fade"
-        transparent
-        visible={isModalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Escolha o formato de exportação</Text>
-            <TouchableOpacity style={styles.modalButton} onPress={() => handleExport('Excel')}>
-              <Icon name="insert-chart" size={24} color="#6200ee" />
-              <Text style={styles.modalButtonText}>Exportar para Excel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => handleExport('PDF')}>
-              <Icon name="picture-as-pdf" size={24} color="#6200ee" />
-              <Text style={styles.modalButtonText}>Exportar para PDF</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => handleExport('Word')}>
-              <Icon name="description" size={24} color="#6200ee" />
-              <Text style={styles.modalButtonText}>Exportar para Word</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-              <Icon name="cancel" size={24} color="red" />
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
       <FAB
         icon={{ name: 'add', color: 'white' }}
         color="#6200ee"
@@ -178,35 +134,6 @@ const styles = StyleSheet.create({
   date: { fontSize: 16, marginLeft: 6, color: '#757575' },
   noEventsText: { textAlign: 'center', fontSize: 16, color: '#757575' },
   exportContainer: { margin: 20 },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContainer: {
-    width: '85%',
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-  },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  modalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  modalButtonText: { fontSize: 18, color: '#6200ee', marginLeft: 10 },
-  cancelButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginTop: 10 },
-  cancelButtonText: { fontSize: 18, color: 'red', marginLeft: 10 },
   fab: { position: 'absolute', bottom: 16, right: 16 },
 });
 

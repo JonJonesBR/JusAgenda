@@ -2,6 +2,7 @@ import React from 'react';
 import HomeScreen from '../../screens/HomeScreen';
 import EventDetailsScreen from '../../screens/EventDetailsScreen';
 import EventViewScreen from '../../screens/EventViewScreen';
+import ExportScreen from '../../screens/ExportScreen';
 import { Stack, stackConfig } from '../navigationConfig';
 
 const HomeStack = () => (
@@ -22,6 +23,11 @@ const HomeStack = () => (
       options={({ route }) => ({
         title: route?.params?.event ? 'Editar Evento' : 'Novo Evento',
       })}
+    />
+    <Stack.Screen
+      name="Export"
+      component={ExportScreen}
+      options={{ title: 'Exportar Compromissos' }}
     />
   </Stack.Navigator>
 );
