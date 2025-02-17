@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Button, CheckBox, Icon, Card } from '@rneui/themed';
 import { useNavigation } from '@react-navigation/native';
@@ -6,6 +6,8 @@ import { useEvents } from '../contexts/EventContext';
 import { COLORS, EVENT_TYPES } from '../utils/common';
 import { formatDateTime } from '../utils/dateUtils';
 import ExportService from '../services/ExportService';
+import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 
 const ExportScreen = () => {
   const navigation = useNavigation();
@@ -61,35 +63,44 @@ const ExportScreen = () => {
             break;
         }
 
-        // Só mostra o alerta se a exportação foi bem sucedida
-        if (exportResult) {
-          Alert.alert(
-            'Exportação Concluída',
-            'O que você deseja fazer?',
-            [
-              {
-                text: 'Continuar Exportando',
-                style: 'default',
-                onPress: () => {
-                  setSelectedEvents([]);
-                  setSelectedTypes([]);
-                }
-              },
-              {
-                text: 'Voltar ao Menu',
-                onPress: () => navigation.goBack()
-              }
-            ],
-            { cancelable: false }
-          );
+        // Se a exportação foi cancelada, não mostra nenhum alerta
+        if (exportResult === false) {
+          return;
         }
+
+        // Se chegou aqui, a exportação foi bem sucedida
+        Alert.alert(
+          'Exportação Concluída',
+          'O que você deseja fazer?',
+          [
+            {
+              text: 'Continuar Exportando',
+              style: 'default',
+              onPress: () => {
+                setSelectedEvents([]);
+                setSelectedTypes([]);
+              }
+            },
+            {
+              text: 'Voltar ao Menu',
+              onPress: () => navigation.goBack()
+            }
+          ],
+          { cancelable: false }
+        );
       } catch (exportError) {
         console.error('Erro durante a exportação:', exportError);
-        Alert.alert('Erro', 'Não foi possível completar a exportação');
+        Alert.alert(
+          'Erro na Exportação',
+          'Não foi possível completar a exportação. Tente novamente.'
+        );
       }
     } catch (error) {
       console.error('Erro geral:', error);
-      Alert.alert('Erro', 'Ocorreu um erro inesperado');
+      Alert.alert(
+        'Erro',
+        'Ocorreu um erro inesperado. Por favor, tente novamente.'
+      );
     }
   };
 
@@ -100,6 +111,23 @@ const ExportScreen = () => {
   const clearSelection = () => {
     setSelectedEvents([]);
   };
+
+  useEffect(() => {
+    const checkPermissions = async () => {
+      try {
+        const sharingAvailable = await Sharing.isAvailableAsync();
+        console.log('Compartilhamento disponível:', sharingAvailable);
+        
+        // Verifique outras permissões necessárias
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        console.log('Status permissão MediaLibrary:', status);
+      } catch (error) {
+        console.error('Erro ao verificar permissões:', error);
+      }
+    };
+
+    checkPermissions();
+  }, []);
 
   return (
     <View style={styles.container}>

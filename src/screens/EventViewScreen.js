@@ -44,6 +44,32 @@ ${event.description ? `Descrição: ${event.description}` : ''}
     }
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este compromisso?',
+      [
+        {
+          text: 'Não',
+          style: 'cancel',
+        },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(event.id);
+              navigation.navigate('HomeScreen');
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const getEventTypeIcon = (type) => {
     switch (type?.toLowerCase()) {
       case 'audiencia':
@@ -120,6 +146,12 @@ ${event.description ? `Descrição: ${event.description}` : ''}
           icon={{ name: 'share', color: 'white', size: 20 }}
           buttonStyle={[styles.button, styles.shareButton]}
           onPress={handleShare}
+        />
+        <Button
+          title="Excluir"
+          icon={{ name: 'delete', color: 'white', size: 20 }}
+          buttonStyle={[styles.button, styles.deleteButton]}
+          onPress={handleDelete}
         />
       </View>
     </ScrollView>
@@ -210,6 +242,9 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     backgroundColor: COLORS.secondary,
+  },
+  deleteButton: {
+    backgroundColor: COLORS.error,
   },
 });
 

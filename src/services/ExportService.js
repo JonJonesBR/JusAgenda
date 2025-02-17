@@ -73,7 +73,17 @@ export default class ExportService {
   }
 
   static async exportToPDF(data) {
+    console.log('Iniciando exportação PDF...');
     try {
+      // Log do estado do compartilhamento
+      const sharingAvailable = await Sharing.isAvailableAsync();
+      console.log('Compartilhamento disponível:', sharingAvailable);
+
+      if (!sharingAvailable) {
+        throw new Error('Compartilhamento não disponível');
+      }
+
+      console.log('Gerando HTML...');
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -182,27 +192,24 @@ export default class ExportService {
         </html>
       `;
 
-      // Gera o arquivo PDF utilizando o expo-print
-      const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
+      console.log('Gerando PDF...');
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false
+      });
+      console.log('PDF gerado em:', uri);
 
-      // Verifica se o compartilhamento está disponível
-      if (!(await Sharing.isAvailableAsync())) {
-        throw new Error('Compartilhamento não disponível');
-      }
-
-      // Compartilha o arquivo PDF
       try {
+        console.log('Iniciando compartilhamento...');
         const result = await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
           dialogTitle: 'Exportar PDF'
         });
         
-        // Se o resultado for null ou undefined, retorna false
-        if (!result) return false;
-        
-        return result.action === Sharing.SharedAction;
+        console.log('Resultado do compartilhamento:', result);
+        return result?.action === Sharing.SharedAction;
       } catch (shareError) {
-        console.log('Compartilhamento cancelado');
+        console.log('Erro no compartilhamento:', shareError);
         return false;
       }
     } catch (error) {

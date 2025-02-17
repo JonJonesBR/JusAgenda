@@ -4,7 +4,7 @@ import { Text, Input, Button, Divider, ButtonGroup } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
-import { requestPermissions, scheduleEventNotification } from '../services/NotificationService';
+import NotificationService from '../services/NotificationService';
 import { Picker } from '@react-native-picker/picker';
 import { COLORS } from '../utils/common';
 
@@ -33,7 +33,7 @@ const EventDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const editingEvent = route.params?.event;
-  const { addEvent, updateEvent } = useEvents();
+  const { addEvent, updateEvent, deleteEvent } = useEvents();
 
   const [formData, setFormData] = useState({
     // Dados do Processo
@@ -90,7 +90,20 @@ const EventDetailsScreen = () => {
   const [sendEmailFlag, setSendEmailFlag] = useState(false);
 
   useEffect(() => {
-    requestPermissions();
+    const checkPermissions = async () => {
+      try {
+        // Usa o método estático da classe NotificationService
+        await NotificationService.requestPermissions();
+      } catch (error) {
+        console.error('Erro ao solicitar permissões:', error);
+        Alert.alert(
+          'Aviso',
+          'Não foi possível obter permissão para enviar notificações'
+        );
+      }
+    };
+
+    checkPermissions();
   }, []);
 
   const updateNotificationMessage = useCallback(() => {
@@ -134,7 +147,14 @@ const EventDetailsScreen = () => {
         savedEvent = await addEvent(eventData, sendEmailFlag);
       }
       if (!savedEvent) throw new Error('Falha ao salvar compromisso');
-      await scheduleEventNotification(savedEvent, customMessage);
+
+      // Agenda a notificação usando o método estático
+      const notificationId = await NotificationService.scheduleEventNotification(savedEvent);
+      if (notificationId) {
+        savedEvent.notificationId = notificationId;
+      }
+
+      await NotificationService.scheduleEventNotification(savedEvent, customMessage);
       navigation.goBack();
     } catch (error) {
       console.error('Erro ao salvar compromisso:', error);
@@ -207,6 +227,32 @@ const EventDetailsScreen = () => {
           />
         ))}
       </View>
+    );
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este compromisso?',
+      [
+        {
+          text: 'Não',
+          style: 'cancel',
+        },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(editingEvent.id);
+              navigation.goBack();
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -429,12 +475,20 @@ const EventDetailsScreen = () => {
             <Text style={styles.switchLabel}>Enviar por e-mail</Text>
             <Switch value={sendEmailFlag} onValueChange={setSendEmailFlag} />
           </View>
-          <Button
-            title="Salvar"
-            icon={{ name: 'save', size: 20, color: 'white' }}
-            buttonStyle={styles.saveButton}
-            onPress={handleSave}
-          />
+          <View style={styles.buttonContainer}>
+            <Button
+              title="Salvar"
+              onPress={handleSave}
+              buttonStyle={[styles.button, styles.saveButton]}
+            />
+            {editingEvent && (
+              <Button
+                title="Excluir"
+                onPress={handleDelete}
+                buttonStyle={[styles.button, styles.deleteButton]}
+              />
+            )}
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -523,6 +577,20 @@ const styles = StyleSheet.create({
   selectedButtonText: {
     color: 'white',
     fontWeight: '600',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    gap: 10,
+  },
+  button: {
+    flex: 1,
+    borderRadius: 8,
+    height: 50,
+  },
+  deleteButton: {
+    backgroundColor: COLORS.error,
   },
 });
 

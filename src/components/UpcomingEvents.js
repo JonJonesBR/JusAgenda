@@ -12,7 +12,7 @@ import { useEvents } from '../contexts/EventContext';
 
 const UpcomingEvents = () => {
   const navigation = useNavigation();
-  const { events } = useEvents();
+  const { events, deleteEvent, refreshEvents } = useEvents();
 
   const upcomingEvents = useMemo(() => {
     const now = new Date();
@@ -58,8 +58,39 @@ const UpcomingEvents = () => {
           onPress: () => navigation.navigate('EventDetails', { event }),
         },
         {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => confirmDelete(event),
+        },
+        {
           text: 'Cancelar',
           style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const confirmDelete = (event) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este compromisso?',
+      [
+        {
+          text: 'Não',
+          style: 'cancel',
+        },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(event.id);
+              refreshEvents();
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+            }
+          },
         },
       ],
       { cancelable: true }
