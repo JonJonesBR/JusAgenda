@@ -5,7 +5,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
 import NotificationService from '../services/NotificationService';
-import { Picker } from '@react-native-picker/picker';
 import { COLORS } from '../utils/common';
 
 const COMPETENCIAS = {
@@ -256,6 +255,12 @@ const EventDetailsScreen = () => {
     );
   };
 
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Tela de Cadastro',
+    });
+  }, [navigation]);
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -264,9 +269,7 @@ const EventDetailsScreen = () => {
     >
       <ScrollView>
         <View style={styles.content}>
-          <Text h4 style={styles.title}>
-            {editingEvent ? 'Editar Compromisso' : 'Novo Compromisso'}
-          </Text>
+          <Text style={styles.title}>Novo Compromisso</Text>
           <Text h4 style={styles.sectionTitle}>Dados do Processo</Text>
           <View style={styles.section}>
             <Input
@@ -498,7 +501,13 @@ const EventDetailsScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   content: { padding: 16 },
-  title: { marginBottom: 24, color: '#000', textAlign: 'center' },
+  title: { 
+    marginBottom: 24, 
+    color: '#000', 
+    textAlign: 'center', 
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
   sectionTitle: {
     padding: 16,
     paddingBottom: 0,

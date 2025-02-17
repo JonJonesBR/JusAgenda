@@ -139,18 +139,21 @@ ${event.description ? `Descrição: ${event.description}` : ''}
           title="Editar"
           icon={{ name: 'edit', color: 'white', size: 20 }}
           buttonStyle={[styles.button, styles.editButton]}
+          titleStyle={styles.buttonTitle}
           onPress={handleEdit}
         />
         <Button
           title="Compartilhar"
           icon={{ name: 'share', color: 'white', size: 20 }}
           buttonStyle={[styles.button, styles.shareButton]}
+          titleStyle={styles.buttonTitle}
           onPress={handleShare}
         />
         <Button
           title="Excluir"
           icon={{ name: 'delete', color: 'white', size: 20 }}
           buttonStyle={[styles.button, styles.deleteButton]}
+          titleStyle={styles.buttonTitle}
           onPress={handleDelete}
         />
       </View>
@@ -226,25 +229,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    gap: 10,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    marginTop: 20,
+    paddingHorizontal: 10,
   },
   button: {
-    flex: 1,
-    borderRadius: 8,
+    marginVertical: 5,
     height: 50,
+    borderRadius: 8,
+  },
+  buttonTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   editButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#6200ee',
   },
   shareButton: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: '#03dac6',
   },
   deleteButton: {
-    backgroundColor: COLORS.error,
+    backgroundColor: '#ff0266',
   },
 });
 
