@@ -82,6 +82,11 @@ const SearchScreen = () => {
           onPress: () => navigation.navigate('EventDetails', { event }),
         },
         {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => confirmDelete(event),
+        },
+        {
           text: 'Cancelar',
           style: 'cancel',
         },

@@ -70,7 +70,9 @@ class NotificationService {
   static async scheduleEventNotification(event) {
     try {
       if (!event.date) {
-        throw new Error('Data do evento é obrigatória');
+        // Ignorar o erro e retornar null
+        console.warn('Data do evento é obrigatória, mas será ignorada.');
+        return null; // Retorna null se a data não estiver definida
       }
 
       // Configura a data da notificação para 1 dia antes do evento
@@ -96,7 +98,7 @@ class NotificationService {
       return notificationId;
     } catch (error) {
       console.error('Erro ao agendar notificação:', error);
-      return null;
+      return null; // Retorna null em caso de erro
     }
   }
 

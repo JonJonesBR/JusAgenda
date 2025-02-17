@@ -13,7 +13,7 @@ const { width, height } = Dimensions.get('window');
 const HomeScreen = () => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const { refreshEvents, events } = useEvents();
+  const { refreshEvents, events, deleteEvent } = useEvents();
   const [isModalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
@@ -41,8 +41,39 @@ const HomeScreen = () => {
           onPress: () => navigation.navigate('EventDetails', { event }),
         },
         {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => confirmDelete(event),
+        },
+        {
           text: 'Cancelar',
           style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const confirmDelete = (event) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este compromisso?',
+      [
+        {
+          text: 'Não',
+          style: 'cancel',
+        },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(event.id);
+              refreshEvents(); // Atualiza a lista de compromissos
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+            }
+          },
         },
       ],
       { cancelable: true }

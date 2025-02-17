@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Switch } from 'react-native';
-import { Text, Input, Button, Divider, ButtonGroup } from '@rneui/themed';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Switch, Modal } from 'react-native';
+import { Text, Input, Button, Divider, ButtonGroup, FAB } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
@@ -88,6 +88,9 @@ const EventDetailsScreen = () => {
   const [customMessage, setCustomMessage] = useState(`Você tem um compromisso "${formData.descricao}" amanhã`);
   const [sendEmailFlag, setSendEmailFlag] = useState(false);
 
+  const [modalVisible, setModalVisible] = useState(false);
+  const [currentField, setCurrentField] = useState('');
+
   useEffect(() => {
     const checkPermissions = async () => {
       try {
@@ -106,6 +109,8 @@ const EventDetailsScreen = () => {
   }, []);
 
   const updateNotificationMessage = useCallback(() => {
+    if (!formData.data) return;
+
     const formattedDate = formData.data.toLocaleDateString('pt-BR');
     const formattedTime = formData.data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const eventLabel = TIPOS_COMPROMISSO[formData.tipo] || '';
@@ -119,22 +124,50 @@ const EventDetailsScreen = () => {
   }, [formData.data, formData.tipo, formData.cliente, formData.local, updateNotificationMessage]);
 
   const handleSave = async () => {
-    if (!formData.descricao.trim() || !formData.local.trim() || !formData.cliente.trim()) {
-      Alert.alert('Erro', 'Todos os campos são obrigatórios');
+    const { cliente, tipo, data } = formData;
+
+    // Validação dos campos obrigatórios
+    if (!cliente) {
+      Alert.alert('Erro', 'O campo "Cliente" é obrigatório.');
       return;
     }
-    if (formData.data < new Date()) {
+
+    if (!tipo) {
+      Alert.alert('Erro', 'O campo "Tipo de Compromisso" é obrigatório.');
+      return;
+    }
+
+    // Verifica se a data está definida
+    if (!data) {
+      Alert.alert('Erro', 'A data do compromisso é obrigatória.');
+      return;
+    }
+
+    // Log para depuração
+    console.log('Data do compromisso:', data);
+
+    // Validação do número do processo (opcional)
+    const processNumberPattern = /^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$/; // Regex para validar o formato CNJ
+    if (formData.numeroProcesso && !processNumberPattern.test(formData.numeroProcesso)) {
+      Alert.alert('Erro', 'Se fornecido, o número do processo deve seguir o padrão CNJ: 0000000-00.0000.0.00.0000');
+      return;
+    }
+
+    // Verifica se a data/hora não é no passado
+    if (data < new Date()) {
       Alert.alert('Erro', 'A data/hora não pode ser no passado.');
       return;
     }
+
     const eventData = {
       title: formData.descricao.trim(),
-      date: formData.data.toISOString(),
+      date: data.toISOString(), // Certifique-se de que a data está no formato correto
       type: formData.tipo,
       location: formData.local.trim(),
       client: formData.cliente.trim(),
       description: formData.descricao.trim(),
     };
+
     try {
       let savedEvent;
       if (editingEvent) {
@@ -147,6 +180,9 @@ const EventDetailsScreen = () => {
       }
       if (!savedEvent) throw new Error('Falha ao salvar compromisso');
 
+      // Log para verificar o evento antes de agendar a notificação
+      console.log('Evento para agendar notificação:', savedEvent);
+
       // Agenda a notificação usando o método estático
       const notificationId = await NotificationService.scheduleEventNotification(savedEvent);
       if (notificationId) {
@@ -157,10 +193,7 @@ const EventDetailsScreen = () => {
       navigation.goBack();
     } catch (error) {
       console.error('Erro ao salvar compromisso:', error);
-      Alert.alert(
-        'Erro',
-        'Ocorreu um erro ao salvar o compromisso. Por favor, tente novamente.'
-      );
+      Alert.alert('Erro', 'Ocorreu um erro ao salvar o compromisso. Por favor, tente novamente.');
     }
   };
 
@@ -195,6 +228,41 @@ const EventDetailsScreen = () => {
   const handleLocalChange = (text) => {
     setFormData(prev => ({ ...prev, local: text }));
     updateNotificationMessage();
+  };
+
+  const handleProcessNumberChange = (text) => {
+    // Remove caracteres não numéricos
+    let numericText = text.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
+
+    // Limita a entrada a 20 caracteres
+    if (numericText.length > 20) {
+      numericText = numericText.slice(0, 20); // Mantém apenas os 20 primeiros caracteres
+    }
+
+    // Formata o número do processo conforme o padrão
+    let formattedText = '';
+    if (numericText.length <= 7) {
+      formattedText = numericText; // Apenas os 7 primeiros dígitos
+    } else if (numericText.length <= 9) {
+      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7)}`; // Adiciona o dígito verificador
+    } else if (numericText.length <= 13) {
+      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7, 9)}.${numericText.slice(9)}`; // Adiciona o ano
+    } else if (numericText.length <= 17) {
+      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7, 9)}.${numericText.slice(9, 13)}.${numericText.slice(13)}`; // Adiciona o J
+    } else {
+      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7, 9)}.${numericText.slice(9, 13)}.${numericText.slice(13, 14)}.${numericText.slice(14, 16)}.${numericText.slice(16)}`; // Adiciona o TR e OOOO
+    }
+
+    // Verifica se o ano é válido (4 dígitos)
+    if (formattedText.length >= 13) {
+      const year = formattedText.slice(9, 13);
+      if (isNaN(year) || year.length !== 4) {
+        Alert.alert('Erro', 'O ano deve ser um número de 4 dígitos.');
+        return;
+      }
+    }
+
+    setFormData(prev => ({ ...prev, numeroProcesso: formattedText }));
   };
 
   // Função atualizada para renderizar os seletores
@@ -255,6 +323,47 @@ const EventDetailsScreen = () => {
     );
   };
 
+  const handleOpenModal = (field) => {
+    setCurrentField(field);
+    setModalVisible(true);
+  };
+
+  const handleSelect = (value) => {
+    setFormData((prev) => ({ ...prev, [currentField]: value }));
+    setModalVisible(false);
+  };
+
+  const renderModalContent = () => {
+    switch (currentField) {
+      case 'competencia':
+        return (
+          <View>
+            <Text>Selecione a Competência:</Text>
+            <Button title="Cível" onPress={() => handleSelect('Cível')} />
+            <Button title="Criminal" onPress={() => handleSelect('Criminal')} />
+          </View>
+        );
+      case 'vara':
+        return (
+          <View>
+            <Text>Selecione a Vara:</Text>
+            <Button title="Vara 1" onPress={() => handleSelect('Vara 1')} />
+            <Button title="Vara 2" onPress={() => handleSelect('Vara 2')} />
+          </View>
+        );
+      case 'comarca':
+        return (
+          <View>
+            <Text>Selecione a Comarca:</Text>
+            <Button title="Comarca A" onPress={() => handleSelect('Comarca A')} />
+            <Button title="Comarca B" onPress={() => handleSelect('Comarca B')} />
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
   useEffect(() => {
     navigation.setOptions({
       title: 'Tela de Cadastro',
@@ -275,8 +384,9 @@ const EventDetailsScreen = () => {
             <Input
               label="Número do Processo"
               value={formData.numeroProcesso}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, numeroProcesso: value }))}
-              placeholder="0000000-00.0000.0.00.0000"
+              onChangeText={handleProcessNumberChange}
+              placeholder="Ex: 0000000-00.0000.0.00.0000"
+              keyboardType="numeric"
             />
             
             {renderSelector(
@@ -479,11 +589,6 @@ const EventDetailsScreen = () => {
             <Switch value={sendEmailFlag} onValueChange={setSendEmailFlag} />
           </View>
           <View style={styles.buttonContainer}>
-            <Button
-              title="Salvar"
-              onPress={handleSave}
-              buttonStyle={[styles.button, styles.saveButton]}
-            />
             {editingEvent && (
               <Button
                 title="Excluir"
@@ -494,6 +599,25 @@ const EventDetailsScreen = () => {
           </View>
         </View>
       </ScrollView>
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            {renderModalContent()}
+            <Button title="Fechar" onPress={() => setModalVisible(false)} />
+          </View>
+        </View>
+      </Modal>
+      <FAB
+        icon={{ name: 'save', color: 'white' }}
+        color="#6200ee"
+        placement="right"
+        style={styles.fab}
+        onPress={handleSave}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -600,6 +724,23 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: COLORS.error,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
   },
 });
 
