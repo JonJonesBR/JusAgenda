@@ -26,4 +26,4 @@ const CalendarStack = () => (
   </Stack.Navigator>
 );
 
-export default CalendarStack; 
+export default CalendarStack;

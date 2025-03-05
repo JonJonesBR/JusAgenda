@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
 import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
@@ -11,25 +11,22 @@ const SearchResultsScreen = () => {
   const { term, filters } = route.params || {};
   const [events, setEvents] = useState([]);
 
-  const searchForEvents = () => {
-    const results = searchEvents(term || '');
+  const searchForEvents = useCallback(() => {
+    let results = searchEvents(term || '');
     if (filters && filters.length > 0) {
-      const filteredResults = results.filter(event =>
+      results = results.filter(event =>
         filters.includes(event.type?.toLowerCase())
       );
-      setEvents(filteredResults);
-    } else {
-      setEvents(results);
     }
-  };
+    results.sort((a, b) => new Date(a.date) - new Date(b.date));
+    setEvents(results);
+  }, [term, filters]);
 
   useEffect(() => {
-    if (isFocused) {
-      searchForEvents();
-    }
-  }, [isFocused, term, filters]);
+    if (isFocused) searchForEvents();
+  }, [isFocused, searchForEvents]);
 
-  const getEventTypeIcon = (type) => {
+  const getEventTypeIcon = useCallback((type) => {
     switch (type?.toLowerCase()) {
       case 'audiencia':
         return { name: 'gavel', color: '#6200ee' };
@@ -40,7 +37,7 @@ const SearchResultsScreen = () => {
       default:
         return { name: 'event', color: '#018786' };
     }
-  };
+  }, []);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -48,7 +45,7 @@ const SearchResultsScreen = () => {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
     });
   };
 
@@ -66,16 +63,12 @@ const SearchResultsScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.resultsText}>
-        {events.length} {events.length === 1 ? 'compromisso encontrado' : 'compromissos encontrados'}
-        {term ? ` para "${term}"` : ''}
+        {events.length} {events.length === 1 ? 'compromisso encontrado' : 'compromissos encontrados'}{term ? ` para "${term}"` : ''}
       </Text>
       {events.map((event) => {
         const icon = getEventTypeIcon(event.type);
         return (
-          <TouchableOpacity
-            key={event.id}
-            onPress={() => navigation.navigate('EventDetails', { event })}
-          >
+          <TouchableOpacity key={event.id} onPress={() => navigation.navigate('EventDetails', { event })}>
             <Card containerStyle={styles.card}>
               <View style={styles.cardHeader}>
                 <Icon name={icon.name} color={icon.color} size={24} />
@@ -128,7 +121,7 @@ const styles = StyleSheet.create({
   locationContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   location: { marginLeft: 8, fontSize: 14, color: '#000', flex: 1 },
   clientContainer: { flexDirection: 'row', alignItems: 'center' },
-  client: { marginLeft: 8, fontSize: 14, color: '#000', flex: 1 }
+  client: { marginLeft: 8, fontSize: 14, color: '#000', flex: 1 },
 });
 
 export default SearchResultsScreen;

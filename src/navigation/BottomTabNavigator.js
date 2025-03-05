@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Icon } from '@rneui/themed';
 import HomeStack from './stacks/HomeStack';
 import CalendarStack from './stacks/CalendarStack';
 import SearchStack from './stacks/SearchStack';
 import { Tab, tabConfig } from './navigationConfig';
 
+/**
+ * Retorna o ícone apropriado para cada rota.
+ *
+ * @param {string} routeName - Nome da rota.
+ * @returns {string} Nome do ícone.
+ */
 const getTabIcon = (routeName) => {
   switch (routeName) {
     case 'Home':
@@ -19,11 +25,22 @@ const getTabIcon = (routeName) => {
 };
 
 const BottomTabNavigator = () => {
+  // Memoiza as configurações de screenOptions para otimizar renderizações
+  const screenOptions = useMemo(
+    () => ({
+      ...tabConfig.screenOptions,
+      tabBarIcon: ({ color, size }, route) => (
+        <Icon name={getTabIcon(route.name)} size={size} color={color} />
+      ),
+    }),
+    []
+  );
+
   return (
     <Tab.Navigator
       {...tabConfig}
       screenOptions={({ route }) => ({
-        ...tabConfig.screenOptions,
+        ...screenOptions,
         tabBarIcon: ({ color, size }) => (
           <Icon name={getTabIcon(route.name)} size={size} color={color} />
         ),

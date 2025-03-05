@@ -1,3 +1,4 @@
 import { COMMON_STYLES } from '../utils/common';
 
-export const stackScreenOptions = COMMON_STYLES; 
+// Centraliza as configurações comuns para as telas do Stack Navigator
+export const stackScreenOptions = COMMON_STYLES;

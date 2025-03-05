@@ -22,4 +22,4 @@ export const tabConfig = {
     tabBarInactiveTintColor: 'gray',
     headerShown: false,
   },
-}; 
+};

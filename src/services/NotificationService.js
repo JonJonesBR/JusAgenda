@@ -40,19 +40,17 @@ export const requestPermissions = async () => {
 
 /**
  * Gerencia notificações do aplicativo.
- * Requer permissões do usuário para funcionar.
  */
 class NotificationService {
   /**
-   * Agenda uma notificação para um evento
-   * @param {Object} event - Evento para notificar
-   * @param {string} customMessage - Mensagem personalizada (opcional)
-   * @returns {string} ID da notificação agendada
+   * Agenda uma notificação para um evento.
+   * @param {Object} event - Evento para notificar.
+   * @param {string} customMessage - Mensagem personalizada (opcional).
+   * @returns {Promise<string|null>} ID da notificação agendada ou null se não agendado.
    */
   async scheduleNotification(event, customMessage) {
     const trigger = new Date(event.date);
     trigger.setDate(trigger.getDate() - 1); // Notifica 1 dia antes
-
     return await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Lembrete de Compromisso',
@@ -62,7 +60,6 @@ class NotificationService {
     });
   }
 
-  // Métodos utilitários simples não precisam de documentação extensa
   async cancelNotification(notificationId) {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   }
@@ -70,22 +67,17 @@ class NotificationService {
   static async scheduleEventNotification(event) {
     try {
       if (!event.date) {
-        // Ignorar o erro e retornar null
         console.warn('Data do evento é obrigatória, mas será ignorada.');
-        return null; // Retorna null se a data não estiver definida
+        return null;
       }
-
-      // Configura a data da notificação para 1 dia antes do evento
       const notificationDate = new Date(event.date);
       notificationDate.setDate(notificationDate.getDate() - 1);
-      notificationDate.setHours(9, 0, 0); // Configura para 9h da manhã
+      notificationDate.setHours(9, 0, 0); // 9h da manhã
 
-      // Verifica se a data não é passada
       if (notificationDate <= new Date()) {
         return null;
       }
 
-      // Agenda a notificação
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Lembrete de Compromisso',
@@ -98,7 +90,7 @@ class NotificationService {
       return notificationId;
     } catch (error) {
       console.error('Erro ao agendar notificação:', error);
-      return null; // Retorna null em caso de erro
+      return null;
     }
   }
 

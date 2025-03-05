@@ -13,7 +13,7 @@ export const sendEmail = async (recipient, subject, body) => {
   try {
     const isAvailable = await MailComposer.isAvailableAsync();
     if (!isAvailable) {
-      throw new Error('MailComposer is not available on this device.');
+      throw new Error('MailComposer não está disponível neste dispositivo.');
     }
 
     const options = {
@@ -24,7 +24,7 @@ export const sendEmail = async (recipient, subject, body) => {
 
     await MailComposer.composeAsync(options);
   } catch (error) {
-    console.error('Error sending email:', error);
-    throw new Error(`Failed to send email: ${error.message}`);
+    console.error('Erro ao enviar e-mail:', error);
+    throw new Error(`Falha ao enviar e-mail: ${error.message}`);
   }
 };

@@ -2,12 +2,14 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, Share, Alert } from 'react-native';
 import { Text, Button, Icon } from '@rneui/themed';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useEvents } from '../contexts/EventContext';
 import { formatDateTime, formatFullDate } from '../utils/dateUtils';
 import { COLORS } from '../utils/common';
 
 const EventViewScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { deleteEvent } = useEvents();
   const event = route.params?.event;
 
   const handleEdit = () => {
@@ -27,17 +29,9 @@ const EventViewScreen = () => {
 
 ${event.description ? `Descrição: ${event.description}` : ''}
       `.trim();
-
-      const result = await Share.share({
-        message,
-        title: event.title,
-      });
-
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          // Compartilhado com sucesso
-          console.log(`Compartilhado via ${result.activityType}`);
-        }
+      const result = await Share.share({ message, title: event.title });
+      if (result.action === Share.sharedAction && result.activityType) {
+        console.log(`Compartilhado via ${result.activityType}`);
       }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível compartilhar o compromisso');
@@ -49,10 +43,7 @@ ${event.description ? `Descrição: ${event.description}` : ''}
       'Confirmar Exclusão',
       'Tem certeza que deseja excluir este compromisso?',
       [
-        {
-          text: 'Não',
-          style: 'cancel',
-        },
+        { text: 'Não', style: 'cancel' },
         {
           text: 'Sim',
           style: 'destructive',
@@ -88,18 +79,12 @@ ${event.description ? `Descrição: ${event.description}` : ''}
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Icon
-          name={icon.name}
-          color={icon.color}
-          size={40}
-          containerStyle={styles.iconContainer}
-        />
+        <Icon name={icon.name} color={icon.color} size={40} containerStyle={styles.iconContainer} />
         <Text h4 style={styles.title}>{event?.title}</Text>
         <Text style={styles.type}>
           {event?.type?.charAt(0).toUpperCase() + event?.type?.slice(1)}
         </Text>
       </View>
-
       <View style={styles.content}>
         <View style={styles.infoSection}>
           <Icon name="calendar-today" color={COLORS.text.secondary} size={24} />
@@ -109,7 +94,6 @@ ${event.description ? `Descrição: ${event.description}` : ''}
             <Text style={styles.time}>{formatDateTime(event?.date)}</Text>
           </View>
         </View>
-
         <View style={styles.infoSection}>
           <Icon name="location-on" color={COLORS.text.secondary} size={24} />
           <View style={styles.infoText}>
@@ -117,7 +101,6 @@ ${event.description ? `Descrição: ${event.description}` : ''}
             <Text style={styles.value}>{event?.location}</Text>
           </View>
         </View>
-
         <View style={styles.infoSection}>
           <Icon name="person" color={COLORS.text.secondary} size={24} />
           <View style={styles.infoText}>
@@ -125,7 +108,6 @@ ${event.description ? `Descrição: ${event.description}` : ''}
             <Text style={styles.value}>{event?.client}</Text>
           </View>
         </View>
-
         {event?.description && (
           <View style={styles.descriptionSection}>
             <Text style={styles.label}>Descrição</Text>
@@ -133,7 +115,6 @@ ${event.description ? `Descrição: ${event.description}` : ''}
           </View>
         )}
       </View>
-
       <View style={styles.buttonContainer}>
         <Button
           title="Editar"
@@ -162,10 +143,7 @@ ${event.description ? `Descrição: ${event.description}` : ''}
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     backgroundColor: '#fff',
     padding: 20,
@@ -173,86 +151,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-  iconContainer: {
-    backgroundColor: 'rgba(98, 0, 238, 0.1)',
-    padding: 16,
-    borderRadius: 40,
-    marginBottom: 16,
-  },
-  title: {
-    textAlign: 'center',
-    marginBottom: 8,
-    color: COLORS.text.primary,
-  },
-  type: {
-    fontSize: 16,
-    color: COLORS.text.secondary,
-  },
-  content: {
-    padding: 20,
-  },
-  infoSection: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 2,
-  },
-  infoText: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  label: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    marginBottom: 4,
-  },
-  value: {
-    fontSize: 16,
-    color: COLORS.text.primary,
-  },
-  time: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    marginTop: 4,
-  },
-  descriptionSection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 2,
-  },
-  description: {
-    fontSize: 16,
-    color: COLORS.text.primary,
-    marginTop: 8,
-  },
-  buttonContainer: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'stretch',
-    marginTop: 20,
-    paddingHorizontal: 10,
-  },
-  button: {
-    marginVertical: 5,
-    height: 50,
-    borderRadius: 8,
-  },
-  buttonTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  editButton: {
-    backgroundColor: '#6200ee',
-  },
-  shareButton: {
-    backgroundColor: '#03dac6',
-  },
-  deleteButton: {
-    backgroundColor: '#ff0266',
-  },
+  iconContainer: { backgroundColor: 'rgba(98, 0, 238, 0.1)', padding: 16, borderRadius: 40, marginBottom: 16 },
+  title: { textAlign: 'center', marginBottom: 8, color: COLORS.text.primary },
+  type: { fontSize: 16, color: COLORS.text.secondary },
+  content: { padding: 20 },
+  infoSection: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#fff', padding: 16, borderRadius: 8, elevation: 2 },
+  infoText: { marginLeft: 16, flex: 1 },
+  label: { fontSize: 14, color: COLORS.text.secondary, marginBottom: 4 },
+  value: { fontSize: 16, color: COLORS.text.primary },
+  time: { fontSize: 14, color: COLORS.text.secondary, marginTop: 4 },
+  descriptionSection: { backgroundColor: '#fff', padding: 16, borderRadius: 8, elevation: 2 },
+  description: { fontSize: 16, color: COLORS.text.primary, marginTop: 8 },
+  buttonContainer: { flexDirection: 'column', justifyContent: 'center', alignItems: 'stretch', marginTop: 20, paddingHorizontal: 10 },
+  button: { marginVertical: 5, height: 50, borderRadius: 8 },
+  buttonTitle: { fontSize: 16, fontWeight: 'bold' },
+  editButton: { backgroundColor: '#6200ee' },
+  shareButton: { backgroundColor: '#03dac6' },
+  deleteButton: { backgroundColor: '#ff0266' },
 });
 
-export default EventViewScreen; 
+export default EventViewScreen;

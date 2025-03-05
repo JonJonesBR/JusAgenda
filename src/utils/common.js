@@ -1,13 +1,12 @@
 /**
  * Utilitários comuns compartilhados entre os módulos da aplicação.
- * Centraliza importações e funções frequentemente utilizadas.
+ * Centraliza configurações, cores e funções frequentemente utilizadas.
  */
 
-// Importações de bibliotecas comuns
 import moment from 'moment';
 import 'moment/locale/pt-br';
 
-// Configuração global do moment
+// Configuração global do moment para pt-br
 moment.locale('pt-br');
 
 // Cores do tema
@@ -30,7 +29,7 @@ export const EVENT_TYPES = {
   OUTROS: 'outros',
 };
 
-// Configurações comuns de estilo
+// Configurações comuns de estilo para navegadores
 export const COMMON_STYLES = {
   headerStyle: {
     backgroundColor: COLORS.primary,
@@ -41,12 +40,12 @@ export const COMMON_STYLES = {
   },
 };
 
-// Funções utilitárias comuns
-export const generateId = () => 
+// Funções utilitárias
+export const generateId = () =>
   Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 
-export const formatErrorMessage = (error) => 
+export const formatErrorMessage = (error) =>
   error?.message || 'Ocorreu um erro inesperado';
 
-// Exporta o moment configurado
-export { moment }; 
+// Exporta o moment já configurado
+export { moment };

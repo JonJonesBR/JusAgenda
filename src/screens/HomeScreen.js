@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, Text, Button, StatusBar, Dimensions, Alert } from 'react-native';
-import { FAB, Card, Icon } from '@rneui/themed';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Dimensions } from 'react-native';
+import { FAB, Card, Icon, Button, Text } from '@rneui/themed';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
 import UpcomingEvents from '../components/UpcomingEvents';
 import { LinearGradient } from 'expo-linear-gradient';
-import ExportService from '../services/ExportService';
 import { formatDateTime, isToday } from '../utils/dateUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -20,56 +19,40 @@ const HomeScreen = () => {
     if (isFocused) refreshEvents();
   }, [isFocused, refreshEvents]);
 
-  const getCurrentTime = () => {
+  const getCurrentTime = useCallback(() => {
     const hours = new Date().getHours();
     if (hours >= 5 && hours < 12) return 'Bom dia';
     if (hours >= 12 && hours < 18) return 'Boa tarde';
     return 'Boa noite';
-  };
+  }, []);
 
-  const handleEventPress = (event) => {
+  const handleEventPress = useCallback((event) => {
     Alert.alert(
       'Opções',
       'O que você deseja fazer?',
       [
-        {
-          text: 'Visualizar',
-          onPress: () => navigation.navigate('EventView', { event }),
-        },
-        {
-          text: 'Editar',
-          onPress: () => navigation.navigate('EventDetails', { event }),
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => confirmDelete(event),
-        },
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
+        { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
+        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(event) },
+        { text: 'Cancelar', style: 'cancel' },
       ],
       { cancelable: true }
     );
-  };
+  }, [navigation, deleteEvent]);
 
-  const confirmDelete = (event) => {
+  const confirmDelete = useCallback((event) => {
     Alert.alert(
       'Confirmar Exclusão',
       'Tem certeza que deseja excluir este compromisso?',
       [
-        {
-          text: 'Não',
-          style: 'cancel',
-        },
+        { text: 'Não', style: 'cancel' },
         {
           text: 'Sim',
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteEvent(event.id);
-              refreshEvents(); // Atualiza a lista de compromissos
+              refreshEvents();
             } catch (error) {
               Alert.alert('Erro', 'Não foi possível excluir o compromisso');
             }
@@ -78,16 +61,13 @@ const HomeScreen = () => {
       ],
       { cancelable: true }
     );
-  };
+  }, [deleteEvent, refreshEvents]);
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     navigation.navigate('Export');
-  };
+  }, [navigation]);
 
-  const today = isToday(new Date());
-  const todayEvents = events.filter((event) =>
-    isToday(new Date(event.date))
-  );
+  const todayEvents = events.filter(event => isToday(new Date(event.date)));
 
   return (
     <View style={styles.container}>
@@ -114,9 +94,7 @@ const HomeScreen = () => {
                   <Text style={styles.title}>{event.title}</Text>
                   <View style={styles.dateContainer}>
                     <Icon name="calendar-today" size={20} color="#757575" />
-                    <Text style={styles.date}>
-                      {formatDateTime(event.date)}
-                    </Text>
+                    <Text style={styles.date}>{formatDateTime(event.date)}</Text>
                   </View>
                 </Card>
               </TouchableOpacity>
@@ -130,11 +108,7 @@ const HomeScreen = () => {
           <UpcomingEvents onEventPress={handleEventPress} />
         </View>
         <View style={styles.exportContainer}>
-          <Button
-            title="📤 Exportar Compromissos"
-            onPress={handleExport}
-            color="#6200ee"
-          />
+          <Button title="📤 Exportar Compromissos" onPress={handleExport} color="#6200ee" />
         </View>
       </ScrollView>
       <FAB

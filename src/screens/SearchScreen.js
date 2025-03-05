@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SearchBar, Button, Text, Card, Icon } from '@rneui/themed';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -16,20 +16,18 @@ const SearchScreen = () => {
     if (isFocused) refreshEvents();
   }, [isFocused, refreshEvents]);
 
-  const filters = [
+  const filters = useMemo(() => ([
     { id: 'audiencia', label: 'Audiência', icon: 'gavel' },
     { id: 'reuniao', label: 'Reunião', icon: 'groups' },
     { id: 'prazo', label: 'Prazo', icon: 'timer' },
-    { id: 'outros', label: 'Outros', icon: 'event' }
-  ];
+    { id: 'outros', label: 'Outros', icon: 'event' },
+  ]), []);
 
-  const toggleFilter = (filterId) => {
+  const toggleFilter = useCallback((filterId) => {
     setSelectedFilters((current) =>
-      current.includes(filterId)
-        ? current.filter((id) => id !== filterId)
-        : [...current, filterId]
+      current.includes(filterId) ? current.filter((id) => id !== filterId) : [...current, filterId]
     );
-  };
+  }, []);
 
   const handleSearch = useCallback(() => {
     const termLower = searchTerm.toLowerCase().trim();
@@ -61,57 +59,55 @@ const SearchScreen = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
-  const handleEventPress = (event) => {
+  const handleEventPress = useCallback((event) => {
     Alert.alert(
       'Opções',
       'O que você deseja fazer?',
       [
-        {
-          text: 'Visualizar',
-          onPress: () => navigation.navigate('EventView', { event }),
-        },
-        {
-          text: 'Editar',
-          onPress: () => navigation.navigate('EventDetails', { event }),
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => confirmDelete(event),
-        },
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
+        { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
+        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(event) },
+        { text: 'Cancelar', style: 'cancel' },
       ],
       { cancelable: true }
     );
-  };
+  }, [navigation]);
+
+  const confirmDelete = useCallback((event) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este compromisso?',
+      [
+        { text: 'Não', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => navigation.navigate('EventDetails', { event, delete: true }),
+        },
+      ]
+    );
+  }, [navigation]);
+
+  const getFilterIcon = useCallback((filterId) => {
+    const filterObj = filters.find((f) => f.id === filterId) || { icon: 'event' };
+    return filterObj.icon;
+  }, [filters]);
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text h4 style={styles.title}>Buscar Compromissos</Text>
-        <Text style={styles.subtitle}>
-          Pesquise por título, cliente, descrição ou local
-        </Text>
+        <Text style={styles.subtitle}>Pesquise por título, cliente, descrição ou local</Text>
       </View>
-
       <Card containerStyle={styles.searchCard}>
         <SearchBar
           placeholder="Digite sua busca..."
           onChangeText={(text) => {
             setSearchTerm(text);
-            if (!text && selectedFilters.length === 0) {
-              setSearchResults([]);
-            }
+            if (!text && selectedFilters.length === 0) setSearchResults([]);
           }}
           value={searchTerm}
           platform="default"
@@ -119,7 +115,6 @@ const SearchScreen = () => {
           inputContainerStyle={styles.searchBarInput}
           round
         />
-
         <Text style={styles.filterTitle}>Filtrar por tipo:</Text>
         <View style={styles.filterContainer}>
           {filters.map((filter) => (
@@ -129,16 +124,16 @@ const SearchScreen = () => {
               icon={{
                 name: filter.icon,
                 size: 20,
-                color: selectedFilters.includes(filter.id) ? 'white' : '#6200ee'
+                color: selectedFilters.includes(filter.id) ? 'white' : '#6200ee',
               }}
               type={selectedFilters.includes(filter.id) ? 'solid' : 'outline'}
               buttonStyle={[
                 styles.filterButton,
-                selectedFilters.includes(filter.id) && styles.filterButtonActive
+                selectedFilters.includes(filter.id) && styles.filterButtonActive,
               ]}
               titleStyle={[
                 styles.filterButtonText,
-                selectedFilters.includes(filter.id) && styles.filterButtonTextActive
+                selectedFilters.includes(filter.id) && styles.filterButtonTextActive,
               ]}
               onPress={() => {
                 toggleFilter(filter.id);
@@ -147,7 +142,6 @@ const SearchScreen = () => {
             />
           ))}
         </View>
-
         <Button
           title="Buscar"
           icon={{ name: 'search', size: 20, color: 'white' }}
@@ -156,45 +150,36 @@ const SearchScreen = () => {
           disabled={!searchTerm && selectedFilters.length === 0}
         />
       </Card>
-
       {searchResults.length > 0 ? (
         <View style={styles.resultsContainer}>
           <Text style={styles.resultsTitle}>
             {searchResults.length} {searchResults.length === 1 ? 'resultado encontrado' : 'resultados encontrados'}
           </Text>
-          {searchResults.map((event) => {
-            const filterObj = filters.find((f) => f.id === event.type?.toLowerCase()) || { icon: 'event' };
-            return (
-              <Card key={event.id} containerStyle={styles.resultCard}>
-                <TouchableOpacity onPress={() => handleEventPress(event)}>
-                  <View style={styles.resultHeader}>
-                    <Icon
-                      name={filterObj.icon}
-                      color="#6200ee"
-                      size={24}
-                      style={styles.resultIcon}
-                    />
-                    <View style={styles.resultInfo}>
-                      <Text style={styles.resultTitle}>{event.title}</Text>
-                      <Text style={styles.resultDate}>{formatDate(event.date)}</Text>
-                    </View>
+          {searchResults.map((event) => (
+            <Card key={event.id} containerStyle={styles.resultCard}>
+              <TouchableOpacity onPress={() => handleEventPress(event)}>
+                <View style={styles.resultHeader}>
+                  <Icon name={getFilterIcon(event.type?.toLowerCase())} color="#6200ee" size={24} style={styles.resultIcon} />
+                  <View style={styles.resultInfo}>
+                    <Text style={styles.resultTitle}>{event.title}</Text>
+                    <Text style={styles.resultDate}>{formatDate(event.date)}</Text>
                   </View>
-                  {event.location && (
-                    <View style={styles.resultDetail}>
-                      <Icon name="location-on" size={16} color="#757575" />
-                      <Text style={styles.resultDetailText}>{event.location}</Text>
-                    </View>
-                  )}
-                  {event.client && (
-                    <View style={styles.resultDetail}>
-                      <Icon name="person" size={16} color="#757575" />
-                      <Text style={styles.resultDetailText}>{event.client}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </Card>
-            );
-          })}
+                </View>
+                {event.location && (
+                  <View style={styles.resultDetail}>
+                    <Icon name="location-on" size={16} color="#757575" />
+                    <Text style={styles.resultDetailText}>{event.location}</Text>
+                  </View>
+                )}
+                {event.client && (
+                  <View style={styles.resultDetail}>
+                    <Icon name="person" size={16} color="#757575" />
+                    <Text style={styles.resultDetailText}>{event.client}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </Card>
+          ))}
         </View>
       ) : (searchTerm || selectedFilters.length > 0) ? (
         <Card containerStyle={styles.noResultsCard}>
@@ -259,7 +244,7 @@ const styles = StyleSheet.create({
   cardTitleContainer: { flexDirection: 'row', alignItems: 'center' },
   cardTitle: { fontSize: 18, marginLeft: 8, color: '#6200ee' },
   tipItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  tipText: { marginLeft: 12, fontSize: 14, color: '#000', flex: 1 }
+  tipText: { marginLeft: 12, fontSize: 14, color: '#000', flex: 1 },
 });
 
 export default SearchScreen;

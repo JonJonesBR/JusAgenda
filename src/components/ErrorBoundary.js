@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
+import PropTypes from 'prop-types';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -7,15 +8,15 @@ class ErrorBoundary extends React.Component {
     this.state = { hasError: false, error: null };
   }
 
-  // Atualiza o estado para indicar que um erro ocorreu
+  // Atualiza o estado para indicar que ocorreu um erro
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
-  // Registra o erro e informações adicionais para fins de depuração
+  // Registra o erro para fins de depuração e possível integração com serviços de monitoramento
   componentDidCatch(error, errorInfo) {
-    console.error('Erro capturado pelo ErrorBoundary:', error, errorInfo);
-    // Integração com serviços de monitoramento (ex: Sentry) pode ser feita aqui
+    console.error('ErrorBoundary capturou um erro:', error, errorInfo);
+    // Integração com serviços de log (ex: Sentry) pode ser realizada aqui
   }
 
   // Método para resetar o estado e tentar renderizar novamente os filhos
@@ -38,6 +39,11 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+ErrorBoundary.propTypes = {
+  onReset: PropTypes.func,
+  children: PropTypes.node.isRequired,
+};
 
 const styles = StyleSheet.create({
   container: {

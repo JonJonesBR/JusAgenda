@@ -19,17 +19,11 @@ JusAgenda é o assistente definitivo para advogados! Organize prazos, audiência
 ## 🚀 Como Contribuir?
 1. Faça um Fork deste repositório.
 2. Crie uma nova branch para sua funcionalidade:
-   ```
-   git checkout -b feature/minha-nova-feature
-   ```
+git checkout -b feature/minha-nova-feature
 3. Faça commits das alterações:
-   ```
-   git commit -m "Adiciona nova funcionalidade: [descreva aqui]"
-   ```
+git commit -m "Adiciona nova funcionalidade: [descreva aqui]"
 4. Envie sua branch para o repositório remoto:
-   ```
-   git push origin feature/minha-nova-feature
-   ```
+git push origin feature/minha-nova-feature
 5. Abra um Pull Request.
 
 ## 📝 Licença

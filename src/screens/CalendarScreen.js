@@ -1,24 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Platform } from 'react-native';
-import { Text, Card, Icon, Button, Overlay, Input } from '@rneui/themed';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  StatusBar,
+  Platform,
+} from 'react-native';
+import { Text, Card, Icon, Button, Overlay } from '@rneui/themed';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useNavigation } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEvents } from '../contexts/EventContext';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import { COLORS } from '../utils/common';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 // Configuração do calendário em português
 LocaleConfig.locales['pt-br'] = {
   monthNames: [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ],
-  monthNamesShort: ['Jan.', 'Fev.', 'Mar.', 'Abr.', 'Mai.', 'Jun.', 
+  monthNamesShort: ['Jan.', 'Fev.', 'Mar.', 'Abr.', 'Mai.', 'Jun.',
     'Jul.', 'Ago.', 'Set.', 'Out.', 'Nov.', 'Dez.'],
   dayNames: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
   dayNamesShort: ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'],
-  today: 'Hoje'
+  today: 'Hoje',
 };
 LocaleConfig.defaultLocale = 'pt-br';
 
@@ -35,9 +43,12 @@ const CalendarScreen = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerType, setDatePickerType] = useState('start');
 
+  // Atualiza os eventos na montagem e sempre que os eventos mudam
   useEffect(() => {
-    refreshEvents();
-    setFilteredEvents(events);
+    (async () => {
+      await refreshEvents();
+      setFilteredEvents(events);
+    })();
   }, []);
 
   useEffect(() => {
@@ -45,9 +56,9 @@ const CalendarScreen = () => {
       setFilteredEvents(events);
     }
     updateMarkedDates(events);
-  }, [events]);
+  }, [events, filterType]);
 
-  const updateMarkedDates = (eventsToMark) => {
+  const updateMarkedDates = useCallback((eventsToMark) => {
     const marks = {};
     eventsToMark.forEach((event) => {
       const dateString = new Date(event.date).toISOString().split('T')[0];
@@ -57,28 +68,20 @@ const CalendarScreen = () => {
       };
     });
     setMarkedDates(marks);
-  };
+  }, []);
 
-  const handleDatePickerChange = (event, selectedDate) => {
+  const handleDatePickerChange = useCallback((e, selected) => {
     setShowDatePicker(false);
-    if (selectedDate) {
+    if (selected) {
       if (datePickerType === 'start') {
-        setStartDate(selectedDate);
+        setStartDate(selected);
       } else {
-        setEndDate(selectedDate);
+        setEndDate(selected);
       }
     }
-  };
+  }, [datePickerType]);
 
-  const showFilterDialog = () => {
-    setIsFilterVisible(true);
-  };
-
-  const handleExportFiltered = () => {
-    navigation.navigate('Export', { preSelectedEvents: filteredEvents });
-  };
-
-  const getEventColor = (type) => {
+  const getEventColor = useCallback((type) => {
     switch (type?.toLowerCase()) {
       case 'audiencia':
         return '#6200ee';
@@ -89,9 +92,9 @@ const CalendarScreen = () => {
       default:
         return '#018786';
     }
-  };
+  }, []);
 
-  const getEventTypeIcon = (type) => {
+  const getEventTypeIcon = useCallback((type) => {
     switch (type?.toLowerCase()) {
       case 'audiencia':
         return { name: 'gavel', color: '#6200ee' };
@@ -102,58 +105,46 @@ const CalendarScreen = () => {
       default:
         return { name: 'event', color: '#018786' };
     }
-  };
+  }, []);
 
-  const getDayEvents = (dateString) => {
+  const getDayEvents = useCallback((dateString) => {
     return filteredEvents.filter((event) => {
       const eventDate = new Date(event.date).toISOString().split('T')[0];
       return eventDate === dateString;
     });
-  };
+  }, [filteredEvents]);
 
-  const handleEventPress = (event) => {
+  const handleEventPress = useCallback((event) => {
     Alert.alert(
       'Opções',
       'O que você deseja fazer?',
       [
-        {
-          text: 'Visualizar',
-          onPress: () => navigation.navigate('EventView', { event }),
-        },
-        {
-          text: 'Editar',
-          onPress: () => navigation.navigate('EventDetails', { event }),
-        },
+        { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
+        { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
         {
           text: 'Excluir',
           style: 'destructive',
           onPress: () => confirmDelete(event),
         },
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
       ],
       { cancelable: true }
     );
-  };
+  }, [navigation]);
 
-  const confirmDelete = (event) => {
+  const confirmDelete = useCallback((event) => {
     Alert.alert(
       'Confirmar Exclusão',
       'Tem certeza que deseja excluir este compromisso?',
       [
-        {
-          text: 'Não',
-          style: 'cancel',
-        },
+        { text: 'Não', style: 'cancel' },
         {
           text: 'Sim',
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteEvent(event.id);
-              refreshEvents();
+              await refreshEvents();
               applyFilter();
             } catch (error) {
               Alert.alert('Erro', 'Não foi possível excluir o compromisso');
@@ -163,38 +154,54 @@ const CalendarScreen = () => {
       ],
       { cancelable: true }
     );
-  };
+  }, [deleteEvent, refreshEvents]);
 
-  const handleAddEvent = () => {
-    navigation.navigate('EventDetails');
-  };
+  const handleExportFiltered = useCallback(() => {
+    navigation.navigate('Export', { preSelectedEvents: filteredEvents });
+  }, [filteredEvents, navigation]);
+
+  const applyFilter = useCallback(() => {
+    let filtered = [...events];
+    if (filterType === 'range') {
+      filtered = events.filter((event) => {
+        const eventDate = new Date(event.date);
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        eventDate.setHours(0, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        return eventDate >= start && eventDate <= end;
+      });
+    } else if (filterType === 'specific') {
+      filtered = events.filter((event) => {
+        const eventDate = new Date(event.date);
+        const start = new Date(startDate);
+        eventDate.setHours(0, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
+        return eventDate.getTime() === start.getTime();
+      });
+    }
+    filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+    setFilteredEvents(filtered);
+    updateMarkedDates(filtered);
+    setSelectedDate('');
+  }, [events, filterType, startDate, endDate, updateMarkedDates]);
 
   const renderEvents = useCallback(() => {
-    let eventsToRender = selectedDate 
-      ? getDayEvents(selectedDate)
-      : filteredEvents;
-
+    const eventsToRender = selectedDate ? getDayEvents(selectedDate) : filteredEvents;
     if (eventsToRender.length === 0) {
       return (
         <Card containerStyle={styles.emptyCard}>
           <Icon name="event-busy" size={48} color="#757575" />
           <Text style={styles.emptyText}>
-            {selectedDate 
-              ? 'Nenhum compromisso nesta data'
-              : 'Nenhum compromisso encontrado'}
+            {selectedDate ? 'Nenhum compromisso nesta data' : 'Nenhum compromisso encontrado'}
           </Text>
         </Card>
       );
     }
-
-    // Ordena os eventos por data
     eventsToRender.sort((a, b) => new Date(a.date) - new Date(b.date));
-
     return eventsToRender.map((event) => (
-      <TouchableOpacity
-        key={event.id}
-        onPress={() => handleEventPress(event)}
-      >
+      <TouchableOpacity key={event.id} onPress={() => handleEventPress(event)}>
         <Card containerStyle={styles.eventCard}>
           <View style={styles.eventHeader}>
             <Icon {...getEventTypeIcon(event.type)} />
@@ -219,59 +226,18 @@ const CalendarScreen = () => {
         </Card>
       </TouchableOpacity>
     ));
-  }, [selectedDate, filteredEvents, events]);
-
-  const applyFilter = () => {
-    let filtered = [...events];
-    
-    switch (filterType) {
-      case 'range':
-        filtered = events.filter(event => {
-          const eventDate = new Date(event.date);
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          eventDate.setHours(0, 0, 0, 0);
-          start.setHours(0, 0, 0, 0);
-          end.setHours(0, 0, 0, 0);
-          return eventDate >= start && eventDate <= end;
-        });
-        break;
-      case 'specific':
-        filtered = events.filter(event => {
-          const eventDate = new Date(event.date);
-          const start = new Date(startDate);
-          eventDate.setHours(0, 0, 0, 0);
-          start.setHours(0, 0, 0, 0);
-          return eventDate.getTime() === start.getTime();
-        });
-        break;
-      case 'all':
-      default:
-        filtered = events;
-    }
-
-    // Ordena os eventos por data
-    filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    setFilteredEvents(filtered);
-    updateMarkedDates(filtered);
-    setSelectedDate(''); // Limpa a data selecionada ao aplicar filtro
-  };
+  }, [selectedDate, filteredEvents, getDayEvents, handleEventPress, getEventTypeIcon]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      
       <View style={styles.header}>
         <Text h4 style={styles.headerTitle}>Agenda</Text>
         <View style={styles.headerButtons}>
           <Button
-            icon={{ 
-              name: 'filter-list', 
-              color: filterType !== 'all' ? COLORS.secondary : 'white' 
-            }}
+            icon={{ name: 'filter-list', color: filterType !== 'all' ? COLORS.secondary : 'white' }}
             type="clear"
-            onPress={showFilterDialog}
+            onPress={() => setIsFilterVisible(true)}
           />
           <Button
             icon={{ name: 'file-download', color: 'white' }}
@@ -280,7 +246,6 @@ const CalendarScreen = () => {
           />
         </View>
       </View>
-
       <Calendar
         onDayPress={(day) => setSelectedDate(day.dateString)}
         markedDates={{
@@ -298,21 +263,15 @@ const CalendarScreen = () => {
           monthTextColor: COLORS.primary,
           textMonthFontSize: 16,
           textDayHeaderFontSize: 14,
-          'stylesheet.calendar.header': {
-            arrow: {
-              padding: 10,
-            },
-          },
+          'stylesheet.calendar.header': { arrow: { padding: 10 } },
         }}
       />
-
       <Overlay
         isVisible={isFilterVisible}
         onBackdropPress={() => setIsFilterVisible(false)}
         overlayStyle={styles.overlay}
       >
         <Text h4 style={styles.overlayTitle}>Filtrar Eventos</Text>
-        
         <View style={styles.filterOptions}>
           <Button
             title="Todos"
@@ -333,7 +292,6 @@ const CalendarScreen = () => {
             containerStyle={styles.filterButton}
           />
         </View>
-
         {(filterType === 'range' || filterType === 'specific') && (
           <View style={styles.dateInputs}>
             <TouchableOpacity
@@ -346,7 +304,6 @@ const CalendarScreen = () => {
               <Text style={styles.dateInputLabel}>Data Inicial</Text>
               <Text>{formatDate(startDate)}</Text>
             </TouchableOpacity>
-
             {filterType === 'range' && (
               <TouchableOpacity
                 style={styles.dateInput}
@@ -361,7 +318,6 @@ const CalendarScreen = () => {
             )}
           </View>
         )}
-
         {showDatePicker && (
           <DateTimePicker
             value={datePickerType === 'start' ? startDate : endDate}
@@ -370,7 +326,6 @@ const CalendarScreen = () => {
             onChange={handleDatePickerChange}
           />
         )}
-
         <Button
           title="Aplicar Filtro"
           onPress={() => {
@@ -380,7 +335,6 @@ const CalendarScreen = () => {
           buttonStyle={styles.applyButton}
         />
       </Overlay>
-
       <ScrollView style={styles.eventsContainer}>
         {renderEvents()}
       </ScrollView>
@@ -389,10 +343,7 @@ const CalendarScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: {
     backgroundColor: COLORS.primary,
     padding: 16,
@@ -401,49 +352,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerTitle: {
-    color: 'white',
-    margin: 0,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-  },
-  overlay: {
-    width: '90%',
-    borderRadius: 10,
-    padding: 20,
-  },
-  overlayTitle: {
-    textAlign: 'center',
-    marginBottom: 20,
-  },
+  headerTitle: { color: 'white', margin: 0 },
+  headerButtons: { flexDirection: 'row' },
+  overlay: { width: '90%', borderRadius: 10, padding: 20 },
+  overlayTitle: { textAlign: 'center', marginBottom: 20 },
   filterOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 20,
   },
-  filterButton: {
-    width: '48%',
-    marginBottom: 10,
-  },
-  dateInputs: {
-    marginBottom: 20,
-  },
+  filterButton: { width: '48%', marginBottom: 10 },
+  dateInputs: { marginBottom: 20 },
   dateInput: {
     padding: 15,
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     marginBottom: 10,
   },
-  dateInputLabel: {
-    color: COLORS.text.secondary,
-    marginBottom: 5,
-  },
-  applyButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-  },
+  dateInputLabel: { color: COLORS.text.secondary, marginBottom: 5 },
+  applyButton: { backgroundColor: COLORS.primary, borderRadius: 8 },
   eventsContainer: { flex: 1, padding: 16 },
   emptyCard: { borderRadius: 10, padding: 24, alignItems: 'center', elevation: 4 },
   emptyText: { marginTop: 16, fontSize: 16, color: '#757575' },

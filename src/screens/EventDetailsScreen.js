@@ -1,12 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Switch, Modal } from 'react-native';
-import { Text, Input, Button, Divider, ButtonGroup, FAB } from '@rneui/themed';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Switch,
+  Modal,
+  TouchableOpacity,
+} from 'react-native';
+import { Text, Input, Button, Divider, ButtonGroup, FAB, Icon } from '@rneui/themed';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
 import NotificationService from '../services/NotificationService';
 import { COLORS } from '../utils/common';
+import Selector from '../components/Selector';
+import CustomDateTimePicker from '../components/CustomDateTimePicker';
 
+// Constantes de opções
 const COMPETENCIAS = {
   CIVEL: 'Cível',
   CONSUMIDOR: 'Consumidor',
@@ -28,6 +41,52 @@ const TIPOS_COMPROMISSO = {
   SUSTENTACAO: 'Sustentação Oral',
 };
 
+// Funções utilitárias
+const formatDate = (dt) =>
+  dt.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+
+const formatTime = (dt) =>
+  dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+const validateForm = (formData) => {
+  if (!formData.cliente.trim()) {
+    return 'O campo "Cliente" é obrigatório.';
+  }
+  if (!formData.tipo) {
+    return 'O campo "Tipo de Compromisso" é obrigatório.';
+  }
+  if (!formData.data) {
+    return 'A data do compromisso é obrigatória.';
+  }
+  if (formData.data < new Date()) {
+    return 'A data/hora não pode ser no passado.';
+  }
+  return null;
+};
+
+// Modal base para todos os passos
+const StepModal = ({ visible, title, onClose, children }) => (
+  <Modal visible={visible} transparent animationType="slide">
+    <View style={styles.modalContainer}>
+      <View style={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <TouchableOpacity onPress={onClose}>
+            <Icon name="close" size={24} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView>{children}</ScrollView>
+      </View>
+    </View>
+  </Modal>
+);
+
+// Componente principal
 const EventDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -35,587 +94,295 @@ const EventDetailsScreen = () => {
   const { addEvent, updateEvent, deleteEvent } = useEvents();
 
   const [formData, setFormData] = useState({
-    // Dados do Processo
+    cliente: '',
+    tipo: '',
+    data: new Date(),
+    local: '',
+    descricao: '',
     numeroProcesso: '',
     competencia: '',
     vara: '',
     comarca: '',
     estado: '',
-    
-    // Partes do Processo
-    cliente: '',
     reu: '',
-    
-    // Contatos
     telefoneCliente: '',
     emailCliente: '',
     telefoneReu: '',
     emailReu: '',
-    
-    // Dados do Compromisso
-    tipo: '',
-    data: new Date(),
-    descricao: '',
-    observacoes: '',
-    
-    // Localização
-    local: '',
-    sala: '',
-    andar: '',
-    predio: '',
-    
-    // Valores
-    valorCausa: '',
-    honorarios: '',
-    
-    // Status e Prazos
-    statusProcesso: '',
-    proximoPrazo: '',
-    
-    // Documentos Necessários
-    documentosNecessarios: '',
-    
-    // Outros Participantes
     juiz: '',
     promotor: '',
     perito: '',
     prepostoCliente: '',
     testemunhas: '',
+    documentosNecessarios: '',
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [customMessage, setCustomMessage] = useState(`Você tem um compromisso "${formData.descricao}" amanhã`);
-  const [sendEmailFlag, setSendEmailFlag] = useState(false);
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [currentField, setCurrentField] = useState('');
+  const [showProcessInfo, setShowProcessInfo] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   useEffect(() => {
-    const checkPermissions = async () => {
-      try {
-        // Usa o método estático da classe NotificationService
-        await NotificationService.requestPermissions();
-      } catch (error) {
-        console.error('Erro ao solicitar permissões:', error);
-        Alert.alert(
-          'Aviso',
-          'Não foi possível obter permissão para enviar notificações'
-        );
-      }
-    };
+    navigation.setOptions({
+      title: editingEvent ? 'Editar Compromisso' : 'Novo Compromisso',
+    });
+    if (editingEvent) {
+      setFormData((prev) => ({ ...prev, ...editingEvent }));
+    }
+  }, [navigation, editingEvent]);
 
-    checkPermissions();
+  const handleInputChange = useCallback((field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const updateNotificationMessage = useCallback(() => {
-    if (!formData.data) return;
-
-    const formattedDate = formData.data.toLocaleDateString('pt-BR');
-    const formattedTime = formData.data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const eventLabel = TIPOS_COMPROMISSO[formData.tipo] || '';
-    setCustomMessage(
-      `Compromisso: ${eventLabel} de ${formData.cliente} no dia ${formattedDate} às ${formattedTime} no Fórum de ${formData.local}`
-    );
-  }, [formData.data, formData.tipo, formData.cliente, formData.local]);
-
-  useEffect(() => {
-    updateNotificationMessage();
-  }, [formData.data, formData.tipo, formData.cliente, formData.local, updateNotificationMessage]);
-
-  const handleSave = async () => {
-    const { cliente, tipo, data } = formData;
-
-    // Validação dos campos obrigatórios
-    if (!cliente) {
-      Alert.alert('Erro', 'O campo "Cliente" é obrigatório.');
-      return;
-    }
-
-    if (!tipo) {
-      Alert.alert('Erro', 'O campo "Tipo de Compromisso" é obrigatório.');
-      return;
-    }
-
-    // Verifica se a data está definida
-    if (!data) {
-      Alert.alert('Erro', 'A data do compromisso é obrigatória.');
-      return;
-    }
-
-    // Log para depuração
-    console.log('Data do compromisso:', data);
-
-    // Validação do número do processo (opcional)
-    const processNumberPattern = /^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$/; // Regex para validar o formato CNJ
-    if (formData.numeroProcesso && !processNumberPattern.test(formData.numeroProcesso)) {
-      Alert.alert('Erro', 'Se fornecido, o número do processo deve seguir o padrão CNJ: 0000000-00.0000.0.00.0000');
-      return;
-    }
-
-    // Verifica se a data/hora não é no passado
-    if (data < new Date()) {
-      Alert.alert('Erro', 'A data/hora não pode ser no passado.');
-      return;
-    }
-
-    const eventData = {
-      title: formData.descricao.trim(),
-      date: data.toISOString(), // Certifique-se de que a data está no formato correto
-      type: formData.tipo,
-      location: formData.local.trim(),
-      client: formData.cliente.trim(),
-      description: formData.descricao.trim(),
-    };
-
-    try {
-      let savedEvent;
-      if (editingEvent) {
-        const success = await updateEvent(editingEvent.id, eventData, sendEmailFlag);
-        if (success) {
-          savedEvent = { ...eventData, id: editingEvent.id };
-        }
-      } else {
-        savedEvent = await addEvent(eventData, sendEmailFlag);
-      }
-      if (!savedEvent) throw new Error('Falha ao salvar compromisso');
-
-      // Log para verificar o evento antes de agendar a notificação
-      console.log('Evento para agendar notificação:', savedEvent);
-
-      // Agenda a notificação usando o método estático
-      const notificationId = await NotificationService.scheduleEventNotification(savedEvent);
-      if (notificationId) {
-        savedEvent.notificationId = notificationId;
-      }
-
-      await NotificationService.scheduleEventNotification(savedEvent, customMessage);
-      navigation.goBack();
-    } catch (error) {
-      console.error('Erro ao salvar compromisso:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar o compromisso. Por favor, tente novamente.');
-    }
-  };
-
-  const handleDateChange = (event, selectedDate) => {
+  const handleDateChange = (selectedDate) => {
     if (selectedDate) {
-      setFormData(prev => ({ ...prev, data: new Date(selectedDate) }));
-      updateNotificationMessage();
+      const newDate = new Date(selectedDate);
+      // Preserve the current time when changing date
+      newDate.setHours(formData.data.getHours());
+      newDate.setMinutes(formData.data.getMinutes());
+      handleInputChange('data', newDate);
     }
+    setShowDatePicker(false);
   };
 
-  const handleTimeChange = (event, selectedTime) => {
+  const handleTimeChange = (selectedTime) => {
     if (selectedTime) {
       const newDate = new Date(formData.data);
-      newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
-      setFormData(prev => ({ ...prev, data: newDate }));
-      updateNotificationMessage();
+      // Update only time components
+      newDate.setHours(selectedTime.getHours());
+      newDate.setMinutes(selectedTime.getMinutes());
+      handleInputChange('data', newDate);
     }
+    setShowTimePicker(false);
   };
 
-  const formatDate = (dt) =>
-    dt.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-  const formatTime = (dt) =>
-    dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const handleDescricaoChange = (text) => {
-    setFormData(prev => ({ ...prev, descricao: text }));
-    updateNotificationMessage();
-  };
-  const handleClienteChange = (text) => {
-    setFormData(prev => ({ ...prev, cliente: text }));
-    updateNotificationMessage();
-  };
-  const handleLocalChange = (text) => {
-    setFormData(prev => ({ ...prev, local: text }));
-    updateNotificationMessage();
-  };
-
-  const handleProcessNumberChange = (text) => {
-    // Remove caracteres não numéricos
-    let numericText = text.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
-
-    // Limita a entrada a 20 caracteres
-    if (numericText.length > 20) {
-      numericText = numericText.slice(0, 20); // Mantém apenas os 20 primeiros caracteres
+  const handleSave = async () => {
+    const validationError = validateForm(formData);
+    if (validationError) {
+      Alert.alert('Erro', validationError);
+      return;
     }
 
-    // Formata o número do processo conforme o padrão
-    let formattedText = '';
-    if (numericText.length <= 7) {
-      formattedText = numericText; // Apenas os 7 primeiros dígitos
-    } else if (numericText.length <= 9) {
-      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7)}`; // Adiciona o dígito verificador
-    } else if (numericText.length <= 13) {
-      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7, 9)}.${numericText.slice(9)}`; // Adiciona o ano
-    } else if (numericText.length <= 17) {
-      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7, 9)}.${numericText.slice(9, 13)}.${numericText.slice(13)}`; // Adiciona o J
-    } else {
-      formattedText = `${numericText.slice(0, 7)}-${numericText.slice(7, 9)}.${numericText.slice(9, 13)}.${numericText.slice(13, 14)}.${numericText.slice(14, 16)}.${numericText.slice(16)}`; // Adiciona o TR e OOOO
-    }
-
-    // Verifica se o ano é válido (4 dígitos)
-    if (formattedText.length >= 13) {
-      const year = formattedText.slice(9, 13);
-      if (isNaN(year) || year.length !== 4) {
-        Alert.alert('Erro', 'O ano deve ser um número de 4 dígitos.');
-        return;
+    try {
+      if (editingEvent) {
+        await updateEvent(formData);
+      } else {
+        await addEvent(formData);
       }
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível salvar o compromisso.');
     }
-
-    setFormData(prev => ({ ...prev, numeroProcesso: formattedText }));
-  };
-
-  // Função atualizada para renderizar os seletores
-  const renderSelector = (label, value, options, onChange) => {
-    const buttons = Object.values(options);
-    // Divide os botões em linhas de 2 para melhor visualização
-    const rows = [];
-    for (let i = 0; i < buttons.length; i += 2) {
-      rows.push(buttons.slice(i, i + 2));
-    }
-
-    return (
-      <View style={styles.selectorContainer}>
-        <Text style={styles.selectorLabel}>{label}</Text>
-        {rows.map((row, rowIndex) => (
-          <ButtonGroup
-            key={rowIndex}
-            buttons={row}
-            selectedIndex={row.indexOf(value)}
-            onPress={(index) => {
-              const actualIndex = rowIndex * 2 + index;
-              onChange(Object.keys(options)[actualIndex]);
-            }}
-            containerStyle={styles.buttonGroupContainer}
-            selectedButtonStyle={styles.selectedButton}
-            buttonStyle={styles.selectorButton}
-            textStyle={styles.selectorButtonText}
-            selectedTextStyle={styles.selectedButtonText}
-          />
-        ))}
-      </View>
-    );
   };
 
   const handleDelete = () => {
     Alert.alert(
-      'Confirmar Exclusão',
-      'Tem certeza que deseja excluir este compromisso?',
+      'Confirmar',
+      'Deseja realmente excluir este compromisso?',
       [
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Não',
-          style: 'cancel',
-        },
-        {
-          text: 'Sim',
+          text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteEvent(editingEvent.id);
               navigation.goBack();
             } catch (error) {
-              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+              Alert.alert('Erro', 'Não foi possível excluir o compromisso.');
             }
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
-  const handleOpenModal = (field) => {
-    setCurrentField(field);
-    setModalVisible(true);
-  };
+  const renderMainForm = () => (
+    <ScrollView style={styles.container}>
+      <View style={styles.mainForm}>
+        <Input
+          label="Cliente *"
+          value={formData.cliente}
+          onChangeText={(value) => handleInputChange('cliente', value)}
+          placeholder="Nome do cliente"
+        />
 
-  const handleSelect = (value) => {
-    setFormData((prev) => ({ ...prev, [currentField]: value }));
-    setModalVisible(false);
-  };
+        <Selector
+          label="Tipo de Compromisso *"
+          selectedValue={formData.tipo}
+          options={TIPOS_COMPROMISSO}
+          onSelect={(value) => handleInputChange('tipo', value)}
+        />
 
-  const renderModalContent = () => {
-    switch (currentField) {
-      case 'competencia':
-        return (
-          <View>
-            <Text>Selecione a Competência:</Text>
-            <Button title="Cível" onPress={() => handleSelect('Cível')} />
-            <Button title="Criminal" onPress={() => handleSelect('Criminal')} />
-          </View>
-        );
-      case 'vara':
-        return (
-          <View>
-            <Text>Selecione a Vara:</Text>
-            <Button title="Vara 1" onPress={() => handleSelect('Vara 1')} />
-            <Button title="Vara 2" onPress={() => handleSelect('Vara 2')} />
-          </View>
-        );
-      case 'comarca':
-        return (
-          <View>
-            <Text>Selecione a Comarca:</Text>
-            <Button title="Comarca A" onPress={() => handleSelect('Comarca A')} />
-            <Button title="Comarca B" onPress={() => handleSelect('Comarca B')} />
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
+        <TouchableOpacity
+          style={styles.dateTimeContainer}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Text style={styles.label}>Data *</Text>
+          <Text style={styles.dateTimeText}>{formatDate(formData.data)}</Text>
+        </TouchableOpacity>
 
-  useEffect(() => {
-    navigation.setOptions({
-      title: 'Tela de Cadastro',
-    });
-  }, [navigation]);
+        <TouchableOpacity
+          style={styles.dateTimeContainer}
+          onPress={() => setShowTimePicker(true)}
+        >
+          <Text style={styles.label}>Hora *</Text>
+          <Text style={styles.dateTimeText}>{formatTime(formData.data)}</Text>
+        </TouchableOpacity>
+
+        <CustomDateTimePicker
+          visible={showDatePicker}
+          mode="date"
+          value={formData.data}
+          onClose={() => setShowDatePicker(false)}
+          onConfirm={handleDateChange}
+        />
+
+        <CustomDateTimePicker
+          visible={showTimePicker}
+          mode="time"
+          value={formData.data}
+          onClose={() => setShowTimePicker(false)}
+          onConfirm={handleTimeChange}
+        />
+
+        <Input
+          label="Local"
+          value={formData.local}
+          onChangeText={(value) => handleInputChange('local', value)}
+          placeholder="Local do compromisso"
+        />
+
+        <Input
+          label="Descrição"
+          value={formData.descricao}
+          onChangeText={(text) => handleInputChange('descricao', text)}
+          multiline
+          numberOfLines={3}
+          placeholder="Descrição do compromisso"
+        />
+
+        <View style={styles.actionButtons}>
+          <Button
+            title="Informações do Processo"
+            type="outline"
+            icon={{ name: 'description', size: 20 }}
+            onPress={() => setShowProcessInfo(true)}
+            containerStyle={styles.actionButton}
+          />
+          <Button
+            title="Participantes"
+            type="outline"
+            icon={{ name: 'people', size: 20 }}
+            onPress={() => setShowParticipants(true)}
+            containerStyle={styles.actionButton}
+          />
+          <Button
+            title="Documentos"
+            type="outline"
+            icon={{ name: 'folder', size: 20 }}
+            onPress={() => setShowDocuments(true)}
+            containerStyle={styles.actionButton}
+          />
+        </View>
+      </View>
+    </ScrollView>
+  );
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      style={{ flex: 1 }}
     >
-      <ScrollView>
-        <View style={styles.content}>
-          <Text style={styles.title}>Novo Compromisso</Text>
-          <Text h4 style={styles.sectionTitle}>Dados do Processo</Text>
-          <View style={styles.section}>
-            <Input
-              label="Número do Processo"
-              value={formData.numeroProcesso}
-              onChangeText={handleProcessNumberChange}
-              placeholder="Ex: 0000000-00.0000.0.00.0000"
-              keyboardType="numeric"
-            />
-            
-            {renderSelector(
-              'Competência',
-              COMPETENCIAS[formData.competencia],
-              COMPETENCIAS,
-              (value) => setFormData(prev => ({ ...prev, competencia: value }))
-            )}
+      {renderMainForm()}
 
-            <Input
-              label="Vara"
-              value={formData.vara}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, vara: value }))}
-              placeholder="Ex: 1ª Vara Cível"
-            />
-
-            <Input
-              label="Comarca"
-              value={formData.comarca}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, comarca: value }))}
-            />
-
-            <Input
-              label="Estado"
-              value={formData.estado}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, estado: value }))}
-            />
-          </View>
-
-          <Divider style={styles.divider} />
-          <Text h4 style={styles.sectionTitle}>Partes do Processo</Text>
-          <View style={styles.section}>
-            <Input
-              label="Cliente"
-              value={formData.cliente}
-              onChangeText={handleClienteChange}
-            />
-            
-            <Input
-              label="Telefone do Cliente"
-              value={formData.telefoneCliente}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, telefoneCliente: value }))}
-              keyboardType="phone-pad"
-            />
-
-            <Input
-              label="E-mail do Cliente"
-              value={formData.emailCliente}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, emailCliente: value }))}
-              keyboardType="email-address"
-            />
-
-            <Input
-              label="Réu/Parte Contrária"
-              value={formData.reu}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, reu: value }))}
-            />
-
-            <Input
-              label="Telefone do Réu"
-              value={formData.telefoneReu}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, telefoneReu: value }))}
-              keyboardType="phone-pad"
-            />
-
-            <Input
-              label="E-mail do Réu"
-              value={formData.emailReu}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, emailReu: value }))}
-              keyboardType="email-address"
-            />
-          </View>
-
-          <Divider style={styles.divider} />
-          <Text h4 style={styles.sectionTitle}>Dados do Compromisso</Text>
-          <View style={styles.section}>
-            {renderSelector(
-              'Tipo de Compromisso',
-              TIPOS_COMPROMISSO[formData.tipo],
-              TIPOS_COMPROMISSO,
-              (value) => setFormData(prev => ({ ...prev, tipo: value }))
-            )}
-
-            <Text style={styles.label}>Data e Hora</Text>
-            <View style={styles.dateContainer}>
-              <Button
-                title={formatDate(formData.data)}
-                type="outline"
-                icon={{ name: 'calendar-today', size: 20, color: '#6200ee' }}
-                buttonStyle={styles.dateButton}
-                titleStyle={styles.dateButtonText}
-                onPress={() => setShowDatePicker(true)}
-              />
-            </View>
-            {showDatePicker && (
-              <View style={styles.datePickerContainer}>
-                <DateTimePicker
-                  value={formData.data}
-                  mode="date"
-                  display="spinner"
-                  onChange={handleDateChange}
-                  locale="pt-BR"
-                />
-                <Button title="OK" onPress={() => setShowDatePicker(false)} buttonStyle={styles.okButton} />
-              </View>
-            )}
-            <View style={styles.timeContainer}>
-              <Button
-                title={formatTime(formData.data)}
-                type="outline"
-                icon={{ name: 'access-time', size: 20, color: '#6200ee' }}
-                buttonStyle={styles.dateButton}
-                titleStyle={styles.dateButtonText}
-                onPress={() => setShowTimePicker(true)}
-              />
-            </View>
-            {showTimePicker && (
-              <View style={styles.timePickerContainer}>
-                <DateTimePicker
-                  value={formData.data}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleTimeChange}
-                  locale="pt-BR"
-                />
-                <Button title="OK" onPress={() => setShowTimePicker(false)} buttonStyle={styles.okButton} />
-              </View>
-            )}
-
-            <Input
-              label="Local"
-              value={formData.local}
-              onChangeText={handleLocalChange}
-            />
-
-            <Input
-              label="Sala/Andar/Prédio"
-              value={formData.sala}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, sala: value }))}
-              placeholder="Ex: Sala 302, 3º andar, Prédio Principal"
-            />
-
-            <Input
-              label="Descrição"
-              value={formData.descricao}
-              onChangeText={handleDescricaoChange}
-              multiline
-              numberOfLines={3}
-            />
-
-            <Input
-              label="Documentos Necessários"
-              value={formData.documentosNecessarios}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, documentosNecessarios: value }))}
-              multiline
-              numberOfLines={3}
-              placeholder="Liste os documentos necessários para o compromisso"
-            />
-          </View>
-
-          <Divider style={styles.divider} />
-          <Text h4 style={styles.sectionTitle}>Outros Participantes</Text>
-          <View style={styles.section}>
-            <Input
-              label="Juiz"
-              value={formData.juiz}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, juiz: value }))}
-            />
-
-            <Input
-              label="Promotor"
-              value={formData.promotor}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, promotor: value }))}
-            />
-
-            <Input
-              label="Perito"
-              value={formData.perito}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, perito: value }))}
-            />
-
-            <Input
-              label="Preposto do Cliente"
-              value={formData.prepostoCliente}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, prepostoCliente: value }))}
-            />
-
-            <Input
-              label="Testemunhas"
-              value={formData.testemunhas}
-              onChangeText={(value) => setFormData(prev => ({ ...prev, testemunhas: value }))}
-              multiline
-              numberOfLines={3}
-              placeholder="Nome e qualificação das testemunhas"
-            />
-          </View>
-
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>Enviar por e-mail</Text>
-            <Switch value={sendEmailFlag} onValueChange={setSendEmailFlag} />
-          </View>
-          <View style={styles.buttonContainer}>
-            {editingEvent && (
-              <Button
-                title="Excluir"
-                onPress={handleDelete}
-                buttonStyle={[styles.button, styles.deleteButton]}
-              />
-            )}
-          </View>
-        </View>
-      </ScrollView>
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="slide"
+      <StepModal
+        visible={showProcessInfo}
+        title="Informações do Processo"
+        onClose={() => setShowProcessInfo(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            {renderModalContent()}
-            <Button title="Fechar" onPress={() => setModalVisible(false)} />
-          </View>
+        <View style={styles.modalSection}>
+          <Input
+            label="Número do Processo"
+            value={formData.numeroProcesso}
+            onChangeText={(text) => handleInputChange('numeroProcesso', text)}
+            placeholder="0000000-00.0000.0.00.0000"
+            keyboardType="numeric"
+          />
+          <Input
+            label="Vara"
+            value={formData.vara}
+            onChangeText={(text) => handleInputChange('vara', text)}
+            keyboardType="numeric"
+          />
+          <Input
+            label="Comarca"
+            value={formData.comarca}
+            onChangeText={(text) => handleInputChange('comarca', text)}
+          />
+          <Input
+            label="Estado"
+            value={formData.estado}
+            onChangeText={(text) => handleInputChange('estado', text)}
+          />
         </View>
-      </Modal>
+      </StepModal>
+
+      <StepModal
+        visible={showParticipants}
+        title="Participantes"
+        onClose={() => setShowParticipants(false)}
+      >
+        <View style={styles.modalSection}>
+          <Input
+            label="Juiz"
+            value={formData.juiz}
+            onChangeText={(text) => handleInputChange('juiz', text)}
+          />
+          <Input
+            label="Promotor"
+            value={formData.promotor}
+            onChangeText={(text) => handleInputChange('promotor', text)}
+          />
+          <Input
+            label="Perito"
+            value={formData.perito}
+            onChangeText={(text) => handleInputChange('perito', text)}
+          />
+          <Input
+            label="Testemunhas"
+            value={formData.testemunhas}
+            onChangeText={(text) => handleInputChange('testemunhas', text)}
+            multiline
+            numberOfLines={3}
+          />
+        </View>
+      </StepModal>
+
+      <StepModal
+        visible={showDocuments}
+        title="Documentos Necessários"
+        onClose={() => setShowDocuments(false)}
+      >
+        <View style={styles.modalSection}>
+          <Input
+            label="Documentos Necessários"
+            value={formData.documentosNecessarios}
+            onChangeText={(text) => handleInputChange('documentosNecessarios', text)}
+            multiline
+            numberOfLines={4}
+            placeholder="Liste os documentos necessários para o compromisso"
+          />
+        </View>
+      </StepModal>
+
       <FAB
+        title="Salvar"
         icon={{ name: 'save', color: 'white' }}
-        color="#6200ee"
+        color={COLORS.primary}
         placement="right"
-        style={styles.fab}
         onPress={handleSave}
       />
     </KeyboardAvoidingView>
@@ -623,124 +390,72 @@ const EventDetailsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  content: { padding: 16 },
-  title: { 
-    marginBottom: 24, 
-    color: '#000', 
-    textAlign: 'center', 
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  sectionTitle: {
-    padding: 16,
-    paddingBottom: 0,
-    color: COLORS.primary,
-  },
-  label: { fontSize: 16, color: '#86939e', marginBottom: 8, marginLeft: 10 },
-  section: { padding: 16 },
-  picker: {
-    marginHorizontal: 10,
-    marginBottom: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  divider: {
-    marginVertical: 16,
-    backgroundColor: '#e0e0e0',
-  },
-  dateContainer: { marginBottom: 16 },
-  timeContainer: { marginBottom: 16 },
-  dateButton: { borderColor: '#6200ee', borderRadius: 10, height: 50 },
-  dateButtonText: { color: '#6200ee' },
-  datePickerContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 10,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  timePickerContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 10,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  okButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50, marginTop: 16 },
-  switchContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  switchLabel: { flex: 1, fontSize: 16, color: '#86939e' },
-  saveButton: { backgroundColor: '#6200ee', borderRadius: 10, height: 50 },
-  selectorContainer: {
-    marginBottom: 24,
-    paddingHorizontal: 10,
-  },
-  selectorLabel: {
-    fontSize: 16,
-    color: '#86939e',
-    marginBottom: 12,
-    marginLeft: 10,
-    fontWeight: '600',
-  },
-  buttonGroupContainer: {
-    marginBottom: 8,
-    height: 45,
-    borderRadius: 8,
-    borderColor: COLORS.primary,
-    borderWidth: 1,
-  },
-  selectorButton: {
-    backgroundColor: 'white',
-    padding: 12,
-  },
-  selectedButton: {
-    backgroundColor: COLORS.primary,
-  },
-  selectorButtonText: {
-    fontSize: 14,
-    color: COLORS.primary,
-    textAlign: 'center',
-  },
-  selectedButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 20,
-    gap: 10,
-  },
-  button: {
+  container: {
     flex: 1,
-    borderRadius: 8,
-    height: 50,
+    backgroundColor: '#fff',
   },
-  deleteButton: {
-    backgroundColor: COLORS.error,
+  mainForm: {
+    padding: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#86939e',
+  },
+  dateTimeContainer: {
+    marginHorizontal: 10,
+    marginBottom: 20,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  dateTimeText: {
+    fontSize: 16,
+    color: '#000',
+    marginTop: 4,
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    width: '80%',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    maxHeight: '80%',
+    width: '100%',
   },
-  fab: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  datePicker: {
+    width: '100%',
+    height: 200,
+    marginBottom: 16,
+  },
+  confirmButton: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  actionButtons: {
+    marginTop: 20,
+  },
+  actionButton: {
+    marginVertical: 8,
   },
 });
 

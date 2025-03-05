@@ -36,17 +36,19 @@ class Storage {
 
 export const storage = new Storage();
 
-/**
- * Função mock para salvar um compromisso.
- */
-export const saveEvent = jest.fn();
+// Event storage functions
+export const saveEvent = async (event) => {
+  const events = await storage.getItem('events') || [];
+  events.push(event);
+  await storage.setItem('events', events);
+};
 
-/**
- * Função mock para obter compromissos.
- */
-export const getEvents = jest.fn();
+export const getEvents = async () => {
+  return await storage.getItem('events') || [];
+};
 
-/**
- * Função mock para excluir um compromisso.
- */
-export const deleteEvent = jest.fn();
+export const deleteEvent = async (eventId) => {
+  const events = await storage.getItem('events') || [];
+  const updatedEvents = events.filter(event => event.id !== eventId);
+  await storage.setItem('events', updatedEvents);
+};

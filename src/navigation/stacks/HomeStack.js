@@ -32,4 +32,4 @@ const HomeStack = () => (
   </Stack.Navigator>
 );
 
-export default HomeStack; 
+export default HomeStack;

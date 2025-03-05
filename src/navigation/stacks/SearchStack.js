@@ -26,4 +26,4 @@ const SearchStack = () => (
   </Stack.Navigator>
 );
 
-export default SearchStack; 
+export default SearchStack;

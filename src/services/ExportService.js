@@ -10,7 +10,7 @@ export default class ExportService {
       // Cabeçalho com informações gerais
       const headerInfo = [
         `Total de Compromissos: ${data.length}`,
-        `Gerado em ${formatFullDate(new Date())}\n`
+        `Gerado em ${formatFullDate(new Date())}`
       ].join('\n');
 
       // Cabeçalho das colunas
@@ -35,11 +35,11 @@ export default class ExportService {
           `"${formatDateTime(event.date)}"`,
           `"${event.type.toUpperCase()}"`,
           `"${event.client}"`,
-          `"${event.description || ''}"`,
+          `"${event.description || ''}"`
         ].join(',');
       }).join('\n');
 
-      const csvContent = headerInfo + columns + '\n' + rows;
+      const csvContent = `${headerInfo}\n${columns}\n${rows}`;
 
       // Cria arquivo temporário
       const fileUri = `${FileSystem.documentDirectory}export.csv`;
@@ -50,40 +50,28 @@ export default class ExportService {
         throw new Error('Compartilhamento não disponível');
       }
 
-      // Compartilha o arquivo
       try {
         const result = await Sharing.shareAsync(fileUri, {
           mimeType: 'text/csv',
           UTI: 'public.comma-separated-values-text',
           dialogTitle: 'Exportar dados'
         });
-        
-        // Se o resultado for null ou undefined, retorna false
-        if (!result) return false;
-        
-        return result.action === Sharing.SharedAction;
+        return result?.action === Sharing.SharedAction;
       } catch (shareError) {
-        console.log('Compartilhamento cancelado');
+        console.log('Compartilhamento cancelado', shareError);
         return false;
       }
     } catch (error) {
-      console.error('Erro na exportação Excel:', error);
+      console.error('Erro na exportação para Excel:', error);
       throw error;
     }
   }
 
   static async exportToPDF(data) {
-    console.log('Iniciando exportação PDF...');
     try {
-      // Log do estado do compartilhamento
-      const sharingAvailable = await Sharing.isAvailableAsync();
-      console.log('Compartilhamento disponível:', sharingAvailable);
-
-      if (!sharingAvailable) {
+      if (!(await Sharing.isAvailableAsync())) {
         throw new Error('Compartilhamento não disponível');
       }
-
-      console.log('Gerando HTML...');
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -154,19 +142,14 @@ export default class ExportService {
               <div>Total de Compromissos: ${data.length}</div>
               <div>Gerado em ${formatFullDate(new Date())}</div>
             </div>
-            
             <h1>Agenda de Compromissos</h1>
-
             ${data.map(event => {
               const processInfo = event.title.split(' ');
               const tribunal = processInfo[0];
               const processo = processInfo.slice(1).join(' ');
-              
               return `
                 <div class="compromisso">
-                  <div class="processo-header">
-                    ${tribunal} ${processo}
-                  </div>
+                  <div class="processo-header">${tribunal} ${processo}</div>
                   <div class="processo-info">
                     <div class="info-row">
                       <div class="info-label">Data:</div>
@@ -191,27 +174,12 @@ export default class ExportService {
           </body>
         </html>
       `;
-
-      console.log('Gerando PDF...');
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        base64: false
+      const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
+      const result = await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Exportar PDF'
       });
-      console.log('PDF gerado em:', uri);
-
-      try {
-        console.log('Iniciando compartilhamento...');
-        const result = await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Exportar PDF'
-        });
-        
-        console.log('Resultado do compartilhamento:', result);
-        return result?.action === Sharing.SharedAction;
-      } catch (shareError) {
-        console.log('Erro no compartilhamento:', shareError);
-        return false;
-      }
+      return result?.action === Sharing.SharedAction;
     } catch (error) {
       console.error('Erro na exportação para PDF:', error);
       throw error;
@@ -263,9 +231,7 @@ export default class ExportService {
               <p>Total de Compromissos: ${data.length}</p>
               <p>Gerado em ${formatFullDate(new Date())}</p>
             </div>
-
             <h1>Agenda de Compromissos</h1>
-
             <table>
               <tr>
                 <th>Tribunal</th>
@@ -279,7 +245,6 @@ export default class ExportService {
                 const processInfo = event.title.split(' ');
                 const tribunal = processInfo[0];
                 const processo = processInfo.slice(1).join(' ');
-                
                 return `
                   <tr>
                     <td>${tribunal}</td>
@@ -295,31 +260,16 @@ export default class ExportService {
           </body>
         </html>
       `;
-
-      // Define o caminho do arquivo Word
       const fileUri = `${FileSystem.documentDirectory}export.doc`;
       await FileSystem.writeAsStringAsync(fileUri, htmlContent, { encoding: FileSystem.EncodingType.UTF8 });
-
-      // Verifica se o compartilhamento está disponível
       if (!(await Sharing.isAvailableAsync())) {
         throw new Error('Compartilhamento não disponível');
       }
-
-      // Compartilha o arquivo Word
-      try {
-        const result = await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/msword',
-          dialogTitle: 'Exportar Word'
-        });
-        
-        // Se o resultado for null ou undefined, retorna false
-        if (!result) return false;
-        
-        return result.action === Sharing.SharedAction;
-      } catch (shareError) {
-        console.log('Compartilhamento cancelado');
-        return false;
-      }
+      const result = await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/msword',
+        dialogTitle: 'Exportar Word'
+      });
+      return result?.action === Sharing.SharedAction;
     } catch (error) {
       console.error('Erro na exportação para Word:', error);
       throw error;

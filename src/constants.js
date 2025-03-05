@@ -12,7 +12,7 @@
  * Coleção dos tipos de eventos.
  * @type {Record<string, EventType>}
  */
-export const eventTypes = {
+export const eventTypes = Object.freeze({
   audiencia: {
     id: 'hearing',
     label: 'Audiência',
@@ -29,7 +29,17 @@ export const eventTypes = {
     id: 'other',
     label: 'Outros',
   },
-};
+});
+
+/**
+ * Mapeamento otimizado de id de evento para seu rótulo.
+ * @type {Record<string, string>}
+ */
+const eventTypeLabelMap = Object.freeze(
+  Object.fromEntries(
+    Object.values(eventTypes).map(e => [e.id, e.label])
+  )
+);
 
 /**
  * Retorna o rótulo correspondente ao identificador do tipo de evento.
@@ -37,12 +47,12 @@ export const eventTypes = {
  * @returns {string} Rótulo do evento ou o próprio identificador se não encontrado.
  */
 export const getEventTypeLabel = (type) => {
-  const eventType = Object.values(eventTypes).find((e) => e.id === type);
-  if (!eventType) {
+  const label = eventTypeLabelMap[type];
+  if (!label) {
     console.warn(`Tipo de evento não encontrado: ${type}`);
     return type;
   }
-  return eventType.label;
+  return label;
 };
 
 /**
@@ -53,11 +63,11 @@ export const getEventTypeLabel = (type) => {
  */
 
 // Campos comuns compartilhados entre os tipos de evento
-const commonFields = {
+const commonFields = Object.freeze({
   title: { name: 'title', label: 'Título', type: 'text' },
   date: { name: 'date', label: 'Data', type: 'date' },
   notes: { name: 'notes', label: 'Observações', type: 'textarea' },
-};
+});
 
 /**
  * Mapeamento dos tipos de eventos para seus respectivos campos.
@@ -88,8 +98,9 @@ export const eventFields = {
 
 /**
  * Adiciona um campo a um tipo específico de evento.
+ * Esta função muta o objeto eventFields. Use com cautela.
  * @param {string} eventType - Tipo de evento (ex.: audiencia, reuniao).
- * @param {object} field - Campo a ser adicionado.
+ * @param {EventField} field - Campo a ser adicionado.
  * @throws {Error} Se o tipo de evento não existir.
  */
 export function addField(eventType, field) {
@@ -99,7 +110,10 @@ export function addField(eventType, field) {
   eventFields[eventType].push(field);
 }
 
-export const ROUTES = {
+/**
+ * Rotas da aplicação.
+ */
+export const ROUTES = Object.freeze({
   EVENT_DETAILS: 'EventDetails',
   // ...outras rotas
-}; 
+});

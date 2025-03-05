@@ -30,19 +30,22 @@ export const EventProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Atualiza a lista de eventos sempre que lastUpdate mudar
+  /**
+   * Busca e atualiza a lista de eventos de forma assíncrona.
+   */
+  const refreshEvents = useCallback(async () => {
+    try {
+      const allEvents = await getAllCompromissos();
+      setEvents(allEvents);
+    } catch (err) {
+      console.error('Erro ao atualizar eventos:', err);
+      setError(err.message);
+    }
+  }, []);
+
   useEffect(() => {
     refreshEvents();
-  }, [lastUpdate]);
-
-  /**
-   * Busca e atualiza a lista de eventos.
-   * Considera que `getAllCompromissos` é síncrono; se for assíncrono, adapte com async/await.
-   */
-  const refreshEvents = useCallback(() => {
-    const allEvents = getAllCompromissos();
-    setEvents(allEvents);
-  }, []);
+  }, [lastUpdate, refreshEvents]);
 
   /**
    * Força a atualização dos eventos.
@@ -56,7 +59,7 @@ export const EventProvider = ({ children }) => {
    *
    * @param {object} eventData - Dados do evento.
    * @param {boolean} sendEmailFlag - Flag para envio de e-mail de notificação.
-   * @returns {Promise<boolean>} True se adicionado com sucesso, caso contrário false.
+   * @returns {Promise<boolean>} True se adicionado com sucesso; caso contrário, false.
    */
   const addEvent = useCallback(
     async (eventData, sendEmailFlag) => {
@@ -77,7 +80,7 @@ export const EventProvider = ({ children }) => {
         }
         return false;
       } catch (err) {
-        console.error('Error adding event:', err);
+        console.error('Erro ao adicionar evento:', err);
         setError(err.message);
         return false;
       } finally {
@@ -93,7 +96,7 @@ export const EventProvider = ({ children }) => {
    * @param {string} id - Identificador do evento.
    * @param {object} eventData - Novos dados do evento.
    * @param {boolean} sendEmailFlag - Flag para envio de notificação por e-mail.
-   * @returns {Promise<boolean>} True se atualizado com sucesso, caso contrário false.
+   * @returns {Promise<boolean>} True se atualizado com sucesso; caso contrário, false.
    */
   const updateEvent = useCallback(
     async (id, eventData, sendEmailFlag) => {
@@ -103,7 +106,7 @@ export const EventProvider = ({ children }) => {
           triggerUpdate();
           if (sendEmailFlag) {
             await sendEmail(
-              'recipient@example.com', // Substitua pelo e-mail do destinatário
+              'recipient@example.com',
               'Event Updated',
               `The event "${eventData.title}" has been updated.`
             );
@@ -112,7 +115,7 @@ export const EventProvider = ({ children }) => {
         }
         return false;
       } catch (err) {
-        console.error('Error updating event:', err);
+        console.error('Erro ao atualizar evento:', err);
         return false;
       }
     },
@@ -134,15 +137,15 @@ export const EventProvider = ({ children }) => {
           triggerUpdate();
           if (sendEmailFlag) {
             await sendEmail(
-              'recipient@example.com', // Substitua pelo e-mail do destinatário
+              'recipient@example.com',
               'Event Deleted',
-              `An event has been deleted.`
+              'An event has been deleted.'
             );
           }
         }
         return success;
       } catch (err) {
-        console.error('Error deleting event:', err);
+        console.error('Erro ao excluir evento:', err);
         return false;
       }
     },
@@ -196,7 +199,7 @@ export const EventProvider = ({ children }) => {
         }
         return updatedEvent;
       } catch (err) {
-        console.error('Error updating notifications:', err);
+        console.error('Erro ao atualizar notificações:', err);
         return null;
       }
     },

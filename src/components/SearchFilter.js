@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   TextInput,
@@ -7,6 +7,7 @@ import {
   Modal,
   Text,
 } from 'react-native';
+import PropTypes from 'prop-types';
 import { lightTheme } from '../constants/colors';
 import { Feather } from '@expo/vector-icons';
 
@@ -25,15 +26,23 @@ const SearchFilter = ({ onSearch }) => {
   const [selectedFilters, setSelectedFilters] = useState({});
 
   const handleSearchSubmit = useCallback(() => {
-    const activeFilters = Object.keys(selectedFilters).filter(key => selectedFilters[key]);
+    const activeFilters = Object.keys(selectedFilters).filter(
+      key => selectedFilters[key]
+    );
     onSearch({ term: searchTerm.trim(), filters: activeFilters });
   }, [selectedFilters, searchTerm, onSearch]);
 
-  const toggleFilter = filterKey => {
-    setSelectedFilters(prev => ({ ...prev, [filterKey]: !prev[filterKey] }));
-  };
+  const toggleFilter = useCallback((filterKey) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      [filterKey]: !prev[filterKey],
+    }));
+  }, []);
 
-  const activeFilterCount = Object.values(selectedFilters).filter(Boolean).length;
+  const activeFilterCount = useMemo(
+    () => Object.values(selectedFilters).filter(Boolean).length,
+    [selectedFilters]
+  );
 
   return (
     <View style={styles.container}>
@@ -41,7 +50,10 @@ const SearchFilter = ({ onSearch }) => {
       <View
         style={[
           styles.searchContainer,
-          { backgroundColor: lightTheme.card, borderColor: lightTheme.primary },
+          {
+            backgroundColor: lightTheme.card,
+            borderColor: lightTheme.primary,
+          },
         ]}
       >
         <Feather
@@ -58,6 +70,7 @@ const SearchFilter = ({ onSearch }) => {
           value={searchTerm}
           onChangeText={setSearchTerm}
           onSubmitEditing={handleSearchSubmit}
+          returnKeyType="search"
         />
         {/* Botão para abrir o modal de filtros */}
         <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
@@ -91,7 +104,7 @@ const SearchFilter = ({ onSearch }) => {
             <Text style={[styles.modalTitle, { color: lightTheme.text }]}>
               Filtrar por tipo
             </Text>
-            {FILTERS.map((filter) => (
+            {FILTERS.map(filter => (
               <TouchableOpacity
                 key={filter}
                 style={[
@@ -116,7 +129,10 @@ const SearchFilter = ({ onSearch }) => {
               </TouchableOpacity>
             ))}
             <TouchableOpacity
-              style={[styles.applyButton, { backgroundColor: lightTheme.primary }]}
+              style={[
+                styles.applyButton,
+                { backgroundColor: lightTheme.primary },
+              ]}
               onPress={() => {
                 setFilterModalVisible(false);
                 handleSearchSubmit();
@@ -129,6 +145,10 @@ const SearchFilter = ({ onSearch }) => {
       </Modal>
     </View>
   );
+};
+
+SearchFilter.propTypes = {
+  onSearch: PropTypes.func.isRequired,
 };
 
 const styles = StyleSheet.create({
@@ -199,6 +219,7 @@ const styles = StyleSheet.create({
   applyButtonText: {
     color: 'white',
     fontSize: 16,
+    textAlign: 'center',
   },
 });
 

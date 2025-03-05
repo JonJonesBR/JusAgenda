@@ -16,13 +16,13 @@ export const configureNotifications = async () => {
     }
 
     if (finalStatus !== 'granted') {
-      console.warn('Notification permissions not granted');
+      console.warn('Permissões de notificação não concedidas');
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error configuring notifications:', error);
+    console.error('Erro ao configurar notificações:', error);
     return false;
   }
 };
@@ -46,9 +46,9 @@ export const scheduleNotification = async ({ title, body, time }) => {
       },
       trigger: { seconds: time / 1000 },
     });
-    console.log('Notification scheduled successfully!');
+    console.log('Notificação agendada com sucesso!');
   } catch (error) {
-    console.error('Error scheduling notification:', error);
+    console.error('Erro ao agendar notificação:', error);
     throw error;
   }
 };
@@ -61,9 +61,9 @@ export const scheduleNotification = async ({ title, body, time }) => {
 export const cancelAllNotifications = async () => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('All notifications have been canceled.');
+    console.log('Todas as notificações foram canceladas.');
   } catch (error) {
-    console.error('Error canceling notifications:', error);
+    console.error('Erro ao cancelar notificações:', error);
     throw error;
   }
 };

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   Alert,
 } from 'react-native';
 import { Text, Card, Icon } from '@rneui/themed';
+import PropTypes from 'prop-types';
 import { useNavigation } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
 
@@ -14,6 +15,7 @@ const UpcomingEvents = () => {
   const navigation = useNavigation();
   const { events, deleteEvent, refreshEvents } = useEvents();
 
+  // Calcula os compromissos futuros, ordenando-os e limitando a 5 itens
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     return [...events]
@@ -22,7 +24,7 @@ const UpcomingEvents = () => {
       .slice(0, 5);
   }, [events]);
 
-  const getEventTypeIcon = type => {
+  const getEventTypeIcon = useCallback((type) => {
     switch (type?.toLowerCase()) {
       case 'audiencia':
         return { name: 'gavel', color: '#6200ee' };
@@ -33,18 +35,44 @@ const UpcomingEvents = () => {
       default:
         return { name: 'event', color: '#018786' };
     }
-  };
+  }, []);
 
-  const formatDate = dateString => {
+  const formatDate = useCallback((dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
     });
-  };
+  }, []);
 
-  const handleEventPress = (event) => {
+  const confirmDelete = useCallback((event) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este compromisso?',
+      [
+        {
+          text: 'Não',
+          style: 'cancel',
+        },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(event.id);
+              refreshEvents();
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }, [deleteEvent, refreshEvents]);
+
+  const handleEventPress = useCallback((event) => {
     Alert.alert(
       'Opções',
       'O que você deseja fazer?',
@@ -69,33 +97,7 @@ const UpcomingEvents = () => {
       ],
       { cancelable: true }
     );
-  };
-
-  const confirmDelete = (event) => {
-    Alert.alert(
-      'Confirmar Exclusão',
-      'Tem certeza que deseja excluir este compromisso?',
-      [
-        {
-          text: 'Não',
-          style: 'cancel',
-        },
-        {
-          text: 'Sim',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteEvent(event.id);
-              refreshEvents();
-            } catch (error) {
-              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
+  }, [navigation, confirmDelete]);
 
   if (upcomingEvents.length === 0) {
     return (
@@ -151,6 +153,10 @@ const UpcomingEvents = () => {
       })}
     </ScrollView>
   );
+};
+
+UpcomingEvents.propTypes = {
+  // As propriedades são obtidas via context (useEvents) e, portanto, não são passadas diretamente
 };
 
 const styles = StyleSheet.create({
