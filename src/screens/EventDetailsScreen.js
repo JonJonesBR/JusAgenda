@@ -166,10 +166,17 @@ const EventDetailsScreen = () => {
     }
 
     try {
+      // Prepare event data with title field (mapped from cliente)
+      const eventData = {
+        ...formData,
+        title: formData.cliente, // Map cliente to title for display in HomeScreen and SearchScreen
+        type: formData.tipo?.toLowerCase() // Ensure type is lowercase for filtering
+      };
+      
       if (editingEvent) {
-        await updateEvent(formData);
+        await updateEvent(eventData);
       } else {
-        await addEvent(formData);
+        await addEvent(eventData);
       }
       navigation.goBack();
     } catch (error) {

@@ -2,6 +2,37 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { Text, Icon } from '@rneui/themed';
 
+/**
+ * A customizable dropdown selector component with modal interface
+ * Displays a selection field that opens a modal with scrollable options when tapped
+ *
+ * @component
+ * @example
+ * const options = {
+ *   option1: 'Option 1',
+ *   option2: 'Option 2',
+ *   option3: { label: 'Option 3', value: 'value3' }
+ * };
+ *
+ * <Selector
+ *   label="Select an option"
+ *   selectedValue="option1"
+ *   options={options}
+ *   onSelect={(value) => console.log('Selected:', value)}
+ * />
+ *
+ * @typedef {Object} Option
+ * @property {string} [label] - Display label for the option (if object format)
+ * @property {any} [value] - Value for the option (if object format)
+ *
+ * @typedef {Object.<string, string|Option>} Options
+ *
+ * @param {Object} props - Component props
+ * @param {string} props.label - Label text for the selector
+ * @param {string} [props.selectedValue] - Currently selected option key
+ * @param {Options} props.options - Object containing available options
+ * @param {(value: string) => void} [props.onSelect] - Callback function when an option is selected
+ */
 const Selector = ({ label, selectedValue, options, onSelect = () => {} }) => {
   const [modalVisible, setModalVisible] = useState(false);
 

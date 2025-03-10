@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Dimensions } from 'react-native';
 import { FAB, Card, Icon, Button, Text } from '@rneui/themed';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -8,6 +8,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatDateTime, isToday } from '../utils/dateUtils';
 
 const { width, height } = Dimensions.get('window');
+
+const ALERT_MESSAGES = {
+  DELETE_CONFIRM: {
+    title: 'Confirmar Exclusão',
+    message: 'Tem certeza que deseja excluir este compromisso?',
+  },
+  DELETE_ERROR: {
+    title: 'Erro',
+    message: 'Não foi possível excluir o compromisso',
+  },
+  OPTIONS: {
+    title: 'Opções',
+    message: 'O que você deseja fazer?',
+  },
+};
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -26,24 +41,40 @@ const HomeScreen = () => {
     return 'Boa noite';
   }, []);
 
+  const handleEventAction = useCallback((event, action) => {
+    switch (action) {
+      case 'view':
+        navigation.navigate('EventView', { event });
+        break;
+      case 'edit':
+        navigation.navigate('EventDetails', { event });
+        break;
+      case 'delete':
+        confirmDelete(event);
+        break;
+      default:
+        break;
+    }
+  }, [navigation]);
+
   const handleEventPress = useCallback((event) => {
     Alert.alert(
-      'Opções',
-      'O que você deseja fazer?',
+      ALERT_MESSAGES.OPTIONS.title,
+      ALERT_MESSAGES.OPTIONS.message,
       [
-        { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
-        { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
-        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(event) },
+        { text: 'Visualizar', onPress: () => handleEventAction(event, 'view') },
+        { text: 'Editar', onPress: () => handleEventAction(event, 'edit') },
+        { text: 'Excluir', style: 'destructive', onPress: () => handleEventAction(event, 'delete') },
         { text: 'Cancelar', style: 'cancel' },
       ],
       { cancelable: true }
     );
-  }, [navigation, deleteEvent]);
+  }, [handleEventAction]);
 
   const confirmDelete = useCallback((event) => {
     Alert.alert(
-      'Confirmar Exclusão',
-      'Tem certeza que deseja excluir este compromisso?',
+      ALERT_MESSAGES.DELETE_CONFIRM.title,
+      ALERT_MESSAGES.DELETE_CONFIRM.message,
       [
         { text: 'Não', style: 'cancel' },
         {
@@ -54,7 +85,10 @@ const HomeScreen = () => {
               await deleteEvent(event.id);
               refreshEvents();
             } catch (error) {
-              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+              Alert.alert(
+                ALERT_MESSAGES.DELETE_ERROR.title,
+                ALERT_MESSAGES.DELETE_ERROR.message
+              );
             }
           },
         },
@@ -67,7 +101,10 @@ const HomeScreen = () => {
     navigation.navigate('Export');
   }, [navigation]);
 
-  const todayEvents = events.filter(event => isToday(new Date(event.date)));
+  const todayEvents = useMemo(() => 
+    events.filter(event => isToday(new Date(event.date))),
+    [events]
+  );
 
   return (
     <View style={styles.container}>

@@ -11,8 +11,16 @@ import PropTypes from 'prop-types';
 import { lightTheme } from '../constants/colors';
 import { Feather } from '@expo/vector-icons';
 
+/**
+ * Available filter types for events
+ * @type {string[]}
+ */
 const FILTERS = ['audiencia', 'reuniao', 'prazo', 'outros'];
 
+/**
+ * Display labels for filter types in Portuguese
+ * @type {Object.<string, string>}
+ */
 const FILTER_LABELS = {
   audiencia: 'Audiência',
   reuniao: 'Reunião',
@@ -20,11 +28,38 @@ const FILTER_LABELS = {
   outros: 'Outros',
 };
 
+/**
+ * A search component with filter functionality for events
+ * Provides a search input field and a modal filter selector
+ *
+ * @component
+ * @example
+ * <SearchFilter
+ *   onSearch={({ term, filters }) => {
+ *     console.log('Search term:', term);
+ *     console.log('Active filters:', filters);
+ *   }}
+ * />
+ *
+ * @typedef {Object} SearchParams
+ * @property {string} term - The search text entered by the user
+ * @property {string[]} filters - Array of active filter types
+ *
+ * @param {Object} props - Component props
+ * @param {(params: SearchParams) => void} props.onSearch - Callback function when search is performed
+ */
 const SearchFilter = ({ onSearch }) => {
+  /**
+   * State for managing search input and filters
+   */
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState({});
 
+  /**
+   * Handles search submission by collecting active filters and search term
+   * @type {() => void}
+   */
   const handleSearchSubmit = useCallback(() => {
     const activeFilters = Object.keys(selectedFilters).filter(
       key => selectedFilters[key]
@@ -32,6 +67,10 @@ const SearchFilter = ({ onSearch }) => {
     onSearch({ term: searchTerm.trim(), filters: activeFilters });
   }, [selectedFilters, searchTerm, onSearch]);
 
+  /**
+   * Toggles the state of a filter
+   * @param {string} filterKey - The key of the filter to toggle
+   */
   const toggleFilter = useCallback((filterKey) => {
     setSelectedFilters(prev => ({
       ...prev,
@@ -39,6 +78,10 @@ const SearchFilter = ({ onSearch }) => {
     }));
   }, []);
 
+  /**
+   * Memoized count of active filters
+   * @type {number}
+   */
   const activeFilterCount = useMemo(
     () => Object.values(selectedFilters).filter(Boolean).length,
     [selectedFilters]

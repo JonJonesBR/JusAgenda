@@ -3,6 +3,37 @@ import { View, StyleSheet, Modal, TouchableOpacity, Platform, ScrollView } from 
 import { Text, Button, Icon } from '@rneui/themed';
 import { COLORS } from '../utils/common';
 
+/**
+ * A custom date and time picker component for React Native.
+ * Provides a modal interface for selecting date or time with a scrollable interface.
+ *
+ * @component
+ * @example
+ * // Date picker usage
+ * <CustomDateTimePicker
+ *   visible={isVisible}
+ *   mode="date"
+ *   value={new Date()}
+ *   onClose={() => setIsVisible(false)}
+ *   onConfirm={(date) => handleDateSelection(date)}
+ * />
+ *
+ * // Time picker usage
+ * <CustomDateTimePicker
+ *   visible={isVisible}
+ *   mode="time"
+ *   value={new Date()}
+ *   onClose={() => setIsVisible(false)}
+ *   onConfirm={(time) => handleTimeSelection(time)}
+ * />
+ *
+ * @typedef {Object} Props
+ * @property {boolean} visible - Controls the visibility of the picker modal
+ * @property {('date'|'time')} mode - Determines whether to show date or time picker
+ * @property {Date} value - The initial date/time value
+ * @property {() => void} onClose - Callback function when the picker is closed
+ * @property {(date: Date) => void} onConfirm - Callback function when a date/time is confirmed
+ */
 const CustomDateTimePicker = ({
   visible,
   mode,
@@ -10,20 +41,35 @@ const CustomDateTimePicker = ({
   onClose,
   onConfirm,
 }) => {
+  /**
+   * State to track the currently selected date/time value
+   * @type {[Date, React.Dispatch<React.SetStateAction<Date>>]}
+   */
   const [tempDate, setTempDate] = React.useState(value);
 
+  /**
+   * Handles the confirmation action when user selects a date/time
+   * Calls the onConfirm callback with the selected date and closes the modal
+   */
   const handleConfirm = () => {
     onConfirm(tempDate);
     onClose();
   };
 
+  /**
+   * Renders the date picker UI with day, month and year selection
+   * @returns {React.ReactElement} The date picker component
+   */
   const renderDatePicker = () => {
+    // Generate array of days (1-31)
     const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    // Portuguese month abbreviations
     const months = [
       'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
     ];
     const currentYear = new Date().getFullYear();
+    // Generate array of years (current year + 76 years ahead)
     const years = Array.from({ length: 77 }, (_, i) => currentYear + i);
 
     return (
@@ -94,8 +140,14 @@ const CustomDateTimePicker = ({
     );
   };
 
+  /**
+   * Renders the time picker UI with hour and minute selection
+   * @returns {React.ReactElement} The time picker component
+   */
   const renderTimePicker = () => {
+    // Generate array of hours (0-23)
     const hours = Array.from({ length: 24 }, (_, i) => i);
+    // Generate array of minutes (0-59)
     const minutes = Array.from({ length: 60 }, (_, i) => i);
 
     return (

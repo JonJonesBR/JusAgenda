@@ -66,15 +66,19 @@ class NotificationService {
 
   static async scheduleEventNotification(event) {
     try {
-      if (!event.date) {
-        console.warn('Data do evento é obrigatória, mas será ignorada.');
-        return null;
+      if (!event?.date) {
+        throw new Error('Data do evento é obrigatória para agendar notificação');
+      }
+      if (!event?.title) {
+        throw new Error('Título do evento é obrigatório para agendar notificação');
       }
       const notificationDate = new Date(event.date);
       notificationDate.setDate(notificationDate.getDate() - 1);
       notificationDate.setHours(9, 0, 0); // 9h da manhã
 
-      if (notificationDate <= new Date()) {
+      const now = new Date();
+      if (notificationDate <= now) {
+        console.warn('Data de notificação no passado, notificação não será agendada');
         return null;
       }
 

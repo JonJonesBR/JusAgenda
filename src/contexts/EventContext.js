@@ -9,16 +9,40 @@ import React, {
 import {
   getAllCompromissos,
   addCompromisso as addCompromissoService,
-  updateEvent as updateEventService,
+  updateCompromisso as updateEventService,
   deleteCompromisso as deleteCompromissoService,
-  searchEvents as searchEventsService,
-  getEventById as getEventByIdService,
-  updateEventNotifications as updateEventNotificationsService,
+  searchCompromissos as searchEventsService,
+  getCompromissoById as getEventByIdService,
+  updateCompromissoNotifications as updateEventNotificationsService,
 } from '../services/EventService';
-import { sendEmail } from '../services/EmailService';
+import NotificationService from '../services/NotificationService';
 
-// Criação do contexto para eventos
-const EventContext = createContext();
+/**
+ * @typedef {Object} Event
+ * @property {string} id - Unique identifier
+ * @property {string} title - Event title
+ * @property {string} type - Event type (audiencia, reuniao, prazo, etc)
+ * @property {Date} date - Event date and time
+ * @property {string} [location] - Optional event location
+ * @property {string} [description] - Optional event description
+ * @property {string} [client] - Optional client name
+ */
+
+/**
+ * @typedef {Object} EventContextType
+ * @property {Event[]} events - List of all events
+ * @property {boolean} loading - Loading state
+ * @property {string|null} error - Error message if any
+ * @property {() => Promise<void>} refreshEvents - Refresh events list
+ * @property {(eventData: Event) => Promise<void>} addEvent - Add new event
+ * @property {(eventData: Event) => Promise<void>} updateEvent - Update existing event
+ * @property {(eventId: string) => Promise<void>} deleteEvent - Delete event
+ * @property {(term: string) => Event[]} searchEvents - Search events
+ * @property {(id: string) => Event|null} getEventById - Get event by ID
+ * @property {(event: Event) => Promise<void>} updateEventNotifications - Update event notifications
+ */
+
+const EventContext = createContext(null);
 
 /**
  * Provider para gerenciamento de eventos.
@@ -99,9 +123,14 @@ export const EventProvider = ({ children }) => {
    * @returns {Promise<boolean>} True se atualizado com sucesso; caso contrário, false.
    */
   const updateEvent = useCallback(
-    async (id, eventData, sendEmailFlag) => {
+    async (eventData, sendEmailFlag) => {
+      setLoading(true);
+      setError(null);
       try {
-        const updatedEvent = await updateEventService(id, eventData);
+        if (!eventData?.id) {
+          throw new Error('ID do evento é obrigatório para atualização');
+        }
+        const updatedEvent = await updateEventService(eventData.id, eventData);
         if (updatedEvent) {
           triggerUpdate();
           if (sendEmailFlag) {
@@ -116,7 +145,10 @@ export const EventProvider = ({ children }) => {
         return false;
       } catch (err) {
         console.error('Erro ao atualizar evento:', err);
+        setError(err.message);
         return false;
+      } finally {
+        setLoading(false);
       }
     },
     [triggerUpdate]
@@ -151,34 +183,44 @@ export const EventProvider = ({ children }) => {
     },
     [triggerUpdate]
   );
-
   /**
    * Realiza a busca de eventos com base em um termo e filtros.
    *
    * @param {string} term - Termo de busca.
    * @param {string[]} filters - Lista de tipos de eventos para filtrar.
-   * @returns {Array} Lista de eventos ordenada por data.
+   * @returns {Promise<Array>} Lista de eventos ordenada por data.
    */
   const searchEvents = useCallback(
-    (term, filters) => {
-      let results = term ? searchEventsService(term) : [...events];
-      if (filters?.length > 0) {
-        results = results.filter((event) =>
-          filters.includes(event.type?.toLowerCase())
-        );
+    async (term, filters) => {
+      try {
+        let results = term ? await searchEventsService(term) : [...events];
+        if (filters?.length > 0) {
+          results = results.filter((event) =>
+            filters.includes(event.type?.toLowerCase())
+          );
+        }
+        return results.sort((a, b) => new Date(a.date) - new Date(b.date));
+      } catch (error) {
+        console.error('Erro ao buscar eventos:', error);
+        return [];
       }
-      return results.sort((a, b) => new Date(a.date) - new Date(b.date));
     },
     [events]
   );
-
   /**
    * Obtém um evento pelo seu identificador.
    *
    * @param {string} id - Identificador do evento.
-   * @returns {object} Evento correspondente.
+   * @returns {Promise<object|null>} Evento correspondente ou null se não encontrado.
    */
-  const getEventById = useCallback((id) => getEventByIdService(id), []);
+  const getEventById = useCallback(async (id) => {
+    try {
+      return await getEventByIdService(id);
+    } catch (error) {
+      console.error('Erro ao obter evento por ID:', error);
+      return null;
+    }
+  }, []);
 
   /**
    * Atualiza as notificações associadas a um evento.

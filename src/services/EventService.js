@@ -10,7 +10,33 @@ const STORAGE_KEY = '@jusagenda_events';
 export const getAllCompromissos = async () => {
   try {
     const storedEvents = await storage.getItem(STORAGE_KEY) || [];
-    const sorted = [...storedEvents].sort(
+    
+    // Validate and fix any invalid dates before returning
+    const validatedEvents = storedEvents.map(event => {
+      if (event.date) {
+        try {
+          const dateObj = new Date(event.date);
+          if (isNaN(dateObj.getTime())) {
+            // If date is invalid, set a default date or fix it
+            console.warn(`Fixing invalid date in event: ${event.id}`);
+            return { ...event, date: new Date().toISOString() };
+          }
+          // Ensure consistent date format
+          return { ...event, date: dateObj.toISOString() };
+        } catch (err) {
+          console.warn(`Error with date in event ${event.id}, using current date`);
+          return { ...event, date: new Date().toISOString() };
+        }
+      }
+      return event;
+    });
+    
+    // Save the fixed events back to storage
+    if (JSON.stringify(validatedEvents) !== JSON.stringify(storedEvents)) {
+      await storage.setItem(STORAGE_KEY, validatedEvents);
+    }
+    
+    const sorted = [...validatedEvents].sort(
       (a, b) => new Date(a.date) - new Date(b.date)
     );
     return sorted;
@@ -28,9 +54,22 @@ export const getUpcomingCompromissos = async () => {
   try {
     const now = new Date();
     const storedEvents = await storage.getItem(STORAGE_KEY) || [];
+    
+    // Filter out events with invalid dates and get only upcoming events
     const upcoming = storedEvents
-      .filter((compromisso) => new Date(compromisso.date) >= now)
+      .filter((compromisso) => {
+        if (!compromisso.date) return false;
+        
+        try {
+          const eventDate = new Date(compromisso.date);
+          return !isNaN(eventDate.getTime()) && eventDate >= now;
+        } catch (err) {
+          console.warn(`Invalid date in event: ${compromisso.id}`);
+          return false;
+        }
+      })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
+      
     return upcoming;
   } catch (error) {
     console.error("Erro ao obter compromissos futuros:", error);
@@ -46,6 +85,16 @@ export const getUpcomingCompromissos = async () => {
  */
 export const addCompromisso = async (compromisso) => {
   try {
+    // Validate date before saving
+    if (compromisso.date) {
+      const dateObj = new Date(compromisso.date);
+      if (isNaN(dateObj.getTime())) {
+        throw new Error("Data inválida fornecida para o compromisso.");
+      }
+      // Ensure date is stored in a consistent format
+      compromisso.date = dateObj.toISOString();
+    }
+
     const newCompromisso = {
       ...compromisso,
       id: generateId(),
@@ -58,7 +107,7 @@ export const addCompromisso = async (compromisso) => {
     return newCompromisso;
   } catch (error) {
     console.error("Erro ao adicionar compromisso:", error.message);
-    throw new Error("Não foi possível adicionar o compromisso.");
+    throw new Error(error.message || "Não foi possível adicionar o compromisso.");
   }
 };
 
@@ -70,6 +119,16 @@ export const addCompromisso = async (compromisso) => {
  */
 export const updateCompromisso = async (id, updatedCompromisso) => {
   try {
+    // Validate date before updating
+    if (updatedCompromisso.date) {
+      const dateObj = new Date(updatedCompromisso.date);
+      if (isNaN(dateObj.getTime())) {
+        throw new Error("Data inválida fornecida para o compromisso.");
+      }
+      // Ensure date is stored in a consistent format
+      updatedCompromisso.date = dateObj.toISOString();
+    }
+
     const currentEvents = await storage.getItem(STORAGE_KEY) || [];
     const updatedEvents = currentEvents.map((compromisso) =>
       compromisso.id === id
