@@ -192,10 +192,38 @@ class BackupService {
       
       // Read file content
       const fileUri = result.assets[0].uri;
-      const fileContent = await FileSystem.readAsStringAsync(fileUri);
+      
+      // Validate that we have a valid URI before trying to read it
+      if (!fileUri) {
+        throw new Error('Arquivo inválido ou corrompido');
+      }
+      
+      let fileContent;
+      try {
+        fileContent = await FileSystem.readAsStringAsync(fileUri);
+        
+        // Validate that we have content
+        if (!fileContent || fileContent.trim() === '') {
+          throw new Error('O arquivo está vazio ou corrompido');
+        }
+      } catch (readError) {
+        console.error('Erro ao ler arquivo de backup:', readError);
+        throw new Error('Não foi possível ler o arquivo de backup. O arquivo pode estar corrompido.');
+      }
       
       // Parse backup file content
-      const backupFile = JSON.parse(fileContent);
+      let backupFile;
+      try {
+        backupFile = JSON.parse(fileContent);
+        
+        // Validate that we have a valid backup file structure
+        if (!backupFile || typeof backupFile !== 'object') {
+          throw new Error('Formato de backup inválido');
+        }
+      } catch (parseError) {
+        console.error('Erro ao analisar arquivo de backup:', parseError);
+        throw new Error('O arquivo não contém um backup válido. Formato JSON inválido.');
+      }
       
       // Check if this is an encrypted backup
       let backupData;

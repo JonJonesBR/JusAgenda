@@ -21,6 +21,11 @@ const UpcomingEvents = ({ onEventPress }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [deletedEvent, setDeletedEvent] = useState(null);
 
+  // Atualiza os eventos quando o componente é montado
+  useEffect(() => {
+    refreshEvents();
+  }, [refreshEvents]);
+
   // Calcula os compromissos futuros, ordenando-os e limitando a 5 itens
   const upcomingEvents = useMemo(() => {
     const now = new Date();

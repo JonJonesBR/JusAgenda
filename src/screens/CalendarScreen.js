@@ -51,11 +51,24 @@ const CalendarScreen = () => {
 
   // Atualiza os eventos na montagem e sempre que os eventos mudam
   useEffect(() => {
-    (async () => {
-      await refreshEvents();
-      setFilteredEvents(events);
-    })();
-  }, []);
+    let isMounted = true;
+    const loadEvents = async () => {
+      try {
+        await refreshEvents();
+        if (isMounted) {
+          setFilteredEvents(events);
+        }
+      } catch (error) {
+        console.error('Error loading events:', error);
+      }
+    };
+    
+    loadEvents();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshEvents]); // Remove events from dependency array to prevent infinite loop
   
   // Função para atualizar os eventos com pull-to-refresh
   const onRefresh = useCallback(async () => {
@@ -91,12 +104,18 @@ const CalendarScreen = () => {
     }
   }, [deletedEvent, refreshEvents]);
 
-  useEffect(() => {
-    if (filterType === 'all') {
-      setFilteredEvents(events);
+  const getEventColor = useCallback((type) => {
+    switch (type?.toLowerCase()) {
+      case 'audiencia':
+        return '#6200ee';
+      case 'reuniao':
+        return '#03dac6';
+      case 'prazo':
+        return '#ff0266';
+      default:
+        return '#018786';
     }
-    updateMarkedDates(events);
-  }, [events, filterType]);
+  }, []);
 
   const updateMarkedDates = useCallback((eventsToMark) => {
     const marks = {};
@@ -121,6 +140,19 @@ const CalendarScreen = () => {
     setMarkedDates(marks);
   }, [getEventColor]);
 
+  useEffect(() => {
+    try {
+      if (filterType === 'all') {
+        setFilteredEvents(events);
+      }
+      if (events && Array.isArray(events)) {
+        updateMarkedDates(events);
+      }
+    } catch (error) {
+      console.error('Error updating filtered events or marked dates:', error);
+    }
+  }, [events, filterType, updateMarkedDates]);
+
   const handleDatePickerChange = useCallback((e, selected) => {
     setShowDatePicker(false);
     if (selected) {
@@ -131,19 +163,6 @@ const CalendarScreen = () => {
       }
     }
   }, [datePickerType]);
-
-  const getEventColor = useCallback((type) => {
-    switch (type?.toLowerCase()) {
-      case 'audiencia':
-        return '#6200ee';
-      case 'reuniao':
-        return '#03dac6';
-      case 'prazo':
-        return '#ff0266';
-      default:
-        return '#018786';
-    }
-  }, []);
 
   const getEventTypeIcon = useCallback((type) => {
     switch (type?.toLowerCase()) {
@@ -176,45 +195,51 @@ const CalendarScreen = () => {
   }, [filteredEvents]);
   
   const applyFilter = useCallback(() => {
-    switch (filterType) {
-      case 'all':
-        setFilteredEvents(events);
-        break;
-      case 'specific':
-        setFilteredEvents(events.filter(event => {
-          try {
-            const eventDate = new Date(event.date);
-            // Check if date is valid before using it
-            if (isNaN(eventDate.getTime())) {
-              console.warn(`Invalid date found in event: ${event.id}`);
+    try {
+      switch (filterType) {
+        case 'all':
+          setFilteredEvents(events);
+          break;
+        case 'specific':
+          setFilteredEvents(events.filter(event => {
+            try {
+              const eventDate = new Date(event.date);
+              // Check if date is valid before using it
+              if (isNaN(eventDate.getTime())) {
+                console.warn(`Invalid date found in event: ${event.id}`);
+                return false;
+              }
+              const filterDate = startDate.toISOString().split('T')[0];
+              return eventDate.toISOString().split('T')[0] === filterDate;
+            } catch (error) {
+              console.warn(`Error processing date for event ${event.id || 'unknown'}:`, error);
               return false;
             }
-            const filterDate = startDate.toISOString().split('T')[0];
-            return eventDate.toISOString().split('T')[0] === filterDate;
-          } catch (error) {
-            console.warn(`Error processing date for event ${event.id || 'unknown'}:`, error);
-            return false;
-          }
-        }));
-        break;
-      case 'range':
-        setFilteredEvents(events.filter(event => {
-          try {
-            const eventDate = new Date(event.date);
-            // Check if date is valid before using it
-            if (isNaN(eventDate.getTime())) {
-              console.warn(`Invalid date found in event: ${event.id}`);
+          }));
+          break;
+        case 'range':
+          setFilteredEvents(events.filter(event => {
+            try {
+              const eventDate = new Date(event.date);
+              // Check if date is valid before using it
+              if (isNaN(eventDate.getTime())) {
+                console.warn(`Invalid date found in event: ${event.id}`);
+                return false;
+              }
+              return eventDate >= startDate && eventDate <= endDate;
+            } catch (error) {
+              console.warn(`Error processing date for event ${event.id || 'unknown'}:`, error);
               return false;
             }
-            return eventDate >= startDate && eventDate <= endDate;
-          } catch (error) {
-            console.warn(`Error processing date for event ${event.id || 'unknown'}:`, error);
-            return false;
-          }
-        }));
-        break;
-      default:
-        setFilteredEvents(events);
+          }));
+          break;
+        default:
+          setFilteredEvents(events);
+      }
+    } catch (error) {
+      console.error('Error applying filter:', error);
+      // Fallback to showing all events in case of error
+      setFilteredEvents(events);
     }
   }, [events, filterType, startDate, endDate]);
   const confirmDelete = useCallback((event) => {
