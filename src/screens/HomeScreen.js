@@ -85,10 +85,7 @@ const HomeScreen = () => {
               await deleteEvent(event.id);
               refreshEvents();
             } catch (error) {
-              Alert.alert(
-                ALERT_MESSAGES.DELETE_ERROR.title,
-                ALERT_MESSAGES.DELETE_ERROR.message
-              );
+              return <ErrorHandler error={error} onRetry={refreshEvents} />;
             }
           },
         },

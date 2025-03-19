@@ -15,7 +15,7 @@ import {
   getCompromissoById as getEventByIdService,
   updateCompromissoNotifications as updateEventNotificationsService,
 } from '../services/EventService';
-import NotificationService from '../services/NotificationService';
+import * as NotificationService from '../services/notifications';
 
 /**
  * @typedef {Object} Event

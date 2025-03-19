@@ -1,39 +1,9 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { Text, Icon } from '@rneui/themed';
+import { COLORS } from '../utils/common';
 
-/**
- * A customizable dropdown selector component with modal interface
- * Displays a selection field that opens a modal with scrollable options when tapped
- *
- * @component
- * @example
- * const options = {
- *   option1: 'Option 1',
- *   option2: 'Option 2',
- *   option3: { label: 'Option 3', value: 'value3' }
- * };
- *
- * <Selector
- *   label="Select an option"
- *   selectedValue="option1"
- *   options={options}
- *   onSelect={(value) => console.log('Selected:', value)}
- * />
- *
- * @typedef {Object} Option
- * @property {string} [label] - Display label for the option (if object format)
- * @property {any} [value] - Value for the option (if object format)
- *
- * @typedef {Object.<string, string|Option>} Options
- *
- * @param {Object} props - Component props
- * @param {string} props.label - Label text for the selector
- * @param {string} [props.selectedValue] - Currently selected option key
- * @param {Options} props.options - Object containing available options
- * @param {(value: string) => void} [props.onSelect] - Callback function when an option is selected
- */
-const Selector = ({ label, selectedValue, options, onSelect = () => {} }) => {
+const Selector = ({ label, selectedValue, options, onSelect }) => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const handleSelect = (value) => {
@@ -48,10 +18,10 @@ const Selector = ({ label, selectedValue, options, onSelect = () => {} }) => {
         style={styles.selector}
         onPress={() => setModalVisible(true)}
       >
-        <Text style={styles.selectorText}>
-          {selectedValue ? (typeof options[selectedValue] === 'object' ? options[selectedValue].label : options[selectedValue]) : 'Selecione uma opção'}
+        <Text style={styles.selectedText}>
+          {selectedValue ? options[selectedValue] : 'Selecione uma opção'}
         </Text>
-        <Icon name="arrow-drop-down" size={24} color="#86939e" />
+        <Icon name="arrow-drop-down" size={24} color={COLORS.primary} />
       </TouchableOpacity>
 
       <Modal
@@ -60,11 +30,7 @@ const Selector = ({ label, selectedValue, options, onSelect = () => {} }) => {
         animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setModalVisible(false)}
-        >
+        <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{label}</Text>
@@ -76,20 +42,17 @@ const Selector = ({ label, selectedValue, options, onSelect = () => {} }) => {
               {Object.entries(options).map(([key, value]) => (
                 <TouchableOpacity
                   key={key}
-                  style={[styles.option, key === selectedValue && styles.selectedOption]}
+                  style={[styles.option, selectedValue === key && styles.selectedOption]}
                   onPress={() => handleSelect(key)}
                 >
-                  <Text style={[styles.optionText, key === selectedValue && styles.selectedOptionText]}>
-                    {typeof value === 'object' ? value.label : value}
+                  <Text style={[styles.optionText, selectedValue === key && styles.selectedOptionText]}>
+                    {value}
                   </Text>
-                  {key === selectedValue && (
-                    <Icon name="check" size={20} color="#6200ee" />
-                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );
@@ -103,8 +66,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 8,
     color: '#86939e',
+    marginBottom: 5,
   },
   selector: {
     flexDirection: 'row',
@@ -112,56 +75,51 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: '#e1e8ee',
-    borderRadius: 4,
+    borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 12,
-    backgroundColor: 'white',
   },
-  selectorText: {
+  selectedText: {
     fontSize: 16,
     color: '#242424',
   },
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingVertical: 20,
     maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 15,
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e8ee',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   option: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e8ee',
   },
   selectedOption: {
-    backgroundColor: '#f6f8fa',
+    backgroundColor: COLORS.primary + '10',
   },
   optionText: {
     fontSize: 16,
     color: '#242424',
   },
   selectedOptionText: {
-    color: '#6200ee',
+    color: COLORS.primary,
     fontWeight: 'bold',
   },
 });

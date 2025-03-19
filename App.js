@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { EventProvider } from './src/contexts/EventContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
-import { LanguageProvider } from './src/contexts/LanguageContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import Toast from 'react-native-toast-message';
@@ -15,13 +14,11 @@ initErrorTracking({
 
 const App = () => (
   <ErrorBoundary testID="app-root">
-    <LanguageProvider>
-      <ThemeProvider>
+    <ThemeProvider>
         <EventProvider>
           <AppNavigator />
         </EventProvider>
       </ThemeProvider>
-    </LanguageProvider>
     <Toast />
   </ErrorBoundary>
 );

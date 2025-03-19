@@ -14,7 +14,7 @@ import { Text, Input, Button, Divider, ButtonGroup, FAB, Icon } from '@rneui/the
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
-import NotificationService from '../services/NotificationService';
+import * as NotificationService from '../services/notifications';
 import { COLORS } from '../utils/common';
 import Selector from '../components/Selector';
 import CustomDateTimePicker from '../components/CustomDateTimePicker';
@@ -42,16 +42,23 @@ const TIPOS_COMPROMISSO = {
 };
 
 // Funções utilitárias
-const formatDate = (dt) =>
-  dt.toLocaleDateString('pt-BR', {
+const formatDate = (dt) => {
+  const date = new Date(dt);
+  return isNaN(date) ? '' : date.toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
     month: 'long',
     year: 'numeric',
   });
+};
 
-const formatTime = (dt) =>
-  dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const formatTime = (dt) => {
+  const date = new Date(dt);
+  return isNaN(date) ? '' : date.toLocaleTimeString('pt-BR', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+};
 
 const validateForm = (formData) => {
   if (!formData.cliente.trim()) {
@@ -63,7 +70,8 @@ const validateForm = (formData) => {
   if (!formData.data) {
     return 'A data do compromisso é obrigatória.';
   }
-  if (formData.data < new Date()) {
+  // Ensure valid Date comparison
+if (!(formData.data instanceof Date) || isNaN(formData.data.getTime()) || formData.data < new Date()) {
     return 'A data/hora não pode ser no passado.';
   }
   return null;
@@ -137,24 +145,12 @@ const EventDetailsScreen = () => {
   }, []);
 
   const handleDateChange = (selectedDate) => {
-    if (selectedDate) {
-      const newDate = new Date(selectedDate);
-      // Preserve the current time when changing date
-      newDate.setHours(formData.data.getHours());
-      newDate.setMinutes(formData.data.getMinutes());
-      handleInputChange('data', newDate);
-    }
+    setFormData(prev => ({...prev, data: selectedDate}));
     setShowDatePicker(false);
   };
 
   const handleTimeChange = (selectedTime) => {
-    if (selectedTime) {
-      const newDate = new Date(formData.data);
-      // Update only time components
-      newDate.setHours(selectedTime.getHours());
-      newDate.setMinutes(selectedTime.getMinutes());
-      handleInputChange('data', newDate);
-    }
+    setFormData(prev => ({...prev, data: selectedTime}));
     setShowTimePicker(false);
   };
 
@@ -180,7 +176,7 @@ const EventDetailsScreen = () => {
       }
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível salvar o compromisso.');
+      return <ErrorHandler error={error} onRetry={() => navigation.goBack()} />;
     }
   };
 

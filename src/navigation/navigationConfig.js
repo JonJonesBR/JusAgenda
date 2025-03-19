@@ -6,20 +6,29 @@ import { COLORS } from '../utils/common';
 export const Tab = createBottomTabNavigator();
 export const Stack = createNativeStackNavigator();
 
-// Configurações comuns para o Stack Navigator
-export const stackConfig = {
-  screenOptions: {
-    headerStyle: { backgroundColor: COLORS.primary },
-    headerTintColor: '#fff',
-    headerTitleStyle: { fontWeight: 'bold' },
+// Configuração unificada de navegação
+export const navigationConfig = {
+  headerStyle: {
+    backgroundColor: '#6200ee',
   },
-};
-
-// Configurações comuns para o Tab Navigator
-export const tabConfig = {
-  screenOptions: {
-    tabBarActiveTintColor: COLORS.primary,
-    tabBarInactiveTintColor: 'gray',
-    headerShown: false,
+  headerTintColor: '#fff',
+  headerTitleStyle: {
+    fontWeight: 'bold',
   },
+  tabBarOptions: {
+    activeTintColor: '#6200ee',
+    inactiveTintColor: '#757575',
+    style: {
+      backgroundColor: '#ffffff',
+      paddingBottom: 5,
+      height: 60
+    },
+    labelStyle: {
+      fontSize: 12,
+      marginBottom: 5
+    }
+  },
+  contentStyle: {
+    backgroundColor: '#f5f5f5',
+  }
 };

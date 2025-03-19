@@ -76,7 +76,7 @@ const ExportScreen = () => {
         { cancelable: false }
       );
     } catch (error) {
-      console.error('Erro durante a exportação:', error);
+      return <ErrorHandler error={error} onRetry={handleExport} />;
       Alert.alert('Erro na Exportação', 'Não foi possível completar a exportação. Tente novamente.');
     }
   };
@@ -144,7 +144,7 @@ const ExportScreen = () => {
                 <Text style={styles.eventTitle}>{event.title}</Text>
                 <Text style={styles.eventInfo}>{formatDateTime(event.date)}</Text>
                 <Text style={styles.eventType}>
-                  {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                  {event.type ? event.type.charAt(0).toUpperCase() + event.type.slice(1) : ''}
                 </Text>
               </View>
             }
