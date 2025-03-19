@@ -13,22 +13,29 @@ export const getAllCompromissos = async () => {
     
     // Validate and fix any invalid dates before returning
     const validatedEvents = storedEvents.map(event => {
-      if (event.date) {
-        try {
-          const dateObj = new Date(event.date);
-          if (isNaN(dateObj.getTime())) {
-            // If date is invalid, set a default date or fix it
-            console.warn(`Fixing invalid date in event: ${event.id}`);
-            return { ...event, date: new Date().toISOString() };
-          }
-          // Ensure consistent date format
-          return { ...event, date: dateObj.toISOString() };
-        } catch (err) {
-          console.warn(`Error with date in event ${event.id}, using current date`);
+      if (!event.date) {
+        console.warn(`[Event ${event.id}] Missing date field, using current date`);
+        return { ...event, date: new Date().toISOString() };
+      }
+
+      try {
+        const dateObj = new Date(event.date);
+        if (isNaN(dateObj.getTime())) {
+          console.warn(`[Event ${event.id}] Invalid date format: ${event.date}, using current date`);
           return { ...event, date: new Date().toISOString() };
         }
+
+        const isoDate = dateObj.toISOString();
+        if (isoDate !== event.date) {
+          console.warn(`[Event ${event.id}] Normalizing date format from ${event.date} to ${isoDate}`);
+          return { ...event, date: isoDate };
+        }
+
+        return event;
+      } catch (error) {
+        console.warn(`[Event ${event.id}] Error processing date: ${error.message}, using current date`);
+        return { ...event, date: new Date().toISOString() };
       }
-      return event;
     });
     
     // Save the fixed events back to storage

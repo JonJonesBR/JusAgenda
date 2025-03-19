@@ -3,7 +3,17 @@ import { Icon } from '@rneui/themed';
 import HomeStack from './stacks/HomeStack';
 import CalendarStack from './stacks/CalendarStack';
 import SearchStack from './stacks/SearchStack';
-import { Tab, tabConfig } from './navigationConfig';
+import { Tab, navigationConfig } from './navigationConfig';
+
+const tabConfig = {
+  screenOptions: {
+    ...navigationConfig,
+    tabBarActiveTintColor: navigationConfig.tabBarOptions.activeTintColor,
+    tabBarInactiveTintColor: navigationConfig.tabBarOptions.inactiveTintColor,
+    tabBarStyle: navigationConfig.tabBarOptions.style,
+    tabBarLabelStyle: navigationConfig.tabBarOptions.labelStyle
+  }
+};
 
 /**
  * Retorna o ícone apropriado para cada rota.
