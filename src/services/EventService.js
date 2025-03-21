@@ -15,26 +15,19 @@ export const getAllCompromissos = async () => {
     const validatedEvents = storedEvents.map(event => {
       if (!event.date) {
         console.warn(`[Event ${event.id}] Missing date field, using current date`);
-        return { ...event, date: new Date().toISOString() };
+        return { ...event, date: new Date() };
       }
 
       try {
         const dateObj = new Date(event.date);
         if (isNaN(dateObj.getTime())) {
           console.warn(`[Event ${event.id}] Invalid date format: ${event.date}, using current date`);
-          return { ...event, date: new Date().toISOString() };
+          return { ...event, date: new Date() };
         }
-
-        const isoDate = dateObj.toISOString();
-        if (isoDate !== event.date) {
-          console.warn(`[Event ${event.id}] Normalizing date format from ${event.date} to ${isoDate}`);
-          return { ...event, date: isoDate };
-        }
-
-        return event;
+        return { ...event, date: dateObj };
       } catch (error) {
         console.warn(`[Event ${event.id}] Error processing date: ${error.message}, using current date`);
-        return { ...event, date: new Date().toISOString() };
+        return { ...event, date: new Date() };
       }
     });
     
@@ -92,14 +85,9 @@ export const getUpcomingCompromissos = async () => {
  */
 export const addCompromisso = async (compromisso) => {
   try {
-    // Validate date before saving
-    if (compromisso.date) {
-      const dateObj = new Date(compromisso.date);
-      if (isNaN(dateObj.getTime())) {
-        throw new Error("Data inválida fornecida para o compromisso.");
-      }
-      // Ensure date is stored in a consistent format
-      compromisso.date = dateObj.toISOString();
+    // Verifique se a data é válida
+    if (!compromisso.date || !(compromisso.date instanceof Date) || isNaN(compromisso.date.getTime())) {
+      throw new Error("Data inválida fornecida para o compromisso.");
     }
 
     const newCompromisso = {
@@ -128,12 +116,32 @@ export const updateCompromisso = async (id, updatedCompromisso) => {
   try {
     // Validate date before updating
     if (updatedCompromisso.date) {
-      const dateObj = new Date(updatedCompromisso.date);
+      let dateObj;
+      if (updatedCompromisso.date instanceof Date) {
+        // Preserve the exact time by using UTC methods
+        const year = updatedCompromisso.date.getFullYear();
+        const month = updatedCompromisso.date.getMonth();
+        const day = updatedCompromisso.date.getDate();
+        const hours = updatedCompromisso.date.getHours();
+        const minutes = updatedCompromisso.date.getMinutes();
+        dateObj = new Date(Date.UTC(year, month, day, hours, minutes));
+      } else {
+        // Parse the date string and create a new Date object using UTC
+        const [datePart, timePart] = updatedCompromisso.date.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        if (timePart) {
+          const [hours, minutes] = timePart.split(':').map(Number);
+          dateObj = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+        } else {
+          dateObj = new Date(Date.UTC(year, month - 1, day));
+        }
+      }
+      
       if (isNaN(dateObj.getTime())) {
         throw new Error("Data inválida fornecida para o compromisso.");
       }
-      // Ensure date is stored in a consistent format
-      updatedCompromisso.date = dateObj.toISOString();
+      // Ensure date is a Date object with correct local time
+      updatedCompromisso.date = dateObj;
     }
 
     const currentEvents = await storage.getItem(STORAGE_KEY) || [];

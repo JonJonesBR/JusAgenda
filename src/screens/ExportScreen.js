@@ -14,13 +14,15 @@ const ExportScreen = () => {
   const { events } = useEvents();
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
-  
+
+  // Filtra os eventos conforme os tipos selecionados.
   const filteredEvents = useMemo(() => {
     return events.filter(event =>
       selectedTypes.length === 0 || selectedTypes.includes(event.type)
     );
   }, [events, selectedTypes]);
 
+  // Alterna a seleção de um evento pelo seu id.
   const toggleEventSelection = useCallback((eventId) => {
     setSelectedEvents(current =>
       current.includes(eventId)
@@ -29,15 +31,17 @@ const ExportScreen = () => {
     );
   }, []);
 
+  // Alterna o filtro por tipo e limpa a seleção de eventos.
   const toggleTypeFilter = useCallback((type) => {
     setSelectedTypes(current =>
       current.includes(type)
         ? current.filter(t => t !== type)
         : [...current, type]
     );
-    setSelectedEvents([]); // Limpa seleção ao mudar filtro
+    setSelectedEvents([]); // Limpa a seleção ao mudar o filtro
   }, []);
 
+  // Função que dispara a exportação conforme o formato escolhido.
   const handleExport = async (format) => {
     if (selectedEvents.length === 0) {
       Alert.alert('Aviso', 'Selecione pelo menos um compromisso para exportar');
@@ -59,7 +63,7 @@ const ExportScreen = () => {
         default:
           break;
       }
-      if (exportResult === false) return;
+      if (!exportResult || exportResult.success === false) return;
       Alert.alert(
         'Exportação Concluída',
         'O que você deseja fazer?',
@@ -76,19 +80,21 @@ const ExportScreen = () => {
         { cancelable: false }
       );
     } catch (error) {
-      return <ErrorHandler error={error} onRetry={handleExport} />;
       Alert.alert('Erro na Exportação', 'Não foi possível completar a exportação. Tente novamente.');
     }
   };
 
+  // Seleciona todos os eventos visíveis (filtrados)
   const selectAll = useCallback(() => {
     setSelectedEvents(filteredEvents.map(event => event.id));
   }, [filteredEvents]);
 
+  // Limpa a seleção dos eventos
   const clearSelection = useCallback(() => {
     setSelectedEvents([]);
   }, []);
 
+  // Verifica permissões de compartilhamento e acesso à MediaLibrary
   useEffect(() => {
     (async () => {
       try {
@@ -105,6 +111,7 @@ const ExportScreen = () => {
   return (
     <View style={styles.container}>
       <Text h4 style={styles.title}>Exportar Compromissos</Text>
+      {/* Filtro de Tipos */}
       <Card containerStyle={styles.filterCard}>
         <Text style={styles.filterTitle}>Filtrar por tipo:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -114,7 +121,13 @@ const ExportScreen = () => {
                 key={value}
                 title={key.charAt(0) + key.slice(1).toLowerCase()}
                 icon={{
-                  name: value === 'audiencia' ? 'gavel' : value === 'reuniao' ? 'groups' : value === 'prazo' ? 'timer' : 'event',
+                  name: value === 'audiencia'
+                    ? 'gavel'
+                    : value === 'reuniao'
+                    ? 'groups'
+                    : value === 'prazo'
+                    ? 'timer'
+                    : 'event',
                   size: 20,
                   color: selectedTypes.includes(value) ? 'white' : COLORS.primary,
                 }}
@@ -129,10 +142,12 @@ const ExportScreen = () => {
           </View>
         </ScrollView>
       </Card>
+      {/* Botões de Seleção */}
       <View style={styles.selectionButtons}>
         <Button title="Selecionar Todos" type="clear" onPress={selectAll} />
         <Button title="Limpar Seleção" type="clear" onPress={clearSelection} />
       </View>
+      {/* Lista dos Eventos com CheckBox */}
       <ScrollView style={styles.eventsList}>
         {filteredEvents.map(event => (
           <CheckBox
@@ -152,6 +167,7 @@ const ExportScreen = () => {
           />
         ))}
       </ScrollView>
+      {/* Botões de Exportação */}
       <View style={styles.exportButtons}>
         <Button
           title="Excel"
@@ -177,21 +193,36 @@ const ExportScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: COLORS.background, padding: 10 },
   title: { textAlign: 'center', marginVertical: 20, color: COLORS.text.primary },
   filterCard: { margin: 10, borderRadius: 8 },
   filterTitle: { fontSize: 16, marginBottom: 10, color: COLORS.text.secondary },
   filterContainer: { flexDirection: 'row', gap: 10 },
   filterButton: { paddingHorizontal: 15, borderRadius: 20 },
   filterButtonActive: { backgroundColor: COLORS.primary },
-  selectionButtons: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginVertical: 10 },
+  selectionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginVertical: 10,
+  },
   eventsList: { flex: 1 },
-  checkboxContainer: { backgroundColor: 'white', borderWidth: 0, marginVertical: 5 },
+  checkboxContainer: {
+    backgroundColor: 'white',
+    borderWidth: 0,
+    marginVertical: 5,
+  },
   eventItem: { marginLeft: 10 },
   eventTitle: { fontSize: 16, color: COLORS.text.primary },
   eventInfo: { fontSize: 14, color: COLORS.text.secondary },
   eventType: { fontSize: 12, color: COLORS.primary },
-  exportButtons: { flexDirection: 'row', justifyContent: 'space-around', padding: 20, backgroundColor: 'white', elevation: 4 },
+  exportButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 20,
+    backgroundColor: 'white',
+    elevation: 4,
+  },
   exportButton: { paddingHorizontal: 20, borderRadius: 8 },
 });
 

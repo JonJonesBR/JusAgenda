@@ -2,13 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
-  TouchableOpacity,
   Alert,
   StatusBar,
   Platform,
   RefreshControl,
+  FlatList,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Text, Card, Icon, Button, Overlay } from '@rneui/themed';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
@@ -48,8 +48,8 @@ const CalendarScreen = () => {
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerType, setDatePickerType] = useState('start');
+  const [isEventsModalVisible, setIsEventsModalVisible] = useState(false);
 
-  // Atualiza os eventos na montagem e sempre que os eventos mudam
   useEffect(() => {
     let isMounted = true;
     const loadEvents = async () => {
@@ -62,47 +62,16 @@ const CalendarScreen = () => {
         console.error('Error loading events:', error);
       }
     };
-    
     loadEvents();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshEvents]); // Remove events from dependency array to prevent infinite loop
-  
-  // Função para atualizar os eventos com pull-to-refresh
+    return () => { isMounted = false; };
+  }, [refreshEvents]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refreshEvents();
     setFilteredEvents(events);
     setRefreshing(false);
   }, [refreshEvents, events]);
-  
-  // Função para desfazer a exclusão
-  const undoDelete = useCallback(async () => {
-    if (deletedEvent) {
-      try {
-        // Aqui você precisaria implementar uma função para restaurar o evento
-        // Como alternativa, podemos adicionar o evento novamente
-        // await addEvent(deletedEvent);
-        await refreshEvents();
-        setDeletedEvent(null);
-        Toast.show({
-          type: 'success',
-          text1: 'Exclusão desfeita',
-          text2: 'O compromisso foi restaurado com sucesso',
-          position: 'bottom',
-        });
-      } catch (error) {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: 'Não foi possível restaurar o compromisso',
-          position: 'bottom',
-        });
-      }
-    }
-  }, [deletedEvent, refreshEvents]);
 
   const getEventColor = useCallback((type) => {
     switch (type?.toLowerCase()) {
@@ -122,10 +91,9 @@ const CalendarScreen = () => {
     eventsToMark.forEach((event) => {
       try {
         const eventDate = new Date(event.date);
-        // Check if date is valid before using it
         if (isNaN(eventDate.getTime())) {
           console.warn(`Invalid date found in event: ${event.id}`);
-          return; // Skip this event
+          return;
         }
         const dateString = eventDate.toISOString().split('T')[0];
         marks[dateString] = {
@@ -134,7 +102,6 @@ const CalendarScreen = () => {
         };
       } catch (error) {
         console.warn(`Error processing date for event ${event.id || 'unknown'}:`, error);
-        // Skip this event
       }
     });
     setMarkedDates(marks);
@@ -181,7 +148,6 @@ const CalendarScreen = () => {
     return filteredEvents.filter((event) => {
       try {
         const eventDate = new Date(event.date);
-        // Check if date is valid before using it
         if (isNaN(eventDate.getTime())) {
           console.warn(`Invalid date found in event: ${event.id}`);
           return false;
@@ -193,7 +159,7 @@ const CalendarScreen = () => {
       }
     });
   }, [filteredEvents]);
-  
+
   const applyFilter = useCallback(() => {
     try {
       switch (filterType) {
@@ -204,7 +170,6 @@ const CalendarScreen = () => {
           setFilteredEvents(events.filter(event => {
             try {
               const eventDate = new Date(event.date);
-              // Check if date is valid before using it
               if (isNaN(eventDate.getTime())) {
                 console.warn(`Invalid date found in event: ${event.id}`);
                 return false;
@@ -221,7 +186,6 @@ const CalendarScreen = () => {
           setFilteredEvents(events.filter(event => {
             try {
               const eventDate = new Date(event.date);
-              // Check if date is valid before using it
               if (isNaN(eventDate.getTime())) {
                 console.warn(`Invalid date found in event: ${event.id}`);
                 return false;
@@ -238,10 +202,32 @@ const CalendarScreen = () => {
       }
     } catch (error) {
       console.error('Error applying filter:', error);
-      // Fallback to showing all events in case of error
       setFilteredEvents(events);
     }
   }, [events, filterType, startDate, endDate]);
+
+  const undoDelete = useCallback(async () => {
+    if (deletedEvent) {
+      try {
+        await refreshEvents();
+        setDeletedEvent(null);
+        Toast.show({
+          type: 'success',
+          text1: 'Exclusão desfeita',
+          text2: 'O compromisso foi restaurado com sucesso',
+          position: 'bottom',
+        });
+      } catch (error) {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: 'Não foi possível restaurar o compromisso',
+          position: 'bottom',
+        });
+      }
+    }
+  }, [deletedEvent, refreshEvents]);
+
   const confirmDelete = useCallback((event) => {
     Alert.alert(
       'Confirmar Exclusão',
@@ -253,17 +239,11 @@ const CalendarScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Fornece feedback tátil ao excluir
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              
-              // Armazena o evento antes de excluí-lo para possível restauração
               setDeletedEvent(event);
-              
               await deleteEvent(event.id);
               await refreshEvents();
               applyFilter();
-              
-              // Mostra toast com opção de desfazer
               Toast.show({
                 type: 'info',
                 text1: 'Compromisso excluído',
@@ -290,20 +270,14 @@ const CalendarScreen = () => {
   }, [deleteEvent, refreshEvents, undoDelete, applyFilter]);
 
   const handleEventPress = useCallback((event) => {
-    // Fornece feedback tátil ao pressionar
     Haptics.selectionAsync();
-    
     Alert.alert(
       'Opções',
       'O que você deseja fazer?',
       [
         { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
         { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => confirmDelete(event),
-        },
+        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(event) },
         { text: 'Cancelar', style: 'cancel' },
       ],
       { cancelable: true }
@@ -314,49 +288,56 @@ const CalendarScreen = () => {
     navigation.navigate('Export', { preSelectedEvents: filteredEvents });
   }, [filteredEvents, navigation]);
 
+  const onDayPress = useCallback((day) => {
+    setSelectedDate(day.dateString);
+    setIsEventsModalVisible(true);
+  }, []);
 
-  const renderEvents = useCallback(() => {
-    const eventsToRender = selectedDate ? getDayEvents(selectedDate) : filteredEvents;
-    if (eventsToRender.length === 0) {
+  const renderModalEvents = () => {
+    const dayEvents = getDayEvents(selectedDate);
+    if (dayEvents.length === 0) {
       return (
         <Card containerStyle={styles.emptyCard}>
           <Icon name="event-busy" size={48} color="#757575" />
-          <Text style={styles.emptyText}>
-            {selectedDate ? 'Nenhum compromisso nesta data' : 'Nenhum compromisso encontrado'}
-          </Text>
+          <Text style={styles.emptyText}>Nenhum compromisso nesta data</Text>
         </Card>
       );
     }
-    eventsToRender.sort((a, b) => new Date(a.date) - new Date(b.date));
-    return eventsToRender.map((event) => (
-      <TouchableOpacity key={event.id} onPress={() => handleEventPress(event)}>
-        <Card containerStyle={styles.eventCard}>
-          <View style={styles.eventHeader}>
-            <Icon {...getEventTypeIcon(event.type)} />
-            <Text style={styles.eventType}>
-              {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
-            </Text>
-            <Text style={styles.eventTime}>{formatTime(event.date)}</Text>
-          </View>
-          <Text style={styles.eventTitle}>{event.title}</Text>
-          {event.location && (
-            <View style={styles.eventInfo}>
-              <Icon name="location-on" size={16} color="#757575" />
-              <Text style={styles.eventText}>{event.location}</Text>
-            </View>
-          )}
-          {event.client && (
-            <View style={styles.eventInfo}>
-              <Icon name="person" size={16} color="#757575" />
-              <Text style={styles.eventText}>{event.client}</Text>
-            </View>
-          )}
-        </Card>
-      </TouchableOpacity>
-    ));
-  }, [selectedDate, filteredEvents, getDayEvents, handleEventPress, getEventTypeIcon]);
+    dayEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+    return (
+      <FlatList
+        data={dayEvents}
+        keyExtractor={item => item.id}
+        renderItem={({ item: event }) => (
+          <TouchableOpacity onPress={() => { setIsEventsModalVisible(false); handleEventPress(event); }} activeOpacity={0.85}>
+            <Card containerStyle={styles.eventCard}>
+              <View style={styles.eventHeader}>
+                <Icon {...getEventTypeIcon(event.type)} />
+                <Text style={styles.eventType}>
+                  {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
+                </Text>
+                <Text style={styles.eventTime}>{formatTime(event.date)}</Text>
+              </View>
+              <Text style={styles.eventTitle}>{event.title}</Text>
+              {event.location && (
+                <View style={styles.eventInfo}>
+                  <Icon name="location-on" size={16} color="#757575" />
+                  <Text style={styles.eventText}>{event.location}</Text>
+                </View>
+              )}
+              {event.client && (
+                <View style={styles.eventInfo}>
+                  <Icon name="person" size={16} color="#757575" />
+                  <Text style={styles.eventText}>{event.client}</Text>
+                </View>
+              )}
+            </Card>
+          </TouchableOpacity>
+        )}
+      />
+    );
+  };
 
-  // Exibe o skeleton loader durante o carregamento inicial
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
@@ -364,23 +345,12 @@ const CalendarScreen = () => {
         <View style={styles.header}>
           <Text h4 style={styles.headerTitle}>Agenda</Text>
           <View style={styles.headerButtons}>
-            <Button
-              icon={{ name: 'filter-list', color: 'white' }}
-              type="clear"
-              disabled
-            />
-            <Button
-              icon={{ name: 'file-download', color: 'white' }}
-              type="clear"
-              disabled
-            />
+            <Button icon={{ name: 'filter-list', color: 'white' }} type="clear" disabled />
+            <Button icon={{ name: 'file-download', color: 'white' }} type="clear" disabled />
           </View>
         </View>
         <View style={styles.skeletonCalendar}>
           <SkeletonLoader type="list" height={300} />
-        </View>
-        <View style={styles.eventsContainer}>
-          <SkeletonLoader type="list" count={3} />
         </View>
       </View>
     );
@@ -405,7 +375,7 @@ const CalendarScreen = () => {
         </View>
       </View>
       <Calendar
-        onDayPress={(day) => setSelectedDate(day.dateString)}
+        onDayPress={onDayPress}
         markedDates={{
           ...markedDates,
           [selectedDate]: {
@@ -424,6 +394,17 @@ const CalendarScreen = () => {
           'stylesheet.calendar.header': { arrow: { padding: 10 } },
         }}
       />
+      <Overlay
+        isVisible={isEventsModalVisible}
+        onBackdropPress={() => setIsEventsModalVisible(false)}
+        overlayStyle={styles.eventsModal}
+      >
+        <View style={styles.eventsModalHeader}>
+          <Text style={styles.eventsModalTitle}>Compromissos para {selectedDate}</Text>
+          <Button title="Fechar" onPress={() => setIsEventsModalVisible(false)} type="clear" />
+        </View>
+        {renderModalEvents()}
+      </Overlay>
       <Overlay
         isVisible={isFilterVisible}
         onBackdropPress={() => setIsFilterVisible(false)}
@@ -493,66 +474,11 @@ const CalendarScreen = () => {
           buttonStyle={styles.applyButton}
         />
       </Overlay>
-      <FlatList
-        style={styles.eventsContainer}
-        data={selectedDate ? getDayEvents(selectedDate) : filteredEvents}
-        keyExtractor={item => item.id}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#6200ee']}
-            tintColor="#6200ee"
-          />
-        }
-        renderItem={({ item: event }) => (
-          <TouchableOpacity onPress={() => handleEventPress(event)}>
-            <Card containerStyle={styles.eventCard}>
-              <View style={styles.eventHeader}>
-                <Icon {...getEventTypeIcon(event.type)} />
-                <Text style={styles.eventType}>
-                  {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
-                </Text>
-                <Text style={styles.eventTime}>{formatTime(event.date)}</Text>
-              </View>
-              <Text style={styles.eventTitle}>{event.title}</Text>
-              {event.location && (
-                <View style={styles.eventInfo}>
-                  <Icon name="location-on" size={16} color="#757575" />
-                  <Text style={styles.eventText}>{event.location}</Text>
-                </View>
-              )}
-              {event.client && (
-                <View style={styles.eventInfo}>
-                  <Icon name="person" size={16} color="#757575" />
-                  <Text style={styles.eventText}>{event.client}</Text>
-                </View>
-              )}
-            </Card>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <Card containerStyle={styles.emptyCard}>
-            <Icon name="event-busy" size={48} color="#757575" />
-            <Text style={styles.emptyText}>
-              {selectedDate ? 'Nenhum compromisso nesta data' : 'Nenhum compromisso encontrado'}
-            </Text>
-          </Card>
-        }
-        initialNumToRender={10}
-        maxToRenderPerBatch={5}
-        windowSize={5}
-        removeClippedSubviews={true}
-      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  skeletonCalendar: {
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-  },
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: {
     backgroundColor: COLORS.primary,
@@ -562,7 +488,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerTitle: { color: 'white', margin: 0 },
+  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
   headerButtons: { flexDirection: 'row' },
   overlay: { width: '90%', borderRadius: 10, padding: 20 },
   overlayTitle: { textAlign: 'center', marginBottom: 20 },
@@ -582,16 +508,39 @@ const styles = StyleSheet.create({
   },
   dateInputLabel: { color: COLORS.text.secondary, marginBottom: 5 },
   applyButton: { backgroundColor: COLORS.primary, borderRadius: 8 },
-  eventsContainer: { flex: 1, padding: 16 },
-  emptyCard: { borderRadius: 10, padding: 24, alignItems: 'center', elevation: 4 },
+  eventsModal: { width: '90%', maxHeight: '80%', borderRadius: 12, padding: 16 },
+  eventsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  eventsModalTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
+  skeletonCalendar: { padding: 16, backgroundColor: '#f5f5f5' },
+  emptyCard: { borderRadius: 12, padding: 24, alignItems: 'center', elevation: 4 },
   emptyText: { marginTop: 16, fontSize: 16, color: '#757575' },
-  eventCard: { borderRadius: 10, padding: 16, marginBottom: 8, elevation: 4 },
-  eventHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  eventType: { flex: 1, marginLeft: 8, fontSize: 14, color: '#757575' },
-  eventTime: { fontSize: 14, color: '#000' },
-  eventTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#000' },
-  eventInfo: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  eventText: { marginLeft: 8, fontSize: 14, color: '#000' },
+  eventCard: {
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    justifyContent: 'space-between',
+  },
+  eventType: { fontSize: 16, fontWeight: 'bold', color: COLORS.primary },
+  eventTime: { fontSize: 16, color: '#333' },
+  eventTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#333', textAlign: 'center' },
+  eventInfo: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  eventText: { marginLeft: 8, fontSize: 16, color: '#333' },
 });
 
 export default memo(CalendarScreen);

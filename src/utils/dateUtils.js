@@ -6,6 +6,10 @@ import { moment } from './common';
  * @returns {boolean} True se a data for válida, caso contrário false.
  */
 export const isValidDate = (date) => {
+  if (!date) {
+    console.warn(`No date provided`);
+    return false;
+  }
   const momentDate = moment(date);
   return momentDate.isValid() && !isNaN(momentDate.valueOf());
 };
@@ -27,7 +31,7 @@ export const formatDate = (date, format = 'DD/MM/YYYY') => {
 /**
  * Formata uma data com hora no padrão DD/MM/YYYY HH:mm.
  * @param {Date|string} date - Data a ser formatada.
- * @returns {string} Data e hora formatadas.
+ * @returns {string} Data e hora formatadas ou string vazia se a data for inválida.
  */
 export const formatDateTime = (date) => {
   if (!isValidDate(date)) {
@@ -40,7 +44,7 @@ export const formatDateTime = (date) => {
 /**
  * Formata uma data por extenso, como "quarta-feira, 15 de janeiro de 2025".
  * @param {Date|string} date - Data a ser formatada.
- * @returns {string} Data por extenso.
+ * @returns {string} Data por extenso ou string vazia se a data for inválida.
  */
 export const formatFullDate = (date) => {
   if (!isValidDate(date)) {
@@ -53,7 +57,7 @@ export const formatFullDate = (date) => {
 /**
  * Formata uma hora no padrão HH:mm.
  * @param {Date|string} date - Data a ser formatada.
- * @returns {string} Hora formatada.
+ * @returns {string} Hora formatada ou string vazia se a data for inválida.
  */
 export const formatTime = (date) => {
   if (!isValidDate(date)) {

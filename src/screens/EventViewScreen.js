@@ -50,7 +50,8 @@ ${event.description ? `Descrição: ${event.description}` : ''}
           onPress: async () => {
             try {
               await deleteEvent(event.id);
-              navigation.navigate('HomeScreen');
+              // Navega para a tela Home dentro do navigator aninhado "Main"
+              navigation.navigate('Main', { screen: 'Home' });
             } catch (error) {
               Alert.alert('Erro', 'Não foi possível excluir o compromisso');
             }
@@ -79,7 +80,12 @@ ${event.description ? `Descrição: ${event.description}` : ''}
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Icon name={icon.name} color={icon.color} size={40} containerStyle={styles.iconContainer} />
+        <Icon
+          name={icon.name}
+          color={icon.color}
+          size={40}
+          containerStyle={styles.iconContainer}
+        />
         <Text h4 style={styles.title}>{event?.title}</Text>
         <Text style={styles.type}>
           {event?.type?.charAt(0).toUpperCase() + event?.type?.slice(1)}
@@ -151,18 +157,41 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-  iconContainer: { backgroundColor: 'rgba(98, 0, 238, 0.1)', padding: 16, borderRadius: 40, marginBottom: 16 },
+  iconContainer: {
+    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+    padding: 16,
+    borderRadius: 40,
+    marginBottom: 16,
+  },
   title: { textAlign: 'center', marginBottom: 8, color: COLORS.text.primary },
   type: { fontSize: 16, color: COLORS.text.secondary },
   content: { padding: 20 },
-  infoSection: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#fff', padding: 16, borderRadius: 8, elevation: 2 },
+  infoSection: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    elevation: 2,
+  },
   infoText: { marginLeft: 16, flex: 1 },
   label: { fontSize: 14, color: COLORS.text.secondary, marginBottom: 4 },
   value: { fontSize: 16, color: COLORS.text.primary },
   time: { fontSize: 14, color: COLORS.text.secondary, marginTop: 4 },
-  descriptionSection: { backgroundColor: '#fff', padding: 16, borderRadius: 8, elevation: 2 },
+  descriptionSection: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    elevation: 2,
+  },
   description: { fontSize: 16, color: COLORS.text.primary, marginTop: 8 },
-  buttonContainer: { flexDirection: 'column', justifyContent: 'center', alignItems: 'stretch', marginTop: 20, paddingHorizontal: 10 },
+  buttonContainer: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    marginTop: 20,
+    paddingHorizontal: 10,
+  },
   button: { marginVertical: 5, height: 50, borderRadius: 8 },
   buttonTitle: { fontSize: 16, fontWeight: 'bold' },
   editButton: { backgroundColor: '#6200ee' },

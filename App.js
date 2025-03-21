@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { EventProvider } from './src/contexts/EventContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -13,14 +14,16 @@ initErrorTracking({
 });
 
 const App = () => (
-  <ErrorBoundary testID="app-root">
-    <ThemeProvider>
+  <GestureHandlerRootView style={{ flex: 1 }}>
+    <ErrorBoundary testID="app-root">
+      <ThemeProvider>
         <EventProvider>
           <AppNavigator />
         </EventProvider>
       </ThemeProvider>
-    <Toast />
-  </ErrorBoundary>
+      <Toast />
+    </ErrorBoundary>
+  </GestureHandlerRootView>
 );
 
 export default App;

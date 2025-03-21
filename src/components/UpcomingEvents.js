@@ -1,6 +1,7 @@
+// UpcomingEvents.js
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Card, Text } from '@rneui/themed';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Card, Text, Icon } from '@rneui/themed';
 import { useEvents } from '../contexts/EventContext';
 import { formatDateTime } from '../utils/dateUtils';
 
@@ -8,25 +9,33 @@ const UpcomingEvents = ({ onEventPress }) => {
   const { events } = useEvents();
 
   const upcomingEvents = events
-    .filter(event => new Date(event.startDate) >= new Date())
-    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+    .filter(event => new Date(event.date) >= new Date())
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
     .slice(0, 5);
 
   return (
     <ScrollView style={styles.container}>
-      <Text h4 style={styles.title}>Próximos Compromissos</Text>
       {upcomingEvents.length > 0 ? (
         upcomingEvents.map((event) => (
-          <Card key={event.id} containerStyle={styles.card}>
-            <Card.Title>{event.title}</Card.Title>
-            <Card.Divider />
-            <Text style={styles.dateText}>
-              {formatDateTime(event.startDate)}
-            </Text>
-            <Text style={styles.description} numberOfLines={2}>
-              {event.description}
-            </Text>
-          </Card>
+          <TouchableOpacity 
+            key={event.id} 
+            onPress={() => onEventPress(event)}
+            activeOpacity={0.8}
+          >
+            <Card containerStyle={styles.card}>
+              <View style={styles.cardHeader}>
+                <Icon name="event" size={28} color="#6200ee" />
+                <Text style={styles.eventType}>
+                  {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
+                </Text>
+              </View>
+              <Text style={styles.title}>{event.title}</Text>
+              <View style={styles.dateContainer}>
+                <Icon name="calendar-today" size={20} color="#757575" />
+                <Text style={styles.date}>{formatDateTime(event.date)}</Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
         ))
       ) : (
         <Text style={styles.noEventsText}>Nenhum compromisso próximo</Text>
@@ -40,26 +49,46 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 10,
   },
-  title: {
-    marginVertical: 15,
-    textAlign: 'center',
-  },
   card: {
-    borderRadius: 8,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 12,
+    elevation: 4,
+    backgroundColor: '#fff',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 10,
   },
-  dateText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
+  eventType: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    color: '#6200ee',
   },
-  description: {
-    color: '#444',
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  date: {
+    fontSize: 16,
+    marginLeft: 6,
+    color: '#757575',
   },
   noEventsText: {
     textAlign: 'center',
+    fontSize: 16,
+    color: '#757575',
     marginTop: 20,
-    color: '#666',
   },
 });
 

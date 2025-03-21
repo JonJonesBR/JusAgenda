@@ -1,3 +1,4 @@
+// EventContext.js
 import React, {
   createContext,
   useContext,
@@ -22,7 +23,7 @@ import * as NotificationService from '../services/notifications';
  * @property {string} id - Unique identifier
  * @property {string} title - Event title
  * @property {string} type - Event type (audiencia, reuniao, prazo, etc)
- * @property {Date} date - Event date and time
+ * @property {Date|string} date - Event date and time (pode ser objeto Date ou string ISO)
  * @property {string} [location] - Optional event location
  * @property {string} [description] - Optional event description
  * @property {string} [client] - Optional client name
@@ -34,12 +35,12 @@ import * as NotificationService from '../services/notifications';
  * @property {boolean} loading - Loading state
  * @property {string|null} error - Error message if any
  * @property {() => Promise<void>} refreshEvents - Refresh events list
- * @property {(eventData: Event) => Promise<void>} addEvent - Add new event
- * @property {(eventData: Event) => Promise<void>} updateEvent - Update existing event
- * @property {(eventId: string) => Promise<void>} deleteEvent - Delete event
- * @property {(term: string) => Event[]} searchEvents - Search events
- * @property {(id: string) => Event|null} getEventById - Get event by ID
- * @property {(event: Event) => Promise<void>} updateEventNotifications - Update event notifications
+ * @property {(eventData: Event, sendEmailFlag?: boolean) => Promise<boolean>} addEvent - Add new event
+ * @property {(eventData: Event, sendEmailFlag?: boolean) => Promise<boolean>} updateEvent - Update existing event
+ * @property {(eventId: string, sendEmailFlag?: boolean) => Promise<boolean>} deleteEvent - Delete event
+ * @property {(term: string, filters?: string[]) => Promise<Event[]>} searchEvents - Search events
+ * @property {(id: string) => Promise<Event|null>} getEventById - Get event by ID
+ * @property {(id: string, notificationData: object) => Promise<Event|null>} updateEventNotifications - Update event notifications
  */
 
 const EventContext = createContext(null);
@@ -82,19 +83,33 @@ export const EventProvider = ({ children }) => {
    * Adiciona um novo evento.
    *
    * @param {object} eventData - Dados do evento.
-   * @param {boolean} sendEmailFlag - Flag para envio de e-mail de notificação.
+   * @param {boolean} [sendEmailFlag] - Flag para envio de e-mail de notificação.
    * @returns {Promise<boolean>} True se adicionado com sucesso; caso contrário, false.
    */
   const addEvent = useCallback(
-    async (eventData, sendEmailFlag) => {
+    async (eventData, sendEmailFlag = false) => {
       setLoading(true);
       setError(null);
       try {
+        // Validação e garantia de que a data seja válida.
+        if (
+          !eventData.date ||
+          !(eventData.date instanceof Date) ||
+          isNaN(eventData.date.getTime())
+        ) {
+          const currentDate = new Date();
+          console.warn(
+            `[Event ${eventData.id || 'undefined'}] Invalid or missing date field, using current date: ${currentDate.toISOString()}`
+          );
+          eventData.date = currentDate;
+        }
+        // Chamada do serviço para adicionar o compromisso.
         const newEvent = await addCompromissoService(eventData);
         if (newEvent) {
+          await refreshEvents();
           triggerUpdate();
           if (sendEmailFlag) {
-            await sendEmail(
+            await NotificationService.sendEmail(
               'recipient@example.com', // Substitua pelo e-mail do destinatário
               'New Event Created',
               `A new event "${eventData.title}" has been created.`
@@ -111,38 +126,67 @@ export const EventProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [triggerUpdate]
+    [triggerUpdate, refreshEvents]
   );
 
   /**
    * Atualiza um evento existente.
    *
-   * @param {string} id - Identificador do evento.
    * @param {object} eventData - Novos dados do evento.
-   * @param {boolean} sendEmailFlag - Flag para envio de notificação por e-mail.
+   * @param {boolean} [sendEmailFlag] - Flag para envio de notificação por e-mail.
    * @returns {Promise<boolean>} True se atualizado com sucesso; caso contrário, false.
    */
   const updateEvent = useCallback(
-    async (eventData, sendEmailFlag) => {
+    async (eventData, sendEmailFlag = false) => {
       setLoading(true);
       setError(null);
       try {
         if (!eventData?.id) {
           throw new Error('ID do evento é obrigatório para atualização');
         }
-        const updatedEvent = await updateEventService(eventData.id, eventData);
-        if (updatedEvent) {
-          triggerUpdate();
-          if (sendEmailFlag) {
-            await sendEmail(
-              'recipient@example.com',
-              'Event Updated',
-              `The event "${eventData.title}" has been updated.`
-            );
+        // Valida e garante que a data seja um objeto Date válido.
+        let dateToUse;
+        if (eventData.date instanceof Date && !isNaN(eventData.date.getTime())) {
+          dateToUse = eventData.date;
+        } else if (typeof eventData.date === 'string') {
+          const parsedDate = new Date(eventData.date);
+          if (!isNaN(parsedDate.getTime())) {
+            dateToUse = parsedDate;
+          } else {
+            console.warn(`[Event ${eventData.id}] Invalid date string: ${eventData.date}`);
+            dateToUse = new Date();
           }
-          return true;
+        } else {
+          console.warn(`[Event ${eventData.id}] Invalid or missing date field`);
+          dateToUse = new Date();
         }
-        return false;
+
+        const eventWithDate = {
+          ...eventData,
+          date: dateToUse,
+        };
+        const updatedEvent = await updateEventService(eventData.id, eventWithDate);
+        if (!updatedEvent) {
+          throw new Error('Falha ao atualizar o evento');
+        }
+        // Atualiza o estado local com o evento atualizado e recarrega a lista.
+        setEvents((prevEvents) => {
+          const eventIndex = prevEvents.findIndex((e) => e.id === eventData.id);
+          if (eventIndex === -1) return prevEvents;
+          const newEvents = [...prevEvents];
+          newEvents[eventIndex] = updatedEvent;
+          return newEvents;
+        });
+        await refreshEvents();
+        triggerUpdate();
+        if (sendEmailFlag) {
+          await NotificationService.sendEmail(
+            'recipient@example.com',
+            'Event Updated',
+            `The event "${eventData.title}" has been updated.`
+          );
+        }
+        return true;
       } catch (err) {
         console.error('Erro ao atualizar evento:', err);
         setError(err.message);
@@ -151,24 +195,25 @@ export const EventProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [triggerUpdate]
+    [triggerUpdate, refreshEvents]
   );
 
   /**
    * Exclui um evento.
    *
    * @param {string} id - Identificador do evento.
-   * @param {boolean} sendEmailFlag - Flag para envio de notificação por e-mail.
+   * @param {boolean} [sendEmailFlag] - Flag para envio de notificação por e-mail.
    * @returns {Promise<boolean>} Resultado da operação.
    */
   const deleteEvent = useCallback(
-    async (id, sendEmailFlag) => {
+    async (id, sendEmailFlag = false) => {
       try {
         const success = await deleteCompromissoService(id);
         if (success) {
+          await refreshEvents();
           triggerUpdate();
           if (sendEmailFlag) {
-            await sendEmail(
+            await NotificationService.sendEmail(
               'recipient@example.com',
               'Event Deleted',
               'An event has been deleted.'
@@ -181,14 +226,15 @@ export const EventProvider = ({ children }) => {
         return false;
       }
     },
-    [triggerUpdate]
+    [triggerUpdate, refreshEvents]
   );
+
   /**
    * Realiza a busca de eventos com base em um termo e filtros.
    *
    * @param {string} term - Termo de busca.
-   * @param {string[]} filters - Lista de tipos de eventos para filtrar.
-   * @returns {Promise<Array>} Lista de eventos ordenada por data.
+   * @param {string[]} [filters] - Lista de tipos de eventos para filtrar.
+   * @returns {Promise<Event[]>} Lista de eventos ordenada por data.
    */
   const searchEvents = useCallback(
     async (term, filters) => {
@@ -207,11 +253,12 @@ export const EventProvider = ({ children }) => {
     },
     [events]
   );
+
   /**
    * Obtém um evento pelo seu identificador.
    *
    * @param {string} id - Identificador do evento.
-   * @returns {Promise<object|null>} Evento correspondente ou null se não encontrado.
+   * @returns {Promise<Event|null>} Evento correspondente ou null se não encontrado.
    */
   const getEventById = useCallback(async (id) => {
     try {
@@ -227,7 +274,7 @@ export const EventProvider = ({ children }) => {
    *
    * @param {string} id - Identificador do evento.
    * @param {object} notificationData - Dados da notificação.
-   * @returns {Promise<object|null>} Evento atualizado ou null em caso de erro.
+   * @returns {Promise<Event|null>} Evento atualizado ou null em caso de erro.
    */
   const updateEventNotifications = useCallback(
     async (id, notificationData) => {
@@ -248,7 +295,6 @@ export const EventProvider = ({ children }) => {
     [triggerUpdate]
   );
 
-  // Memoriza o valor do contexto para evitar re-renderizações desnecessárias
   const providerValue = useMemo(
     () => ({
       events,
@@ -283,10 +329,6 @@ export const EventProvider = ({ children }) => {
   );
 };
 
-/**
- * Hook para uso do contexto de eventos.
- * @returns {object} Contexto de eventos.
- */
 export const useEvents = () => {
   const context = useContext(EventContext);
   if (!context) {

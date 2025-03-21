@@ -1,3 +1,4 @@
+// HomeScreen.js
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Dimensions } from 'react-native';
 import { FAB, Card, Icon, Button, Text } from '@rneui/themed';
@@ -41,13 +42,19 @@ const HomeScreen = () => {
     return 'Boa noite';
   }, []);
 
+  // Função para garantir que a data seja serializável
+  const serializeEvent = (event) => ({
+    ...event,
+    date: event.date instanceof Date ? event.date.toISOString() : event.date,
+  });
+
   const handleEventAction = useCallback((event, action) => {
     switch (action) {
       case 'view':
-        navigation.navigate('EventView', { event });
+        navigation.navigate('EventView', { event: serializeEvent(event) });
         break;
       case 'edit':
-        navigation.navigate('EventDetails', { event });
+        navigation.navigate('EventDetails', { event: serializeEvent(event) });
         break;
       case 'delete':
         confirmDelete(event);
@@ -85,7 +92,7 @@ const HomeScreen = () => {
               await deleteEvent(event.id);
               refreshEvents();
             } catch (error) {
-              return <ErrorHandler error={error} onRetry={refreshEvents} />;
+              Alert.alert(ALERT_MESSAGES.DELETE_ERROR.title, ALERT_MESSAGES.DELETE_ERROR.message);
             }
           },
         },
