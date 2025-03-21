@@ -14,7 +14,7 @@ const EventDetails = ({ route, navigation }) => {
   const [formData, setFormData] = useState({
     title: '',
     type: '',
-    date: new Date(),
+    date: editingEvent ? new Date(editingEvent.date) : new Date(), // Usa a data atual do dispositivo para novo compromisso
     location: '',
     description: '',
     client: ''

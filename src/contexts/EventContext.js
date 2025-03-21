@@ -165,20 +165,40 @@ export const EventProvider = ({ children }) => {
           ...eventData,
           date: dateToUse,
         };
+
+        // Implementa cache otimista: atualiza o estado local imediatamente
+        const optimisticEvent = { ...eventWithDate, id: eventData.id };
+        setEvents(prevEvents => {
+          const updatedEvents = prevEvents.map(event =>
+            event.id === optimisticEvent.id ? optimisticEvent : event
+          );
+          return updatedEvents;
+        });
+
+        // Tenta atualizar no servidor
         const updatedEvent = await updateEventService(eventData.id, eventWithDate);
         if (!updatedEvent) {
+          // Se falhar, reverte a atualização local
+          setEvents(prevEvents => {
+            const originalEvent = prevEvents.find(e => e.id === eventData.id);
+            if (originalEvent) {
+              return prevEvents.map(event =>
+                event.id === eventData.id ? originalEvent : event
+              );
+            }
+            return prevEvents;
+          });
           throw new Error('Falha ao atualizar o evento');
         }
-        // Atualiza o estado local com o evento atualizado e recarrega a lista.
-        setEvents((prevEvents) => {
-          const eventIndex = prevEvents.findIndex((e) => e.id === eventData.id);
-          if (eventIndex === -1) return prevEvents;
-          const newEvents = [...prevEvents];
-          newEvents[eventIndex] = updatedEvent;
-          return newEvents;
-        });
-        await refreshEvents();
+
+        // Força a atualização do contexto para todas as telas
         triggerUpdate();
+        
+        // Atualiza os dados do servidor em segundo plano para garantir sincronização
+        refreshEvents().catch(error => {
+          console.error('Erro ao atualizar eventos do servidor:', error);
+        });
+
         if (sendEmailFlag) {
           await NotificationService.sendEmail(
             'recipient@example.com',

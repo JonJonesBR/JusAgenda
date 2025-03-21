@@ -182,6 +182,7 @@ const EventDetailsScreen = () => {
         await addEvent(eventData);
       }
       navigation.goBack();
+      navigation.navigate('Main', { screen: 'Home' });
     } catch (error) {
       Alert.alert('Erro', error.message || 'Erro ao salvar compromisso');
     }
