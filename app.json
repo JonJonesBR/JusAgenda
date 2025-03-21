@@ -34,8 +34,12 @@
       "permissions": [
         "NOTIFICATIONS",
         "READ_CALENDAR",
-        "WRITE_CALENDAR"
-      ]
+        "WRITE_CALENDAR",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ],
+      "package": "com.jonjonesbr.jusagenda"
     },
     "plugins": [
       [
@@ -60,6 +64,14 @@
     },
     "experiments": {
       "newArchEnabled": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "9fbfcc37-3525-4ca7-980b-addb8228620b"
+      }
     }
   }
 }
