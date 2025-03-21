@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, Animated } from 'react-native';
+import { Swipeable, RectButton } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { Agenda } from 'react-native-calendars';
 import { Card, Text } from '@rneui/themed';
 import { useEvents } from '../contexts/EventContext';
@@ -7,9 +9,15 @@ import { formatDateTime } from '../utils/dateUtils';
 
 const AgendaScreen = ({ navigation }) => {
   const { events, refreshEvents, deleteEvent } = useEvents();
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    refreshEvents();
+    const loadData = async () => {
+      setIsLoading(true);
+      await refreshEvents();
+      setIsLoading(false);
+    };
+    loadData();
   }, [refreshEvents]);
 
   const loadItems = useCallback((day) => {
@@ -31,14 +39,18 @@ const AgendaScreen = ({ navigation }) => {
       [
         {
           text: 'Visualizar',
+          accessibilityLabel: 'Abrir detalhes do evento',
           onPress: () => navigation.navigate('EventView', { event })
         },
         {
           text: 'Editar',
+          accessibilityLabel: 'Editar detalhes do evento',
           onPress: () => navigation.navigate('EventDetails', { event })
         },
         {
           text: 'Excluir',
+          accessibilityRole: 'button',
+          accessibilityHint: 'Exclui permanentemente o evento',
           style: 'destructive',
           onPress: () => {
             Alert.alert(
@@ -70,40 +82,99 @@ const AgendaScreen = ({ navigation }) => {
   }, [navigation, deleteEvent, refreshEvents]);
 
   const renderItem = useCallback((item) => {
-    return (
-      <Card
-        containerStyle={styles.card}
-        onPress={() => handleEventPress(item)}
-      >
-        <View style={styles.eventHeader}>
-          <Text style={styles.eventType}>
-            {item.type?.charAt(0).toUpperCase() + item.type?.slice(1)}
-          </Text>
-          <Text style={styles.eventTime}>
-            {formatDateTime(item.date).split(' ')[1]}
-          </Text>
+    const renderRightActions = (progress, dragX) => {
+      const trans = dragX.interpolate({
+        inputRange: [0, 50],
+        outputRange: [0, 0],
+      });
+
+      const handleDelete = async () => {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        try {
+          await deleteEvent(item.id);
+          refreshEvents();
+        } catch (error) {
+          if (error.message.includes('Network Error') || error.message.includes('timeout')) {
+            Alert.alert('Erro de Conexão', 'Verifique sua conexão com a internet');
+          } else if (error.response?.status?.toString().startsWith('5')) {
+            Alert.alert('Erro no Servidor', 'Tente novamente mais tarde');
+          } else {
+            Alert.alert('Erro', error.message || 'Falha ao excluir evento');
+          }
+        }
+      };
+
+      return (
+        <View style={styles.swipeContainer}>
+          <Animated.View style={{ transform: [{ translateX: trans }] }}>
+            <RectButton
+              style={[styles.rightAction, styles.editAction]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                navigation.navigate('EventDetails', { event: item });
+              }}>
+              <Text style={styles.actionText}>Editar</Text>
+            </RectButton>
+            <RectButton
+              style={[styles.rightAction, styles.deleteAction]}
+              onPress={handleDelete}>
+              <Text style={styles.actionText}>Excluir</Text>
+            </RectButton>
+          </Animated.View>
         </View>
-        <Text style={styles.eventTitle}>{item.title}</Text>
-        {item.location && (
-          <Text style={styles.eventLocation}>📍 {item.location}</Text>
-        )}
-        {item.client && (
-          <Text style={styles.eventClient}>👤 {item.client}</Text>
-        )}
-      </Card>
+      );
+    };
+
+    return (
+      <Swipeable
+        friction={2}
+        overshootRight={false}
+        renderRightActions={renderRightActions}
+        onSwipeableOpen={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}>
+        <Card
+          containerStyle={styles.card}
+          onPress={() => {
+            Haptics.selectionAsync();
+            handleEventPress(item);
+          }}>
+          <View style={styles.eventHeader}>
+            <Text style={styles.eventType}>
+              {item.type?.charAt(0).toUpperCase() + item.type?.slice(1)}
+            </Text>
+            <Text style={styles.eventTime}>
+              {formatDateTime(item.date).split(' ')[1]}
+            </Text>
+          </View>
+          <Text style={styles.eventTitle}>{item.title}</Text>
+          {item.location && (
+            <Text style={styles.eventLocation}>📍 {item.location}</Text>
+          )}
+          {item.client && (
+            <Text style={styles.eventClient}>👤 {item.client}</Text>
+          )}
+        </Card>
+      </Swipeable>
     );
-  }, [handleEventPress]);
+  }, [handleEventPress, deleteEvent, refreshEvents, navigation]);
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyTitle}>Nenhum compromisso</Text>
+      <Text style={styles.emptyText}>Arraste para baixo para atualizar</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6200ee" />
+        </View>
+      )}
       <Agenda
         items={loadItems(new Date())}
         renderItem={renderItem}
-        renderEmptyDate={() => (
-          <View style={styles.emptyDate}>
-            <Text>Nenhum compromisso neste dia</Text>
-          </View>
-        )}
+        renderEmptyDate={renderEmptyState}
         rowHasChanged={(r1, r2) => r1.id !== r2.id}
         showClosingKnob={true}
         theme={{
@@ -160,6 +231,51 @@ const styles = StyleSheet.create({
     height: 15,
     flex: 1,
     paddingTop: 30
+  },
+  swipeContainer: {
+    width: 180,
+    flexDirection: 'row',
+  },
+  rightAction: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 90,
+    height: '100%',
+  },
+  deleteAction: {
+    backgroundColor: '#ff4444',
+  },
+  editAction: {
+    backgroundColor: '#ffaa33',
+  },
+  actionText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center'
   }
 });
 

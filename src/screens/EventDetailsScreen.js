@@ -182,7 +182,7 @@ const EventDetailsScreen = () => {
         await addEvent(eventData);
       }
       navigation.goBack();
-      navigation.navigate('Main', { screen: 'Home' });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (error) {
       Alert.alert('Erro', error.message || 'Erro ao salvar compromisso');
     }
@@ -200,7 +200,8 @@ const EventDetailsScreen = () => {
           onPress: async () => {
             try {
               await deleteEvent(editingEvent.id);
-              navigation.goBack();
+              await refreshEvents();
+              navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
             } catch (error) {
               Alert.alert('Erro', 'Não foi possível excluir o compromisso.');
             }

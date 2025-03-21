@@ -64,7 +64,7 @@ export const EventProvider = ({ children }) => {
       setEvents(allEvents);
     } catch (err) {
       console.error('Erro ao atualizar eventos:', err);
-      setError(err.message);
+      setError(err.message || 'Erro desconhecido ao atualizar evento');
     }
   }, []);
 
@@ -120,7 +120,7 @@ export const EventProvider = ({ children }) => {
         return false;
       } catch (err) {
         console.error('Erro ao adicionar evento:', err);
-        setError(err.message);
+        setError(err.message || 'Erro desconhecido ao atualizar evento');
         return false;
       } finally {
         setLoading(false);
@@ -208,8 +208,8 @@ export const EventProvider = ({ children }) => {
         }
         return true;
       } catch (err) {
-        console.error('Erro ao atualizar evento:', err);
-        setError(err.message);
+        console.error('Erro ao atualizar evento:', err.message);
+        setError(err.message || 'Erro desconhecido ao atualizar evento');
         return false;
       } finally {
         setLoading(false);

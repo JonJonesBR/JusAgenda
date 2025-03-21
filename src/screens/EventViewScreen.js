@@ -51,7 +51,7 @@ ${event.description ? `Descrição: ${event.description}` : ''}
             try {
               await deleteEvent(event.id);
               // Navega para a tela Home dentro do navigator aninhado "Main"
-              navigation.navigate('Main', { screen: 'Home' });
+              navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
             } catch (error) {
               Alert.alert('Erro', 'Não foi possível excluir o compromisso');
             }

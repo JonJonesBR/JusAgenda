@@ -87,7 +87,7 @@ export const addCompromisso = async (compromisso) => {
   try {
     // Verifique se a data é válida
     if (!compromisso.date || !(compromisso.date instanceof Date) || isNaN(compromisso.date.getTime())) {
-      throw new Error("Data inválida fornecida para o compromisso.");
+      throw new Error(`Data inválida: ${updatedCompromisso.date}. Utilize o formato UTC (YYYY-MM-DDTHH:mm)`);
     }
 
     const newCompromisso = {
@@ -138,7 +138,7 @@ export const updateCompromisso = async (id, updatedCompromisso) => {
       }
       
       if (isNaN(dateObj.getTime())) {
-        throw new Error("Data inválida fornecida para o compromisso.");
+        throw new Error(`Data inválida: ${updatedCompromisso.date}. Utilize o formato UTC (YYYY-MM-DDTHH:mm)`);
       }
       // Ensure date is a Date object with correct local time
       updatedCompromisso.date = dateObj;
@@ -154,7 +154,7 @@ export const updateCompromisso = async (id, updatedCompromisso) => {
     return updatedEvents.find((compromisso) => compromisso.id === id) || null;
   } catch (error) {
     console.error("Erro ao atualizar compromisso:", error);
-    throw error;
+    throw new Error(`Falha na atualização: ${error.message}`);
   }
 };
 
@@ -241,5 +241,38 @@ export const updateCompromissoNotifications = async (id, { notificationId, calen
   } catch (error) {
     console.error("Erro ao atualizar notificações do compromisso:", error);
     throw error;
+  }
+};
+
+export const saveCompromisso = async (compromisso) => {
+  try {
+    if (!compromisso.title?.trim()) {
+      throw new Error('Título do evento é obrigatório');
+    }
+    
+    if (!EVENT_TYPES.includes(compromisso.type)) {
+      throw new Error(`Tipo de evento inválido: ${compromisso.type}`);
+    }
+
+    const events = await storage.getItem(STORAGE_KEY) || [];
+    const index = events.findIndex(e => e.id === compromisso.id);
+    
+    if (index === -1) {
+      events.push({ ...compromisso, id: generateId() });
+    } else {
+      events[index] = compromisso;
+    }
+
+    await storage.setItem(STORAGE_KEY, events);
+    return true;
+  } catch (error) {
+    captureException(error, {
+      extra: {
+        eventData: compromisso,
+        operation: 'save_event',
+        storageKey: STORAGE_KEY
+      }
+    });
+    throw new Error(`Falha ao salvar evento: ${error.message}`);
   }
 };
