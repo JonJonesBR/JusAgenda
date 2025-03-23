@@ -62,9 +62,6 @@
         }
       }
     },
-    "experiments": {
-      "newArchEnabled": true
-    },
     "extra": {
       "router": {
         "origin": false
@@ -73,6 +70,9 @@
         "projectId": "9fbfcc37-3525-4ca7-980b-addb8228620b"
       }
     },
-    "owner": "jonjonesbr"
+    "owner": "jonjonesbr",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

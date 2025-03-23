@@ -2,6 +2,13 @@
   "name": "jusagenda",
   "version": "1.0.0",
   "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "listUnknownPackages": false
+      }
+    }
+  },
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
@@ -11,7 +18,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare-android": "node -e \"try { require('fs').chmodSync('android/gradlew', '755') } catch (e) { console.log(e) }\"",
+    "build-android": "eas build --platform android --profile preview"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
@@ -26,20 +35,15 @@
     "@rneui/themed": "^4.0.0-rc.8",
     "expo": "52.0.39",
     "expo-calendar": "^14.0.5",
-    "expo-crypto": "^14.0.2",
     "expo-file-system": "~18.0.11",
     "expo-haptics": "^14.0.1",
     "expo-linear-gradient": "^14.0.1",
-    "expo-linking": "^7.0.5",
-    "expo-local-authentication": "^15.0.2",
-    "expo-mail-composer": "~14.0.2",
     "expo-media-library": "~17.0.6",
-    "expo-modules-core": "2.2.3",
     "expo-notifications": "0.29.14",
     "expo-print": "~14.0.3",
     "expo-router": "4.0.19",
-    "expo-secure-store": "^14.0.1",
     "expo-sharing": "~13.0.1",
+    "expo-status-bar": "~2.0.1",
     "moment": "^2.30.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
@@ -47,14 +51,14 @@
     "react-native": "0.76.7",
     "react-native-calendars": "^1.1307.0",
     "react-native-safe-area-context": "4.12.0",
-    "react-native-screens": "4.3.0",
+    "react-native-screens": "~4.4.0",
     "react-native-toast-message": "^2.2.1",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.19.13",
-    "yup": "^1.6.1",
-    "expo-status-bar": "~2.0.1"
+    "yup": "^1.6.1"
   },
   "devDependencies": {
+    "@babel/core": "^7.20.0",
     "@babel/runtime": "^7.26.7",
     "@expo/metro-config": "^0.19.11",
     "@react-native-community/cli": "^15.1.3",
@@ -64,7 +68,6 @@
     "@testing-library/react-native": "^12.9.0",
     "@tsconfig/react-native": "^3.0.5",
     "@types/react": "~18.3.12",
-    "@types/react-native": "^0.72.8",
     "babel-jest": "^29.7.0",
     "cross-spawn": "^7.0.6",
     "detox": "^20.34.4",
@@ -79,7 +82,6 @@
     "react-native-gesture-handler": "~2.20.2",
     "react-native-reanimated": "3.16.7",
     "react-test-renderer": "^18.3.1",
-    "typescript": "^5.7.3",
-    "@babel/core": "^7.20.0"
+    "typescript": "^5.7.3"
   }
 }

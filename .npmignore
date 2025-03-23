@@ -1,0 +1,5 @@
+# Não ignore os arquivos nativos
+!android/
+!android/gradlew
+!android/gradlew.bat
+!android/gradle/wrapper/ 
