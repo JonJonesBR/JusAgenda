@@ -3,93 +3,151 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Card, Text, Icon } from '@rneui/themed';
 import { useEvents } from '../contexts/EventContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { formatDateTime } from '../utils/dateUtils';
 
 const UpcomingEvents = ({ onEventPress }) => {
   const { events } = useEvents();
+  const { theme, isDarkMode } = useTheme();
 
   const upcomingEvents = events
     .filter(event => new Date(event.date) >= new Date())
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .slice(0, 5);
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: 10,
+    },
+    card: {
+      marginBottom: 16,
+      padding: 20,
+      borderRadius: 12,
+      elevation: 4,
+      backgroundColor: theme.colors.card,
+      borderColor: theme.colors.border,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    cardIcon: {
+      marginRight: 10,
+      padding: 10,
+      borderRadius: 12,
+      backgroundColor: isDarkMode ? theme.colors.surfaceVariant : `${theme.colors.primary}15`,
+    },
+    cardTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      flex: 1,
+    },
+    cardDate: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      marginTop: 3,
+    },
+    noEventsContainer: {
+      alignItems: 'center',
+      padding: 20,
+      backgroundColor: theme.colors.card,
+      borderRadius: 12,
+      marginHorizontal: 10,
+      marginBottom: 16,
+      borderColor: theme.colors.border,
+      borderWidth: 1,
+    },
+    noEventsText: {
+      color: theme.colors.textMuted,
+      textAlign: 'center',
+      marginTop: 10,
+    },
+    locationContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    locationText: {
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      marginLeft: 5,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.divider,
+      marginVertical: 10,
+    },
+    cardFooter: {
+      marginTop: 12,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+    },
+    viewButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 8,
+    },
+    viewButtonText: {
+      marginLeft: 4,
+      color: theme.colors.primary,
+      fontWeight: '500',
+    },
+  });
+
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       {upcomingEvents.length > 0 ? (
-        upcomingEvents.map((event) => (
-          <TouchableOpacity 
-            key={event.id} 
-            onPress={() => onEventPress(event)}
-            activeOpacity={0.8}
-          >
-            <Card containerStyle={styles.card}>
-              <View style={styles.cardHeader}>
-                <Icon name="event" size={28} color="#6200ee" />
-                <Text style={styles.eventType}>
-                  {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
-                </Text>
-              </View>
-              <Text style={styles.title}>{event.title}</Text>
-              <View style={styles.dateContainer}>
-                <Icon name="calendar-today" size={20} color="#757575" />
-                <Text style={styles.date}>{formatDateTime(event.date)}</Text>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        ))
+        <ScrollView horizontal>
+          {upcomingEvents.map((event) => (
+            <TouchableOpacity key={event.id} onPress={() => onEventPress(event)}>
+              <Card containerStyle={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardIcon}>
+                    <Icon
+                      name={event.type === 'audiencia' ? 'gavel' : event.type === 'reuniao' ? 'groups' : event.type === 'prazo' ? 'timer' : 'event'}
+                      color={event.type === 'prazo' ? theme.colors.error : theme.colors.primary}
+                      size={22}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                      {event.title}
+                    </Text>
+                    <Text style={styles.cardDate}>{formatDateTime(event.date)}</Text>
+                  </View>
+                </View>
+                <View style={styles.divider} />
+                {event.location && (
+                  <View style={styles.locationContainer}>
+                    <Icon name="location-on" size={14} color={theme.colors.textSecondary} />
+                    <Text style={styles.locationText} numberOfLines={1}>{event.location}</Text>
+                  </View>
+                )}
+                <View style={styles.cardFooter}>
+                  <TouchableOpacity style={styles.viewButton} onPress={() => onEventPress(event)}>
+                    <Text style={styles.viewButtonText}>Ver detalhes</Text>
+                    <Icon name="chevron-right" size={16} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       ) : (
-        <Text style={styles.noEventsText}>Nenhum compromisso próximo</Text>
+        <View style={styles.noEventsContainer}>
+          <Icon name="event-busy" size={40} color={theme.colors.textMuted} />
+          <Text style={styles.noEventsText}>Nenhum compromisso agendado para os próximos dias</Text>
+        </View>
       )}
-    </ScrollView>
+    </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 10,
-  },
-  card: {
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    elevation: 4,
-    backgroundColor: '#fff',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  eventType: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 10,
-    color: '#6200ee',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  date: {
-    fontSize: 16,
-    marginLeft: 6,
-    color: '#757575',
-  },
-  noEventsText: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#757575',
-    marginTop: 20,
-  },
-});
 
 export default UpcomingEvents;

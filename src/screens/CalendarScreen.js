@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
   },
-  dateInputLabel: { color: COLORS.text.secondary, marginBottom: 5 },
+  dateInputLabel: { color: COLORS.textSecondary, marginBottom: 5 },
   applyButton: { backgroundColor: COLORS.primary, borderRadius: 8 },
   eventsModal: { width: '90%', maxHeight: '80%', borderRadius: 12, padding: 16 },
   eventsModalHeader: {

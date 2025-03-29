@@ -19,12 +19,10 @@ export interface ThemeColors {
   info: string;
   background: string;
   surface: string;
-  text: {
-    primary: string;
-    secondary: string;
-    disabled: string;
-    hint: string;
-  };
+  textPrimary: string;
+  textSecondary: string;
+  textDisabled: string;
+  textHint: string;
   border: string;
   divider: string;
 }
@@ -94,12 +92,10 @@ export const lightTheme: AppTheme = {
     info: '#2196f3',
     background: '#f5f5f5',
     surface: '#ffffff',
-    text: {
-      primary: '#000000',
-      secondary: '#757575',
-      disabled: '#9e9e9e',
-      hint: '#bdbdbd',
-    },
+    textPrimary: '#000000',
+    textSecondary: '#757575',
+    textDisabled: '#9e9e9e',
+    textHint: '#bdbdbd',
     border: '#e0e0e0',
     divider: '#e0e0e0',
   },
@@ -171,12 +167,10 @@ export const darkTheme: AppTheme = {
     secondary: '#03dac6',
     background: '#121212',
     surface: '#1e1e1e',
-    text: {
-      primary: '#ffffff',
-      secondary: '#b0b0b0',
-      disabled: '#6e6e6e',
-      hint: '#4e4e4e',
-    },
+    textPrimary: '#ffffff',
+    textSecondary: '#b0b0b0',
+    textDisabled: '#6e6e6e',
+    textHint: '#4e4e4e',
     border: '#2c2c2c',
     divider: '#2c2c2c',
   },
@@ -190,7 +184,7 @@ export const navigationTheme = {
     primary: lightTheme.colors.primary,
     background: lightTheme.colors.background,
     card: lightTheme.colors.surface,
-    text: lightTheme.colors.text.primary,
+    text: lightTheme.colors.textPrimary,
     border: lightTheme.colors.border,
   },
 };

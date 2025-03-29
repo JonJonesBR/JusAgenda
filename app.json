@@ -32,20 +32,46 @@
         "backgroundColor": "#6200ee"
       },
       "permissions": [
-        "NOTIFICATIONS",
-        "READ_CALENDAR",
-        "WRITE_CALENDAR",
+        "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.INTERNET"
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_NOTIFICATION_POLICY",
+        "android.permission.INTERNET",
+        "android.permission.SCHEDULE_EXACT_ALARM"
       ],
-      "package": "com.jonjonesbr.jusagenda"
+      "package": "com.jonjonesbr.jusagenda",
+      "useNextNotificationsApi": true
     },
     "plugins": [
       [
         "expo-file-system",
         {
           "filePermission": "Permissão necessária para salvar arquivos."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Permitir que o JusAgenda acesse suas fotos e documentos.",
+          "savePhotosPermission": "Permitir que o JusAgenda salve fotos e documentos no seu dispositivo."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Permitir que o JusAgenda acesse seu calendário.",
+          "remindersPermission": "Permitir que o JusAgenda acesse seus lembretes e compromissos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6200ee"
         }
       ],
       "expo-router"
@@ -73,6 +99,10 @@
     "owner": "jonjonesbr",
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "newArchEnabled": true,
+    "developmentClient": {
+      "silentLaunch": true
     }
   }
 }

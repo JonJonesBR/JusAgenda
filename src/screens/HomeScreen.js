@@ -4,6 +4,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Dimen
 import { FAB, Card, Icon, Button, Text } from '@rneui/themed';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
+import { useTheme } from '../contexts/ThemeContext';
 import UpcomingEvents from '../components/UpcomingEvents';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDateTime, isToday } from '../utils/dateUtils';
@@ -28,55 +29,46 @@ const ALERT_MESSAGES = {
 const HomeScreen = () => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const { refreshEvents, events, deleteEvent } = useEvents();
-  const [isModalVisible, setModalVisible] = useState(false);
-
+  const { events, loading, refreshEvents, deleteEvent } = useEvents();
+  const { theme, isDarkMode } = useTheme();
+  const [nextEvent, setNextEvent] = useState(null);
+  
   useEffect(() => {
-    if (isFocused) refreshEvents();
+    if (isFocused) {
+      refreshEvents();
+    }
   }, [isFocused, refreshEvents]);
 
-  const getCurrentTime = useCallback(() => {
-    const hours = new Date().getHours();
-    if (hours >= 5 && hours < 12) return 'Bom dia';
-    if (hours >= 12 && hours < 18) return 'Boa tarde';
-    return 'Boa noite';
-  }, []);
-
-  // Função para garantir que a data seja serializável
-  const serializeEvent = (event) => ({
-    ...event,
-    date: event.date instanceof Date ? event.date.toISOString() : event.date,
-  });
-
-  const handleEventAction = useCallback((event, action) => {
-    switch (action) {
-      case 'view':
-        navigation.navigate('EventView', { event: serializeEvent(event) });
-        break;
-      case 'edit':
-        navigation.navigate('EventDetails', { event: serializeEvent(event) });
-        break;
-      case 'delete':
-        confirmDelete(event);
-        break;
-      default:
-        break;
+  useEffect(() => {
+    if (events.length > 0) {
+      const now = new Date();
+      const upcoming = events
+        .filter(event => new Date(event.date) >= now)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      if (upcoming.length > 0) {
+        setNextEvent(upcoming[0]);
+      } else {
+        setNextEvent(null);
+      }
+    } else {
+      setNextEvent(null);
     }
-  }, [navigation]);
+  }, [events]);
 
   const handleEventPress = useCallback((event) => {
     Alert.alert(
       ALERT_MESSAGES.OPTIONS.title,
       ALERT_MESSAGES.OPTIONS.message,
       [
-        { text: 'Visualizar', onPress: () => handleEventAction(event, 'view') },
-        { text: 'Editar', onPress: () => handleEventAction(event, 'edit') },
-        { text: 'Excluir', style: 'destructive', onPress: () => handleEventAction(event, 'delete') },
+        { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
+        { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
+        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(event) },
         { text: 'Cancelar', style: 'cancel' },
       ],
       { cancelable: true }
     );
-  }, [handleEventAction]);
+  }, [navigation]);
 
   const confirmDelete = useCallback((event) => {
     Alert.alert(
@@ -90,7 +82,7 @@ const HomeScreen = () => {
           onPress: async () => {
             try {
               await deleteEvent(event.id);
-              refreshEvents();
+              await refreshEvents();
             } catch (error) {
               Alert.alert(ALERT_MESSAGES.DELETE_ERROR.title, ALERT_MESSAGES.DELETE_ERROR.message);
             }
@@ -101,86 +93,238 @@ const HomeScreen = () => {
     );
   }, [deleteEvent, refreshEvents]);
 
-  const handleExport = useCallback(() => {
-    navigation.navigate('Export');
-  }, [navigation]);
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background
+    },
+    header: {
+      paddingTop: 40,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+    },
+    sectionTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginVertical: 16,
+      marginLeft: 20,
+    },
+    welcomeCard: {
+      marginHorizontal: 20,
+      marginTop: 20,
+      borderRadius: 16,
+      elevation: 5,
+      padding: 0,
+      overflow: 'hidden',
+      backgroundColor: theme.colors.card,
+      borderColor: theme.colors.border
+    },
+    gradientContainer: {
+      padding: 20,
+    },
+    welcomeTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: isDarkMode ? '#fff' : '#fff',
+      marginBottom: 6,
+    },
+    welcomeSubtitle: {
+      fontSize: 16,
+      color: isDarkMode ? '#fff' : '#fff',
+      opacity: 0.9,
+      marginBottom: 16,
+    },
+    buttonContainer: {
+      flexDirection: 'row',
+      marginTop: 10,
+    },
+    actionButton: {
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      marginRight: 12,
+      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.25)',
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    actionButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      marginLeft: 6,
+    },
+    nextEventCard: {
+      marginHorizontal: 20,
+      marginVertical: 10,
+      borderRadius: 12,
+      padding: 16,
+      backgroundColor: theme.colors.card,
+      borderColor: theme.colors.border,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    nextEventHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    nextEventTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginLeft: 10,
+    },
+    nextEventContent: {
+      backgroundColor: isDarkMode ? theme.colors.surfaceVariant : theme.colors.surface,
+      borderRadius: 8,
+      padding: 16,
+      marginTop: 8,
+    },
+    eventTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    eventDetail: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    eventDetailText: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginLeft: 6,
+    },
+    noEventText: {
+      fontSize: 15,
+      color: theme.colors.textMuted,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      marginVertical: 10,
+    },
+    nextEventActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginTop: 16,
+    },
+    nextEventButton: {
+      marginLeft: 10,
+    },
+    nextEventButtonText: {
+      color: theme.colors.primary,
+      fontWeight: 'bold',
+    },
+    fab: {
+      position: 'absolute',
+      right: 20,
+      bottom: 20,
+      backgroundColor: theme.colors.primary,
+    },
+  });
 
-  const todayEvents = useMemo(() => 
-    events.filter(event => isToday(new Date(event.date))),
-    [events]
-  );
+  const getGradientColors = () => {
+    if (isDarkMode) {
+      return ['#3700B3', '#5600E8', '#7928CA'];
+    } else {
+      return ['#6200ee', '#6F18FF', '#7928CA'];
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#6200ee" />
-      <LinearGradient colors={['#6200ee', '#9747FF']} style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{getCurrentTime()}</Text>
-          <Text style={styles.headerSubtitle}>Bem-vindo ao JusAgenda</Text>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.colors.primary} />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Card containerStyle={styles.welcomeCard}>
+            <LinearGradient
+              colors={getGradientColors()}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientContainer}
+            >
+              <Text style={styles.welcomeTitle}>Bem-vindo ao JusAgenda</Text>
+              <Text style={styles.welcomeSubtitle}>Gerencie sua agenda jurídica com facilidade</Text>
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => navigation.navigate('EventDetails')}
+                >
+                  <Icon name="add-circle" color="#fff" size={16} />
+                  <Text style={styles.actionButtonText}>Novo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => navigation.navigate('Search')}
+                >
+                  <Icon name="search" color="#fff" size={16} />
+                  <Text style={styles.actionButtonText}>Buscar</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Card>
         </View>
-      </LinearGradient>
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: height * 0.1 }}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📅 Compromissos de Hoje</Text>
-          {todayEvents.length > 0 ? (
-            todayEvents.map((event) => (
-              <TouchableOpacity key={event.id} onPress={() => handleEventPress(event)}>
-                <Card containerStyle={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <Icon name="event" size={28} color="#6200ee" />
-                    <Text style={styles.eventType}>
-                      {event.type?.charAt(0).toUpperCase() + event.type?.slice(1)}
-                    </Text>
+
+        {nextEvent && (
+          <>
+            <Text style={styles.sectionTitle}>Próximo Compromisso</Text>
+            <Card containerStyle={styles.nextEventCard}>
+              <View style={styles.nextEventHeader}>
+                <Icon
+                  name={nextEvent.type === 'audiencia' ? 'gavel' : nextEvent.type === 'reuniao' ? 'groups' : nextEvent.type === 'prazo' ? 'timer' : 'event'}
+                  color={theme.colors.primary}
+                  size={24}
+                  style={{ backgroundColor: isDarkMode ? theme.colors.surfaceVariant : `${theme.colors.primary}15`, padding: 10, borderRadius: 8 }}
+                />
+                <Text style={styles.nextEventTitle}>
+                  {isToday(nextEvent.date) ? 'Hoje' : 'Em breve'}
+                </Text>
+              </View>
+              <View style={styles.nextEventContent}>
+                <Text style={styles.eventTitle}>{nextEvent.title}</Text>
+                <View style={styles.eventDetail}>
+                  <Icon name="calendar-today" size={16} color={theme.colors.textSecondary} />
+                  <Text style={styles.eventDetailText}>{formatDateTime(nextEvent.date)}</Text>
+                </View>
+                {nextEvent.location && (
+                  <View style={styles.eventDetail}>
+                    <Icon name="location-on" size={16} color={theme.colors.textSecondary} />
+                    <Text style={styles.eventDetailText}>{nextEvent.location}</Text>
                   </View>
-                  <Text style={styles.title}>{event.title}</Text>
-                  <View style={styles.dateContainer}>
-                    <Icon name="calendar-today" size={20} color="#757575" />
-                    <Text style={styles.date}>{formatDateTime(event.date)}</Text>
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={styles.noEventsText}>Nenhum compromisso para hoje.</Text>
-          )}
-        </View>
-        <View style={[styles.section, { marginTop: -16 }]}>
-          <Text style={styles.sectionTitle}>📌 Próximos Compromissos</Text>
-          <UpcomingEvents onEventPress={handleEventPress} />
-        </View>
-        <View style={styles.exportContainer}>
-          <Button title="📤 Exportar Compromissos" onPress={handleExport} color="#6200ee" />
-        </View>
+                )}
+              </View>
+              <View style={styles.nextEventActions}>
+                <TouchableOpacity 
+                  style={styles.nextEventButton}
+                  onPress={() => navigation.navigate('EventView', { event: nextEvent })}
+                >
+                  <Text style={styles.nextEventButtonText}>Ver Detalhes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.nextEventButton}
+                  onPress={() => navigation.navigate('EventDetails', { event: nextEvent })}
+                >
+                  <Text style={styles.nextEventButtonText}>Editar</Text>
+                </TouchableOpacity>
+              </View>
+            </Card>
+          </>
+        )}
+
+        <Text style={styles.sectionTitle}>Compromissos Futuros</Text>
+        <UpcomingEvents onEventPress={handleEventPress} />
       </ScrollView>
+
       <FAB
         icon={{ name: 'add', color: 'white' }}
-        color="#6200ee"
-        placement="right"
+        color={theme.colors.primary}
         style={styles.fab}
         onPress={() => navigation.navigate('EventDetails')}
       />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  scrollView: { flex: 1 },
-  header: { paddingTop: StatusBar.currentHeight || 24, paddingBottom: 16 },
-  headerContent: { alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
-  headerSubtitle: { color: '#fff', opacity: 0.9, fontSize: 18, textAlign: 'center' },
-  section: { padding: 16 },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#000', marginBottom: 12 },
-  card: { marginBottom: 16, padding: 20, borderRadius: 12, elevation: 4, backgroundColor: '#fff' },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  eventType: { fontSize: 18, fontWeight: 'bold', marginLeft: 10, color: '#6200ee' },
-  title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
-  dateContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  date: { fontSize: 16, marginLeft: 6, color: '#757575' },
-  noEventsText: { textAlign: 'center', fontSize: 16, color: '#757575' },
-  exportContainer: { margin: 20 },
-  fab: { position: 'absolute', bottom: 16, right: 16 },
-});
 
 export default HomeScreen;

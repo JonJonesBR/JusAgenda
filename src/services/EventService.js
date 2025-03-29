@@ -86,12 +86,26 @@ export const getUpcomingCompromissos = async () => {
 export const addCompromisso = async (compromisso) => {
   try {
     // Verifique se a data é válida
-    if (!compromisso.date || !(compromisso.date instanceof Date) || isNaN(compromisso.date.getTime())) {
-      throw new Error(`Data inválida: ${updatedCompromisso.date}. Utilize o formato UTC (YYYY-MM-DDTHH:mm)`);
+    if (!compromisso.date) {
+      throw new Error("A data do compromisso é obrigatória");
+    }
+    
+    let dateToUse;
+    if (compromisso.date instanceof Date && !isNaN(compromisso.date.getTime())) {
+      dateToUse = compromisso.date;
+    } else if (typeof compromisso.date === 'string') {
+      const parsedDate = new Date(compromisso.date);
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error(`Data inválida: ${compromisso.date}`);
+      }
+      dateToUse = parsedDate;
+    } else {
+      throw new Error(`Formato de data inválido: ${compromisso.date}`);
     }
 
     const newCompromisso = {
       ...compromisso,
+      date: dateToUse,
       id: generateId(),
       notificationId: null,
       calendarEventId: null,
@@ -250,7 +264,7 @@ export const saveCompromisso = async (compromisso) => {
       throw new Error('Título do evento é obrigatório');
     }
     
-    if (!EVENT_TYPES.includes(compromisso.type)) {
+    if (!Object.values(EVENT_TYPES).includes(compromisso.type)) {
       throw new Error(`Tipo de evento inválido: ${compromisso.type}`);
     }
 
@@ -266,7 +280,7 @@ export const saveCompromisso = async (compromisso) => {
     await storage.setItem(STORAGE_KEY, events);
     return true;
   } catch (error) {
-    captureException(error, {
+    console.error(`Falha ao salvar evento: ${error.message}`, {
       extra: {
         eventData: compromisso,
         operation: 'save_event',

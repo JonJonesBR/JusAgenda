@@ -6,6 +6,7 @@ import Toast from 'react-native-toast-message';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useEvents } from '../contexts/EventContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const EVENT_FILTERS = [
   { id: 'audiencia', label: 'Audiência', icon: 'gavel' },

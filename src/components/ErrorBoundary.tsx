@@ -120,13 +120,13 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: lightTheme.typography.fontSize.xl,
     fontWeight: 'bold',
-    color: lightTheme.colors.text.primary,
+    color: '#000000',
     marginBottom: lightTheme.spacing.sm,
     textAlign: 'center',
   },
   errorMessage: {
     fontSize: lightTheme.typography.fontSize.md,
-    color: lightTheme.colors.text.secondary,
+    color: '#666666',
     marginBottom: lightTheme.spacing.lg,
     textAlign: 'center',
   },

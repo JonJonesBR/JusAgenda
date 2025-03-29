@@ -2,26 +2,106 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { Text, Icon } from '@rneui/themed';
 import { COLORS } from '../utils/common';
+import { useTheme } from '../contexts/ThemeContext';
 
-const Selector = ({ label, selectedValue, options, onSelect }) => {
+const Selector = ({ label, selectedValue, options, onSelect, placeholder = 'Selecione uma opção', required = false }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const { theme, isDarkMode } = useTheme();
 
   const handleSelect = (value) => {
     onSelect(value);
     setModalVisible(false);
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      marginBottom: 15,
+      paddingHorizontal: 10,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: theme.colors.textSecondary,
+      marginBottom: 5,
+    },
+    required: {
+      color: theme.colors.error || 'red',
+      fontWeight: 'bold',
+    },
+    selector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+      backgroundColor: isDarkMode ? theme.colors.surface : '#f9f9f9',
+    },
+    selectedText: {
+      fontSize: 16,
+      color: selectedValue ? theme.colors.text : theme.colors.textSecondary,
+    },
+    placeholderText: {
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+    },
+    modalContainer: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+      backgroundColor: theme.colors.background,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '80%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+    },
+    option: {
+      padding: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    selectedOption: {
+      backgroundColor: `${theme.colors.primary}20`,
+    },
+    optionText: {
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+    selectedOptionText: {
+      color: theme.colors.primary,
+      fontWeight: 'bold',
+    },
+  });
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>
+        {label} {required && <Text style={styles.required}>*</Text>}
+      </Text>
       <TouchableOpacity
         style={styles.selector}
         onPress={() => setModalVisible(true)}
       >
-        <Text style={styles.selectedText}>
-          {selectedValue ? options[selectedValue] : 'Selecione uma opção'}
+        <Text style={[styles.selectedText, !selectedValue && styles.placeholderText]}>
+          {selectedValue ? options[selectedValue] : placeholder}
         </Text>
-        <Icon name="arrow-drop-down" size={24} color={COLORS.primary} />
+        <Icon name="arrow-drop-down" size={24} color={theme.colors.primary} />
       </TouchableOpacity>
 
       <Modal
@@ -35,7 +115,7 @@ const Selector = ({ label, selectedValue, options, onSelect }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{label}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Icon name="close" size={24} />
+                <Icon name="close" size={24} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -57,71 +137,5 @@ const Selector = ({ label, selectedValue, options, onSelect }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 15,
-    paddingHorizontal: 10,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#86939e',
-    marginBottom: 5,
-  },
-  selector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#e1e8ee',
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-  },
-  selectedText: {
-    fontSize: 16,
-    color: '#242424',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ee',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  option: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ee',
-  },
-  selectedOption: {
-    backgroundColor: COLORS.primary + '10',
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#242424',
-  },
-  selectedOptionText: {
-    color: COLORS.primary,
-    fontWeight: 'bold',
-  },
-});
 
 export default Selector;

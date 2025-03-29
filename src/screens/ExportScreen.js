@@ -8,10 +8,12 @@ import { formatDateTime } from '../utils/dateUtils';
 import ExportService from '../services/ExportService';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
+import { useTheme } from '../contexts/ThemeContext';
 
 const ExportScreen = () => {
   const navigation = useNavigation();
   const { events } = useEvents();
+  const { theme } = useTheme();
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
 
@@ -129,7 +131,7 @@ const ExportScreen = () => {
                     ? 'timer'
                     : 'event',
                   size: 20,
-                  color: selectedTypes.includes(value) ? 'white' : COLORS.primary,
+                  color: selectedTypes.includes(value) ? 'white' : theme.colors.primary,
                 }}
                 type={selectedTypes.includes(value) ? 'solid' : 'outline'}
                 buttonStyle={[
@@ -194,9 +196,9 @@ const ExportScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background, padding: 10 },
-  title: { textAlign: 'center', marginVertical: 20, color: COLORS.text.primary },
+  title: { textAlign: 'center', marginVertical: 20, color: COLORS.textPrimary },
   filterCard: { margin: 10, borderRadius: 8 },
-  filterTitle: { fontSize: 16, marginBottom: 10, color: COLORS.text.secondary },
+  filterTitle: { fontSize: 16, marginBottom: 10, color: COLORS.textSecondary },
   filterContainer: { flexDirection: 'row', gap: 10 },
   filterButton: { paddingHorizontal: 15, borderRadius: 20 },
   filterButtonActive: { backgroundColor: COLORS.primary },
@@ -213,8 +215,8 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   eventItem: { marginLeft: 10 },
-  eventTitle: { fontSize: 16, color: COLORS.text.primary },
-  eventInfo: { fontSize: 14, color: COLORS.text.secondary },
+  eventTitle: { fontSize: 16, color: COLORS.textPrimary },
+  eventInfo: { fontSize: 14, color: COLORS.textSecondary },
   eventType: { fontSize: 12, color: COLORS.primary },
   exportButtons: {
     flexDirection: 'row',
