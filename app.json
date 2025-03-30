@@ -43,8 +43,7 @@
         "android.permission.INTERNET",
         "android.permission.SCHEDULE_EXACT_ALARM"
       ],
-      "package": "com.jonjonesbr.jusagenda",
-      "useNextNotificationsApi": true
+      "package": "com.jonjonesbr.jusagenda"
     },
     "plugins": [
       [

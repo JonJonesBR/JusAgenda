@@ -12,8 +12,7 @@ const UpcomingEvents = ({ onEventPress }) => {
 
   const upcomingEvents = events
     .filter(event => new Date(event.date) >= new Date())
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-    .slice(0, 5);
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const styles = StyleSheet.create({
     container: {

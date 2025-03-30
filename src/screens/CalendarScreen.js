@@ -285,8 +285,9 @@ const CalendarScreen = () => {
   }, [navigation, confirmDelete]);
 
   const handleExportFiltered = useCallback(() => {
-    navigation.navigate('Export', { preSelectedEvents: filteredEvents });
-  }, [filteredEvents, navigation]);
+    // Navigate to the Sync tab, then to the SyncExportOptions screen within that tab's stack
+    navigation.navigate('Sync', { screen: 'SyncExportOptions' }); 
+  }, [navigation]);
 
   const onDayPress = useCallback((day) => {
     setSelectedDate(day.dateString);

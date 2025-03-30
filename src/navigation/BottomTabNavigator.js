@@ -51,10 +51,10 @@ const BottomTabNavigator = () => {
         return 'calendar-today';
       case 'Search':
         return 'search';
-      case 'Sync':
-        return 'sync';
-      default:
-        return 'circle';
+       case 'Sync': // Keep internal name 'Sync' for the stack
+         return 'settings'; // Change icon
+       default:
+         return 'circle'; // Default icon
     }
   };
 
@@ -71,15 +71,15 @@ const BottomTabNavigator = () => {
           />
         ),
         headerTitle: route.name === 'Home' ? 'Início' : 
-                     route.name === 'Calendar' ? 'Agenda' : 
-                     route.name === 'Search' ? 'Buscar' : 
-                     route.name === 'Sync' ? 'Sincronizar' : route.name,
+                      route.name === 'Calendar' ? 'Agenda' :
+                      route.name === 'Search' ? 'Buscar' :
+                      route.name === 'Sync' ? 'Opções' : route.name, // Change header title
       })}
     >
       <Tab.Screen name="Home" component={HomeStack} options={{ title: 'Início' }} />
       <Tab.Screen name="Calendar" component={CalendarStack} options={{ title: 'Agenda' }} />
       <Tab.Screen name="Search" component={SearchStack} options={{ title: 'Buscar' }} />
-      <Tab.Screen name="Sync" component={SyncStack} options={{ title: 'Sincronizar' }} />
+      <Tab.Screen name="Sync" component={SyncStack} options={{ title: 'Opções' }} />
     </Tab.Navigator>
   );
 };
