@@ -48,6 +48,7 @@ const SyncExportOptionsScreen = () => {
       fontSize: 18, // Keep font size
       fontWeight: '600', // Adjust font weight
       color: theme.colors.text,
+      flex: 1, // Allow text to wrap and fill available space
     },
   });
 

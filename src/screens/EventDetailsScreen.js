@@ -194,21 +194,55 @@ const EventDetailsScreen = () => {
   }, [formData.date]);
 
   const handleDateChange = (event, selectedDate) => {
-    if (!selectedDate) return;
+    const currentDate = selectedDate || tempDate; // Use selectedDate if available
 
-    // Garante que é um objeto Date válido
-    if (selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
-      setTempDate(selectedDate);
-      if (Platform.OS === 'android') {
-        handleConfirmDate();
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false); // Hide picker on Android regardless of action
+      if (event.type === 'set' && currentDate instanceof Date && !isNaN(currentDate.getTime())) {
+        // Directly update date for Android on confirmation
+        const newDate = new Date(formData.date);
+        newDate.setFullYear(currentDate.getFullYear());
+        newDate.setMonth(currentDate.getMonth());
+        newDate.setDate(currentDate.getDate());
+
+        // Perform past date check
+        if (formData.tipo && formData.tipo !== EVENT_TYPES.PRAZO) {
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          const dateToCheck = new Date(newDate);
+          dateToCheck.setHours(0, 0, 0, 0);
+
+          if (dateToCheck < now) {
+            Alert.alert(
+              'Atenção',
+              'Você selecionou uma data no passado. Para compromissos que não são prazos, recomendamos datas futuras.',
+              [
+                { text: 'Manter esta data', onPress: () => updateDate(newDate) },
+                { text: 'Cancelar', style: 'cancel' }
+              ]
+            );
+            return; // Don't update automatically if needs confirmation
+          }
+        }
+        updateDate(newDate); // Update state directly
+      } else if (event.type === 'dismissed') {
+        // User cancelled the picker
+      } else if (!(currentDate instanceof Date) || isNaN(currentDate.getTime())) {
+         Alert.alert('Erro', 'Data inválida selecionada. Por favor, tente novamente.');
       }
     } else {
-      Alert.alert('Erro', 'Data inválida selecionada. Por favor, tente novamente.');
+      // iOS: Update tempDate for confirmation button
+      if (currentDate instanceof Date && !isNaN(currentDate.getTime())) {
+        setTempDate(currentDate);
+      } else if (selectedDate) { // Only alert if a selection was made but invalid
+         Alert.alert('Erro', 'Data inválida selecionada. Por favor, tente novamente.');
+      }
     }
   };
 
+  // Keep handleConfirmDate for iOS button
   const handleConfirmDate = () => {
-    // Preserva a hora atual ao atualizar a data
+    // Preserva a hora atual ao atualizar a data (using tempDate for iOS)
     const newDate = new Date(formData.date);
     newDate.setFullYear(tempDate.getFullYear());
     newDate.setMonth(tempDate.getMonth());
@@ -230,37 +264,55 @@ const EventDetailsScreen = () => {
             { text: 'Cancelar', style: 'cancel' }
           ]
         );
-        return;
+        return; // Don't update automatically if needs confirmation
       }
     }
-
-    updateDate(newDate);
+    updateDate(newDate); // Update state
   };
 
+  // Keep updateDate function
   const updateDate = (newDate) => {
     setFormData(prev => ({
       ...prev,
       date: newDate
     }));
-    setShowDatePicker(false);
+    // No need to hide picker here, handled in handleDateChange/handleConfirmDate
   };
 
-  const handleTimeChange = (event, selectedTime) => {
-    if (!selectedTime) return;
 
-    // Garante que é um objeto Date válido
-    if (selectedTime instanceof Date && !isNaN(selectedTime.getTime())) {
-      setTempDate(selectedTime);
-      if (Platform.OS === 'android') {
-        handleConfirmTime();
+  const handleTimeChange = (event, selectedTime) => {
+    const currentTime = selectedTime || tempDate; // Use selectedTime if available
+
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false); // Hide picker on Android regardless of action
+      if (event.type === 'set' && currentTime instanceof Date && !isNaN(currentTime.getTime())) {
+        // Directly update time for Android on confirmation
+        const newDate = new Date(formData.date);
+        newDate.setHours(currentTime.getHours());
+        newDate.setMinutes(currentTime.getMinutes());
+
+        setFormData(prev => ({
+          ...prev,
+          date: newDate
+        }));
+      } else if (event.type === 'dismissed') {
+        // User cancelled the picker
+      } else if (!(currentTime instanceof Date) || isNaN(currentTime.getTime())) {
+        Alert.alert('Erro', 'Horário inválido selecionado. Por favor, tente novamente.');
       }
     } else {
-      Alert.alert('Erro', 'Horário inválido selecionado. Por favor, tente novamente.');
+      // iOS: Update tempDate for confirmation button
+      if (currentTime instanceof Date && !isNaN(currentTime.getTime())) {
+        setTempDate(currentTime);
+      } else if (selectedTime) { // Only alert if a selection was made but invalid
+        Alert.alert('Erro', 'Horário inválido selecionado. Por favor, tente novamente.');
+      }
     }
   };
 
+  // Keep handleConfirmTime for iOS button
   const handleConfirmTime = () => {
-    // Preserva a data atual ao atualizar a hora
+    // Preserva a data atual ao atualizar a hora (using tempDate for iOS)
     const newDate = new Date(formData.date);
     newDate.setHours(tempDate.getHours());
     newDate.setMinutes(tempDate.getMinutes());
@@ -269,16 +321,12 @@ const EventDetailsScreen = () => {
       ...prev,
       date: newDate
     }));
-    setShowTimePicker(false);
+    setShowTimePicker(false); // Hide picker after iOS confirmation
   };
 
   const navigateHome = () => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'Home' }], // Assuming 'Home' is the name of your HomeScreen route in the navigator
-      })
-    );
+    // Navigate explicitly to the Home tab and its initial screen
+    navigation.navigate('Home', { screen: 'HomeScreen' });
   };
 
   const handleSave = async () => {

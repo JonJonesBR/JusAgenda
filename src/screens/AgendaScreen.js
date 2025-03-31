@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect } from 'react';
-import { View, StyleSheet, Alert, Animated } from 'react-native';
-import { Swipeable, RectButton } from 'react-native-gesture-handler';
+import React, { useCallback, useEffect, useState } from 'react'; // Added useState import
+import { View, StyleSheet, Alert, Animated, ActivityIndicator } from 'react-native'; // Added ActivityIndicator import
+import { Swipeable, RectButton } from 'react-native-gesture-handler'; // Removed TouchableOpacity import
 import * as Haptics from 'expo-haptics';
 import { Agenda } from 'react-native-calendars';
 import { Card, Text } from '@rneui/themed';
@@ -131,15 +131,16 @@ const AgendaScreen = ({ navigation }) => {
         overshootRight={false}
         renderRightActions={renderRightActions}
         onSwipeableOpen={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}>
-        <Card
-          containerStyle={styles.card}
-          onPress={() => {
+        {/* Removed onPress from Card, wrapped content in TouchableOpacity */}
+        <Card containerStyle={styles.card}>
+          {/* Replaced TouchableOpacity with RectButton */}
+          <RectButton onPress={() => {
             Haptics.selectionAsync();
             handleEventPress(item);
-          }}>
-          <View style={styles.eventHeader}>
-            <Text style={styles.eventType}>
-              {item.type?.charAt(0).toUpperCase() + item.type?.slice(1)}
+          }} style={styles.touchableContent}> 
+            <View style={styles.eventHeader}>
+              <Text style={styles.eventType}>
+                {item.type?.charAt(0).toUpperCase() + item.type?.slice(1)}
             </Text>
             <Text style={styles.eventTime}>
               {formatDateTime(item.date).split(' ')[1]}
@@ -152,10 +153,11 @@ const AgendaScreen = ({ navigation }) => {
           {item.client && (
             <Text style={styles.eventClient}>👤 {item.client}</Text>
           )}
+          </RectButton> 
         </Card>
       </Swipeable>
     );
-  }, [handleEventPress, deleteEvent, refreshEvents, navigation]);
+  }, [handleEventPress, deleteEvent, refreshEvents, navigation]); // Dependencies remain the same
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -265,6 +267,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20
+  },
+  // Added style for RectButton content area if needed for layout
+  touchableContent: { 
+    // Add padding or other styles if the layout breaks after replacing TouchableOpacity
+    padding: 10, // Example padding, adjust as needed
   },
   emptyTitle: {
     fontSize: 18,

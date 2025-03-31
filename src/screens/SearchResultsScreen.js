@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native'; // Added Alert import
 import { Text, Card, Icon } from '@rneui/themed';
 import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
 import { searchCompromissos } from '../services/EventService';
+import { useEvents } from '../contexts/EventContext'; // Added useEvents import
 
 const SearchResultsScreen = () => {
   const navigation = useNavigation();
@@ -10,6 +11,7 @@ const SearchResultsScreen = () => {
   const isFocused = useIsFocused();
   const { term, filters } = route.params || {};
   const [events, setEvents] = useState([]);
+  const { deleteEvent, refreshEvents } = useEvents(); // Get delete and refresh functions
 
   const searchForEvents = useCallback(async () => {
     try {
@@ -30,6 +32,47 @@ const SearchResultsScreen = () => {
   useEffect(() => {
     if (isFocused) searchForEvents();
   }, [isFocused, searchForEvents]);
+
+  // Function to handle event press and show options
+  const handleEventPress = useCallback((event) => {
+    Alert.alert(
+      'Opções',
+      'O que você deseja fazer?',
+      [
+        { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
+        { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
+        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(event) },
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
+  }, [navigation, confirmDelete]); // Added confirmDelete to dependencies
+
+  // Function to confirm event deletion
+  const confirmDelete = useCallback((event) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este compromisso?',
+      [
+        { text: 'Não', style: 'cancel' },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(event.id);
+              // Refresh both the context and the local search results
+              await refreshEvents();
+              await searchForEvents();
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }, [deleteEvent, refreshEvents, searchForEvents]); // Added dependencies
 
   const getEventTypeIcon = useCallback((type) => {
     switch (type?.toLowerCase()) {
@@ -68,7 +111,8 @@ const SearchResultsScreen = () => {
   const renderItem = ({ item: event }) => {
     const icon = getEventTypeIcon(event.type);
     return (
-      <TouchableOpacity onPress={() => navigation.navigate('EventDetails', { event })}>
+      // Updated onPress to call handleEventPress
+      <TouchableOpacity onPress={() => handleEventPress(event)}>
         <Card containerStyle={styles.card}>
           <View style={styles.cardHeader}>
             <Icon name={icon.name} color={icon.color} size={24} />
