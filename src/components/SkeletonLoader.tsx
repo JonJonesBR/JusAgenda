@@ -1,10 +1,22 @@
-import React from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
+import React from "react";
+import { View, StyleSheet, Animated, Dimensions } from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
-const SkeletonLoader = ({ type = 'list', count = 1, height = 20, width: customWidth }) => {
+interface SkeletonLoaderProps {
+  type?: "list" | "card" | "profile";
+  count?: number;
+  height?: number;
+  width?: number;
+}
+
+const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
+  type = "list",
+  count = 1,
+  height = 20,
+  width: customWidth,
+}) => {
   const { theme } = useTheme();
   const animatedValue = React.useRef(new Animated.Value(0)).current;
 
@@ -19,13 +31,16 @@ const SkeletonLoader = ({ type = 'list', count = 1, height = 20, width: customWi
   }, [animatedValue]);
 
   const itemWidth = customWidth || width - 40;
-  
+
   const interpolatedBackground = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [theme.colors.skeleton, theme.colors.skeletonHighlight]
+    outputRange: [
+      (theme.colors as any).skeleton || "#e0e0e0",
+      (theme.colors as any).skeletonHighlight || "#f5f5f5",
+    ],
   });
 
-  const renderListItem = (index) => (
+  const renderListItem = (index: number) => (
     <View key={`skeleton-${index}`} style={styles.listContainer}>
       <Animated.View
         style={[
@@ -63,7 +78,7 @@ const SkeletonLoader = ({ type = 'list', count = 1, height = 20, width: customWi
     </View>
   );
 
-  const renderCardItem = (index) => (
+  const renderCardItem = (index: number) => (
     <View key={`skeleton-card-${index}`} style={styles.cardContainer}>
       <Animated.View
         style={[
@@ -151,13 +166,13 @@ const SkeletonLoader = ({ type = 'list', count = 1, height = 20, width: customWi
 
   let content;
   switch (type) {
-    case 'card':
+    case "card":
       content = Array.from({ length: count }).map((_, i) => renderCardItem(i));
       break;
-    case 'profile':
+    case "profile":
       content = renderProfileItem();
       break;
-    case 'list':
+    case "list":
     default:
       content = Array.from({ length: count }).map((_, i) => renderListItem(i));
       break;
@@ -167,49 +182,49 @@ const SkeletonLoader = ({ type = 'list', count = 1, height = 20, width: customWi
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 10,
-  },
-  listContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  circle: {
-    borderRadius: 25,
-  },
-  lines: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  line: {
-    borderRadius: 4,
-  },
   cardContainer: {
-    marginBottom: 16,
     borderRadius: 8,
-    overflow: 'hidden',
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  cardContent: {
+    padding: 10,
   },
   cardHeader: {
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
   },
-  cardContent: {
+  circle: {
+    borderRadius: 25,
+  },
+  container: {
     padding: 10,
   },
+  line: {
+    borderRadius: 4,
+  },
+  lines: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  listContainer: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginBottom: 16,
+  },
   profileContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: "center",
+    flexDirection: "row",
     padding: 16,
   },
   profileImage: {
-    width: 80,
-    height: 80,
     borderRadius: 40,
+    height: 80,
+    width: 80,
   },
   profileInfo: {
-    marginLeft: 16,
     flex: 1,
+    marginLeft: 16,
   },
 });
 

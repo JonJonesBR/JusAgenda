@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon, Card } from '@rneui/themed'; // Import Card
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../contexts/ThemeContext';
+import React from "react";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
+import { Text, Icon, Card } from "@rneui/themed"; // Import Card
+import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "../contexts/ThemeContext";
 
 const SyncExportOptionsScreen = () => {
   const navigation = useNavigation();
@@ -12,27 +12,27 @@ const SyncExportOptionsScreen = () => {
     container: {
       flex: 1,
       // justifyContent: 'center', // Remove center alignment to place title at top
-      alignItems: 'center',
+      alignItems: "center",
       padding: 20,
       paddingTop: 40, // Add padding top
       backgroundColor: theme.colors.background,
     },
     title: {
       fontSize: 24,
-      fontWeight: 'bold',
+      fontWeight: "bold",
       color: theme.colors.text,
       marginBottom: 30, // Add margin below title
-      textAlign: 'center',
+      textAlign: "center",
     },
     optionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: theme.colors.card,
       paddingVertical: 25, // Increase padding
       paddingHorizontal: 25, // Increase padding
       borderRadius: 15, // Increase border radius
       marginBottom: 25, // Increase margin
-      width: '95%', // Adjust width
+      width: "95%", // Adjust width
       elevation: 4, // Increase elevation
       shadowColor: theme.colors.shadow,
       shadowOffset: { width: 0, height: 2 }, // Adjust shadow
@@ -46,7 +46,7 @@ const SyncExportOptionsScreen = () => {
     },
     optionText: {
       fontSize: 18, // Keep font size
-      fontWeight: '600', // Adjust font weight
+      fontWeight: "600", // Adjust font weight
       color: theme.colors.text,
       flex: 1, // Allow text to wrap and fill available space
     },
@@ -54,11 +54,11 @@ const SyncExportOptionsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Gerenciar Dados</Text> 
+      <Text style={styles.title}>Gerenciar Dados</Text>
       {/* Add screen title */}
       <TouchableOpacity
         style={styles.optionButton}
-        onPress={() => navigation.navigate('EmailSync')}
+        onPress={() => navigation.navigate("EmailSync")}
         activeOpacity={0.7} // Add feedback on press
       >
         <Icon
@@ -73,7 +73,7 @@ const SyncExportOptionsScreen = () => {
 
       <TouchableOpacity
         style={styles.optionButton}
-        onPress={() => navigation.navigate('Export')}
+        onPress={() => navigation.navigate("Export")}
         activeOpacity={0.7} // Add feedback on press
       >
         <Icon

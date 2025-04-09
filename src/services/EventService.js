@@ -1,7 +1,7 @@
-import { generateId, EVENT_TYPES } from '../utils/common';
-import { storage } from './storage';
+import { generateId, EVENT_TYPES } from "../utils/common";
+import { storage } from "./storage";
 
-const STORAGE_KEY = '@jusagenda_events';
+const STORAGE_KEY = "@jusagenda_events";
 
 /**
  * Retorna todos os compromissos ordenados por data.
@@ -9,33 +9,42 @@ const STORAGE_KEY = '@jusagenda_events';
  */
 export const getAllCompromissos = async () => {
   try {
-    const storedEvents = await storage.getItem(STORAGE_KEY) || [];
-    
+    const storedEvents = (await storage.getItem(STORAGE_KEY)) || [];
+
     // Validate and fix any invalid dates before returning
-    const validatedEvents = storedEvents.map(event => {
+    const validatedEvents = storedEvents.map((event) => {
       if (!event.date) {
-        console.warn(`[Event ${event.id}] Missing date field, using current date`);
-        return { ...event, date: new Date() };
+        console.warn(
+          `[Event ${event.id}] Missing date field, using current date`
+        );
+        return { ...event, date: new Date(), data: new Date() };
+      }
+
+      // Migrate: if event has date but missing data, copy date to data
+      if (!event.data && event.date) {
+        event.data = event.date;
       }
 
       try {
         const dateObj = new Date(event.date);
         if (isNaN(dateObj.getTime())) {
-          console.warn(`[Event ${event.id}] Invalid date format: ${event.date}, using current date`);
-          return { ...event, date: new Date() };
+          console.warn(
+            `[Event ${event.id}] Invalid date format: ${event.date}, using current date`
+          );
+          return { ...event, date: new Date(), data: new Date() };
         }
-        return { ...event, date: dateObj };
+        return { ...event, date: dateObj, data: dateObj };
       } catch (error) {
-        console.warn(`[Event ${event.id}] Error processing date: ${error.message}, using current date`);
-        return { ...event, date: new Date() };
+        console.warn(
+          `[Event ${event.id}] Error processing date: ${error.message}, using current date`
+        );
+        return { ...event, date: new Date(), data: new Date() };
       }
     });
-    
-    // Save the fixed events back to storage
-    if (JSON.stringify(validatedEvents) !== JSON.stringify(storedEvents)) {
-      await storage.setItem(STORAGE_KEY, validatedEvents);
-    }
-    
+
+    // Save the fixed events back to storage (always save to persist migration)
+    await storage.setItem(STORAGE_KEY, validatedEvents);
+
     const sorted = [...validatedEvents].sort(
       (a, b) => new Date(a.date) - new Date(b.date)
     );
@@ -47,19 +56,36 @@ export const getAllCompromissos = async () => {
 };
 
 /**
+ * Temporary debug function to log all stored events and their dates.
+ */
+export const logStoredEvents = async () => {
+  try {
+    const events = (await storage.getItem(STORAGE_KEY)) || [];
+    console.log(`Total stored events: ${events.length}`);
+    events.forEach((event, index) => {
+      console.log(
+        `Event ${index + 1}: id=${event.id}, date=${event.date}, data=${event.data}`
+      );
+    });
+  } catch (error) {
+    console.error("Error logging stored events:", error);
+  }
+};
+
+/**
  * Retorna os compromissos futuros ordenados por data.
  * @returns {Promise<Array>} Lista ordenada de compromissos futuros.
  */
 export const getUpcomingCompromissos = async () => {
   try {
     const now = new Date();
-    const storedEvents = await storage.getItem(STORAGE_KEY) || [];
-    
+    const storedEvents = (await storage.getItem(STORAGE_KEY)) || [];
+
     // Filter out events with invalid dates and get only upcoming events
     const upcoming = storedEvents
       .filter((compromisso) => {
         if (!compromisso.date) return false;
-        
+
         try {
           const eventDate = new Date(compromisso.date);
           return !isNaN(eventDate.getTime()) && eventDate >= now;
@@ -69,7 +95,7 @@ export const getUpcomingCompromissos = async () => {
         }
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
-      
+
     return upcoming;
   } catch (error) {
     console.error("Erro ao obter compromissos futuros:", error);
@@ -89,11 +115,14 @@ export const addCompromisso = async (compromisso) => {
     if (!compromisso.date) {
       throw new Error("A data do compromisso é obrigatória");
     }
-    
+
     let dateToUse;
-    if (compromisso.date instanceof Date && !isNaN(compromisso.date.getTime())) {
+    if (
+      compromisso.date instanceof Date &&
+      !isNaN(compromisso.date.getTime())
+    ) {
       dateToUse = compromisso.date;
-    } else if (typeof compromisso.date === 'string') {
+    } else if (typeof compromisso.date === "string") {
       const parsedDate = new Date(compromisso.date);
       if (isNaN(parsedDate.getTime())) {
         throw new Error(`Data inválida: ${compromisso.date}`);
@@ -106,17 +135,23 @@ export const addCompromisso = async (compromisso) => {
     const newCompromisso = {
       ...compromisso,
       date: dateToUse,
+      data: dateToUse, // add Portuguese 'data' field for compatibility
       id: generateId(),
       notificationId: null,
       calendarEventId: null,
     };
-    const currentEvents = await storage.getItem(STORAGE_KEY) || [];
+
+    console.log("Saving compromisso:", newCompromisso);
+
+    const currentEvents = (await storage.getItem(STORAGE_KEY)) || [];
     const updatedEvents = [...currentEvents, newCompromisso];
     await storage.setItem(STORAGE_KEY, updatedEvents);
     return newCompromisso;
   } catch (error) {
     console.error("Erro ao adicionar compromisso:", error.message);
-    throw new Error(error.message || "Não foi possível adicionar o compromisso.");
+    throw new Error(
+      error.message || "Não foi possível adicionar o compromisso."
+    );
   }
 };
 
@@ -141,24 +176,26 @@ export const updateCompromisso = async (id, updatedCompromisso) => {
         dateObj = new Date(Date.UTC(year, month, day, hours, minutes));
       } else {
         // Parse the date string and create a new Date object using UTC
-        const [datePart, timePart] = updatedCompromisso.date.split('T');
-        const [year, month, day] = datePart.split('-').map(Number);
+        const [datePart, timePart] = updatedCompromisso.date.split("T");
+        const [year, month, day] = datePart.split("-").map(Number);
         if (timePart) {
-          const [hours, minutes] = timePart.split(':').map(Number);
+          const [hours, minutes] = timePart.split(":").map(Number);
           dateObj = new Date(Date.UTC(year, month - 1, day, hours, minutes));
         } else {
           dateObj = new Date(Date.UTC(year, month - 1, day));
         }
       }
-      
+
       if (isNaN(dateObj.getTime())) {
-        throw new Error(`Data inválida: ${updatedCompromisso.date}. Utilize o formato UTC (YYYY-MM-DDTHH:mm)`);
+        throw new Error(
+          `Data inválida: ${updatedCompromisso.date}. Utilize o formato UTC (YYYY-MM-DDTHH:mm)`
+        );
       }
       // Ensure date is a Date object with correct local time
       updatedCompromisso.date = dateObj;
     }
 
-    const currentEvents = await storage.getItem(STORAGE_KEY) || [];
+    const currentEvents = (await storage.getItem(STORAGE_KEY)) || [];
     const updatedEvents = currentEvents.map((compromisso) =>
       compromisso.id === id
         ? { ...compromisso, ...updatedCompromisso }
@@ -179,7 +216,7 @@ export const updateCompromisso = async (id, updatedCompromisso) => {
  */
 export const deleteCompromisso = async (id) => {
   try {
-    const currentEvents = await storage.getItem(STORAGE_KEY) || [];
+    const currentEvents = (await storage.getItem(STORAGE_KEY)) || [];
     const exists = currentEvents.some((compromisso) => compromisso.id === id);
     if (exists) {
       const updatedEvents = currentEvents.filter(
@@ -202,7 +239,7 @@ export const deleteCompromisso = async (id) => {
  */
 export const searchCompromissos = async (query) => {
   try {
-    const currentEvents = await storage.getItem(STORAGE_KEY) || [];
+    const currentEvents = (await storage.getItem(STORAGE_KEY)) || [];
     const lowerQuery = query.toLowerCase();
     return currentEvents.filter(
       (compromisso) =>
@@ -224,7 +261,7 @@ export const searchCompromissos = async (query) => {
  */
 export const getCompromissoById = async (id) => {
   try {
-    const currentEvents = await storage.getItem(STORAGE_KEY) || [];
+    const currentEvents = (await storage.getItem(STORAGE_KEY)) || [];
     return currentEvents.find((compromisso) => compromisso.id === id);
   } catch (error) {
     console.error("Erro ao obter compromisso por ID:", error);
@@ -238,9 +275,12 @@ export const getCompromissoById = async (id) => {
  * @param {Object} ids - Objeto contendo notificationId e/ou calendarEventId.
  * @returns {Promise<Object|null>} O compromisso atualizado ou null se não encontrado.
  */
-export const updateCompromissoNotifications = async (id, { notificationId, calendarEventId }) => {
+export const updateCompromissoNotifications = async (
+  id,
+  { notificationId, calendarEventId }
+) => {
   try {
-    const currentEvents = await storage.getItem(STORAGE_KEY) || [];
+    const currentEvents = (await storage.getItem(STORAGE_KEY)) || [];
     const updatedEvents = currentEvents.map((compromisso) =>
       compromisso.id === id
         ? {
@@ -261,16 +301,39 @@ export const updateCompromissoNotifications = async (id, { notificationId, calen
 export const saveCompromisso = async (compromisso) => {
   try {
     if (!compromisso.title?.trim()) {
-      throw new Error('Título do evento é obrigatório');
+      throw new Error("Título do evento é obrigatório");
     }
-    
+
     if (!Object.values(EVENT_TYPES).includes(compromisso.type)) {
       throw new Error(`Tipo de evento inválido: ${compromisso.type}`);
     }
 
-    const events = await storage.getItem(STORAGE_KEY) || [];
-    const index = events.findIndex(e => e.id === compromisso.id);
-    
+    // Validate date
+    if (!compromisso.date) {
+      throw new Error("A data do compromisso é obrigatória");
+    }
+
+    let dateToUse;
+    if (
+      compromisso.date instanceof Date &&
+      !isNaN(compromisso.date.getTime())
+    ) {
+      dateToUse = compromisso.date;
+    } else if (typeof compromisso.date === "string") {
+      const parsedDate = new Date(compromisso.date);
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error(`Data inválida: ${compromisso.date}`);
+      }
+      dateToUse = parsedDate;
+    } else {
+      throw new Error(`Formato de data inválido: ${compromisso.date}`);
+    }
+
+    compromisso.date = dateToUse;
+
+    const events = (await storage.getItem(STORAGE_KEY)) || [];
+    const index = events.findIndex((e) => e.id === compromisso.id);
+
     if (index === -1) {
       events.push({ ...compromisso, id: generateId() });
     } else {
@@ -283,10 +346,46 @@ export const saveCompromisso = async (compromisso) => {
     console.error(`Falha ao salvar evento: ${error.message}`, {
       extra: {
         eventData: compromisso,
-        operation: 'save_event',
-        storageKey: STORAGE_KEY
-      }
+        operation: "save_event",
+        storageKey: STORAGE_KEY,
+      },
     });
     throw new Error(`Falha ao salvar evento: ${error.message}`);
+  }
+};
+
+/**
+ * Temporary function to clean invalid events from AsyncStorage.
+ * Call this once inside the app to remove known invalid events.
+ */
+export const cleanupInvalidEventsInApp = async () => {
+  const INVALID_EVENT_IDS = [
+    "m8vswslwioo1clazw",
+    "m8vsz2ifctzd0zeku",
+    "m99uwwhylapv8u5mv",
+    "m99ve644i91aoeyts",
+    "m99vhnbclw4yh42xk",
+  ];
+
+  try {
+    const events = (await storage.getItem(STORAGE_KEY)) || [];
+    const initialCount = events.length;
+
+    const cleanedEvents = events.filter(
+      (event) => !INVALID_EVENT_IDS.includes(event.id)
+    );
+
+    const removedCount = initialCount - cleanedEvents.length;
+
+    if (removedCount > 0) {
+      await storage.setItem(STORAGE_KEY, cleanedEvents);
+      console.log(
+        `Removed ${removedCount} invalid events: ${INVALID_EVENT_IDS.join(", ")}`
+      );
+    } else {
+      console.log("No invalid events found to remove.");
+    }
+  } catch (error) {
+    console.error("Error during cleanup:", error);
   }
 };

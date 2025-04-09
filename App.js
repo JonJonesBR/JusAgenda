@@ -1,14 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
-import { EventProvider } from './src/contexts/EventContext';
-import ErrorBoundary from './src/components/ErrorBoundary';
-import { StatusBar, View } from 'react-native';
-import BottomTabNavigator from './src/navigation/BottomTabNavigator';
-import Toast from 'react-native-toast-message';
-import * as SplashScreen from 'expo-splash-screen';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import React, { useEffect, useState, useCallback } from "react";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ThemeProvider, useTheme } from "./src/contexts/ThemeContext";
+import { EventProvider } from "./src/contexts/EventContext";
+import ErrorBoundary from "./src/components/ErrorBoundary";
+import { StatusBar, View } from "react-native";
+import BottomTabNavigator from "./src/navigation/BottomTabNavigator";
+import Toast from "react-native-toast-message";
+import * as SplashScreen from "expo-splash-screen";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+import { cleanupInvalidEventsInApp, logStoredEvents } from "./src/services/EventService";
 
 // Impede que a splash screen seja escondida automaticamente
 SplashScreen.preventAutoHideAsync();
@@ -18,18 +20,18 @@ const AppDefaultTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#6200ee',
-    background: '#FFFFFF',
-    card: '#FFFFFF',
-    text: '#000000',
-    border: '#E0E0E0',
-    notification: '#6200ee',
+    primary: "#6200ee",
+    background: "#FFFFFF",
+    card: "#FFFFFF",
+    text: "#000000",
+    border: "#E0E0E0",
+    notification: "#6200ee",
   },
 };
 
 const ThemedApp = () => {
   const { theme, isDarkMode } = useTheme();
-  
+
   // Usa o AppDefaultTheme como base e aplica as cores do tema atual
   const navigationTheme = {
     ...AppDefaultTheme,
@@ -47,9 +49,11 @@ const ThemedApp = () => {
 
   return (
     <>
-      <StatusBar 
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
-        backgroundColor={isDarkMode ? theme.colors.background : theme.colors.primary} 
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor={
+          isDarkMode ? theme.colors.background : theme.colors.primary
+        }
         translucent={false}
       />
       <NavigationContainer theme={navigationTheme}>
@@ -67,8 +71,14 @@ const App = () => {
     // Função para preparar recursos do app
     async function prepare() {
       try {
+        // Limpa eventos inválidos uma única vez
+        await cleanupInvalidEventsInApp();
+
+        // Log stored events for debugging
+        await logStoredEvents();
+
         // Simula carregamento de recursos do app
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (e) {
         console.warn(e);
       } finally {
@@ -92,17 +102,17 @@ const App = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ErrorBoundary>
-        <SafeAreaProvider>
-          <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-            <ThemeProvider>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <SafeAreaProvider>
+            <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
               <EventProvider>
                 <ThemedApp />
               </EventProvider>
-            </ThemeProvider>
-          </View>
-        </SafeAreaProvider>
-      </ErrorBoundary>
+            </View>
+          </SafeAreaProvider>
+        </ErrorBoundary>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 };

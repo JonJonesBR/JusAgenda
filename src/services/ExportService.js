@@ -1,7 +1,7 @@
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import * as Print from 'expo-print';
-import moment from 'moment';
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import * as Print from "expo-print";
+import moment from "moment";
 
 // Se quiser gerar docx real, descomente e instale a biblioteca docx (exige configurações extras no Expo):
 // import { Document, Packer, Paragraph, TextRun } from 'docx';
@@ -21,7 +21,7 @@ class ExportService {
 
       return { success: true, filePath };
     } catch (error) {
-      console.error('Error exporting to Excel:', error);
+      console.error("Error exporting to Excel:", error);
       return { success: false, error: error.message };
     }
   }
@@ -32,17 +32,17 @@ class ExportService {
    */
   static async exportToPDF(events) {
     try {
-      const html = this.generateHTML(events, 'pdf');
+      const html = this.generateHTML(events, "pdf");
       const { uri } = await Print.printToFileAsync({ html });
-      const pdfName = `events_${moment().format('YYYY-MM-DD_HH-mm')}.pdf`;
+      const pdfName = `events_${moment().format("YYYY-MM-DD_HH-mm")}.pdf`;
       const pdfPath = `${FileSystem.documentDirectory}${pdfName}`;
-      
+
       await FileSystem.moveAsync({ from: uri, to: pdfPath });
       await Sharing.shareAsync(pdfPath);
 
       return { success: true, filePath: pdfPath };
     } catch (error) {
-      console.error('Error exporting to PDF:', error);
+      console.error("Error exporting to PDF:", error);
       return { success: false, error: error.message };
     }
   }
@@ -54,23 +54,23 @@ class ExportService {
    */
   static async exportToWord(events) {
     try {
-      const html = this.generateHTML(events, 'doc');
-      const docName = `events_${moment().format('YYYY-MM-DD_HH-mm')}.doc`;
+      const html = this.generateHTML(events, "doc");
+      const docName = `events_${moment().format("YYYY-MM-DD_HH-mm")}.doc`;
       const docPath = `${FileSystem.documentDirectory}${docName}`;
 
       // Escreve o conteúdo HTML diretamente no arquivo .doc
       await FileSystem.writeAsStringAsync(docPath, html, {
-        encoding: FileSystem.EncodingType.UTF8
+        encoding: FileSystem.EncodingType.UTF8,
       });
 
       // Compartilha como 'application/msword' (Word antigo)
       await Sharing.shareAsync(docPath, {
-        mimeType: 'application/msword',
-        dialogTitle: 'Exportar para Word'
+        mimeType: "application/msword",
+        dialogTitle: "Exportar para Word",
       });
       return { success: true, filePath: docPath };
     } catch (error) {
-      console.error('Error exporting to Word:', error);
+      console.error("Error exporting to Word:", error);
       return { success: false, error: error.message };
     }
   }
@@ -132,9 +132,9 @@ class ExportService {
    * Gera o HTML para PDF ou doc com melhorias visuais.
    */
   static generateHTML(events, type) {
-    const appName = 'JusAgenda';
-    const reportTitle = 'Relatório de Compromissos';
-    const generationDate = moment().format('DD/MM/YYYY HH:mm');
+    const appName = "JusAgenda";
+    const reportTitle = "Relatório de Compromissos";
+    const generationDate = moment().format("DD/MM/YYYY HH:mm");
 
     // Estilos CSS aprimorados
     const styles = `
@@ -202,19 +202,51 @@ class ExportService {
     `;
 
     // Mapeia eventos para HTML
-    const eventsHTML = events.map(event => `
+    const eventsHTML = events
+      .map(
+        (event) => `
       <div class="event">
-        <div class="event-title">${event.title || 'Compromisso sem título'}</div>
-        <div class="event-info"><strong>Data:</strong> ${moment(event.date).format('DD/MM/YYYY')}</div>
-        <div class="event-info"><strong>Horário:</strong> ${moment(event.date).format('HH:mm')}</div>
-        ${event.type ? `<div class="event-info"><strong>Tipo:</strong> ${event.type.charAt(0).toUpperCase() + event.type.slice(1)}</div>` : ''}
-        ${event.description ? `<div class="event-info"><strong>Descrição:</strong> ${event.description}</div>` : ''}
-        ${event.location ? `<div class="event-info"><strong>Local:</strong> ${event.location}</div>` : ''}
-        ${event.numeroProcesso ? `<div class="event-info"><strong>Processo:</strong> ${event.numeroProcesso}</div>` : ''}
-        ${event.cliente ? `<div class="event-info"><strong>Cliente:</strong> ${event.cliente}</div>` : ''}
+        <div class="event-title">${
+          event.title || "Compromisso sem título"
+        }</div>
+        <div class="event-info"><strong>Data:</strong> ${moment(
+          event.date
+        ).format("DD/MM/YYYY")}</div>
+        <div class="event-info"><strong>Horário:</strong> ${moment(
+          event.date
+        ).format("HH:mm")}</div>
+        ${
+          event.type
+            ? `<div class="event-info"><strong>Tipo:</strong> ${
+                event.type.charAt(0).toUpperCase() + event.type.slice(1)
+              }</div>`
+            : ""
+        }
+        ${
+          event.description
+            ? `<div class="event-info"><strong>Descrição:</strong> ${event.description}</div>`
+            : ""
+        }
+        ${
+          event.location
+            ? `<div class="event-info"><strong>Local:</strong> ${event.location}</div>`
+            : ""
+        }
+        ${
+          event.numeroProcesso
+            ? `<div class="event-info"><strong>Processo:</strong> ${event.numeroProcesso}</div>`
+            : ""
+        }
+        ${
+          event.cliente
+            ? `<div class="event-info"><strong>Cliente:</strong> ${event.cliente}</div>`
+            : ""
+        }
         {/* Adicione outros campos relevantes aqui se necessário */}
       </div>
-    `).join('');
+    `
+      )
+      .join("");
 
     // Monta o HTML final
     return `
@@ -232,7 +264,10 @@ class ExportService {
             <div class="generation-date">Gerado em: ${generationDate}</div>
           </div>
 
-          ${eventsHTML || '<div class="event-info">Nenhum compromisso para exportar.</div>'}
+          ${
+            eventsHTML ||
+            '<div class="event-info">Nenhum compromisso para exportar.</div>'
+          }
 
           <div class="footer">
             Relatório gerado por ${appName}
@@ -248,40 +283,54 @@ class ExportService {
   static convertToCSV(events) {
     // Adiciona mais cabeçalhos relevantes
     const headers = [
-      'Título', 'Data', 'Hora', 'Tipo', 'Descrição', 
-      'Local', 'Processo', 'Cliente' 
+      "Título",
+      "Data",
+      "Hora",
+      "Tipo",
+      "Descrição",
+      "Local",
+      "Processo",
+      "Cliente",
       // Adicione outros cabeçalhos se necessário
     ];
 
     // Função auxiliar para escapar vírgulas e aspas em strings CSV
     const escapeCSV = (str) => {
-      if (str === null || str === undefined) return '';
+      if (str === null || str === undefined) return "";
       const string = String(str);
       // Se a string contém vírgula, aspas ou nova linha, coloca entre aspas duplas
-      if (string.includes(',') || string.includes('"') || string.includes('\n')) {
+      if (
+        string.includes(",") ||
+        string.includes('"') ||
+        string.includes("\n")
+      ) {
         // Escapa aspas duplas existentes duplicando-as
         return `"${string.replace(/"/g, '""')}"`;
       }
       return string;
     };
 
-    const rows = events.map(event => [
+    const rows = events.map((event) => [
       escapeCSV(event.title),
-      moment(event.date).format('DD/MM/YYYY'), // Formato consistente
-      moment(event.date).format('HH:mm'),      // Formato consistente
-      escapeCSV(event.type ? event.type.charAt(0).toUpperCase() + event.type.slice(1) : ''),
+      moment(event.date).format("DD/MM/YYYY"), // Formato consistente
+      moment(event.date).format("HH:mm"), // Formato consistente
+      escapeCSV(
+        event.type
+          ? event.type.charAt(0).toUpperCase() + event.type.slice(1)
+          : ""
+      ),
       escapeCSV(event.description),
       escapeCSV(event.location),
       escapeCSV(event.numeroProcesso),
-      escapeCSV(event.cliente)
+      escapeCSV(event.cliente),
       // Adicione outros campos aqui, lembrando de usar escapeCSV
     ]);
 
     // Junta cabeçalhos e linhas
     return [
-      headers.join(','), // Junta cabeçalhos com vírgula
-      ...rows.map(row => row.join(',')) // Junta cada linha com vírgula
-    ].join('\n'); // Junta todas as linhas com nova linha
+      headers.join(","), // Junta cabeçalhos com vírgula
+      ...rows.map((row) => row.join(",")), // Junta cada linha com vírgula
+    ].join("\n"); // Junta todas as linhas com nova linha
   }
 }
 

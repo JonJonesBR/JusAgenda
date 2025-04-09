@@ -28,7 +28,7 @@ export interface Event {
   documentosNecessarios?: string;
 }
 
-export interface EventFormData extends Omit<Event, 'id'> {
+export interface EventFormData extends Omit<Event, "id"> {
   id?: string;
 }
 
@@ -37,10 +37,16 @@ export interface EventContextType {
   loading: boolean;
   error: string | null;
   refreshEvents: () => Promise<void>;
-  addEvent: (eventData: EventFormData, sendEmailFlag?: boolean) => Promise<boolean>;
-  updateEvent: (eventData: Event, sendEmailFlag?: boolean) => Promise<boolean>;
+  addEvent: (
+    eventData: Event,
+    sendEmailFlag?: boolean
+  ) => Promise<boolean>;
+  updateEvent: (eventData: Event | EventFormData, sendEmailFlag?: boolean) => Promise<boolean>;
   deleteEvent: (eventId: string, sendEmailFlag?: boolean) => Promise<boolean>;
-  searchEvents: (term: string, filters?: string[]) => Event[];
-  getEventById: (id: string) => Event | null;
-  updateEventNotifications: (id: string, notificationData: any) => Promise<Event | null>;
+  searchEvents: (term: string, filters?: string[]) => Promise<Event[]>;
+  getEventById: (id: string) => Promise<Event | null>;
+  updateEventNotifications: (
+    id: string,
+    notificationData: Record<string, unknown>
+  ) => Promise<Event | null>;
 }

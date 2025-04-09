@@ -1,6 +1,6 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import { Platform } from "react-native";
 
 // Configuração do handler de notificações
 Notifications.setNotificationHandler({
@@ -14,50 +14,65 @@ Notifications.setNotificationHandler({
 /**
  * Registra o dispositivo para receber notificações push.
  * Necessário apenas para notificações remotas.
- * 
+ *
  * @returns {Promise<string|null>} Token de push notifications ou null se falhar
  */
 export const registerForPushNotificationsAsync = async () => {
   try {
     if (!Device.isDevice) {
-      console.warn('Notificações push requerem um dispositivo físico');
+      console.warn("Notificações push requerem um dispositivo físico");
       return null;
     }
 
     // Verifica e solicita permissões
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
+
+    if (existingStatus !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
-    
-    if (finalStatus !== 'granted') {
-      console.warn('Permissão para notificações não concedida');
+
+    if (finalStatus !== "granted") {
+      console.warn("Permissão para notificações não concedida");
       return null;
     }
-    
+
     // Obtém o token de push (apenas necessário para notificações remotas)
     const token = await Notifications.getExpoPushTokenAsync({
       projectId: "9fbfcc37-3525-4ca7-980b-addb8228620b",
     });
-    
+
     // Configurações específicas para Android
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#6200ee',
+        lightColor: "#6200ee",
       });
     }
-    
+
     return token.data;
   } catch (error) {
-    console.error('Erro ao registrar para notificações push:', error);
+    console.error("Erro ao registrar para notificações push:", error);
     return null;
   }
+};
+
+/**
+ * Mock function to simulate sending an email notification.
+ * Replace with real implementation if needed.
+ *
+ * @param {string} to - Recipient email address
+ * @param {string} subject - Email subject
+ * @param {string} body - Email body content
+ * @returns {Promise<boolean>} True if sent successfully
+ */
+export const sendEmail = async (to, subject, body) => {
+  console.log(`Mock sendEmail: To=${to}, Subject=${subject}, Body=${body}`);
+  return true;
 };
 
 /**
@@ -67,32 +82,33 @@ export const registerForPushNotificationsAsync = async () => {
  */
 export const configureNotifications = async () => {
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
+    if (existingStatus !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
 
-    if (finalStatus !== 'granted') {
-      console.warn('Permissões de notificação não concedidas');
+    if (finalStatus !== "granted") {
+      console.warn("Permissões de notificação não concedidas");
       return false;
     }
-    
+
     // Configuração do canal para Android
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'Padrão',
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "Padrão",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#6200ee',
+        lightColor: "#6200ee",
       });
     }
 
     return true;
   } catch (error) {
-    console.error('Erro ao configurar notificações:', error);
+    console.error("Erro ao configurar notificações:", error);
     return false;
   }
 };
@@ -110,25 +126,24 @@ export const scheduleNotification = async ({ title, body, time }) => {
   try {
     // Certifique-se de que temos permissão
     await configureNotifications();
-    
+
     // Agendar a notificação
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: 'default',
+        sound: "default",
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
-      trigger: { 
+      trigger: {
         seconds: Math.max(1, Math.floor(time / 1000)),
-        channelId: 'default',
+        channelId: "default",
       },
     });
-    
-    console.log('Notificação agendada com sucesso:', notificationId);
+
     return notificationId;
   } catch (error) {
-    console.error('Erro ao agendar notificação:', error);
+    console.error("Erro ao agendar notificação:", error);
     throw error;
   }
 };
@@ -141,28 +156,26 @@ export const scheduleNotification = async ({ title, body, time }) => {
 export const cancelAllNotifications = async () => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('Todas as notificações foram canceladas.');
   } catch (error) {
-    console.error('Erro ao cancelar notificações:', error);
+    console.error("Erro ao cancelar notificações:", error);
     throw error;
   }
 };
 
 /**
  * Cancela uma notificação específica pelo ID.
- * 
+ *
  * @param {string} notificationId - ID da notificação a ser cancelada
  * @returns {Promise<void>}
  */
 export const cancelNotification = async (notificationId) => {
   try {
     if (!notificationId) {
-      console.warn('ID de notificação não fornecido para cancelamento');
+      console.warn("ID de notificação não fornecido para cancelamento");
       return;
     }
-    
+
     await Notifications.cancelScheduledNotificationAsync(notificationId);
-    console.log(`Notificação ${notificationId} foi cancelada.`);
   } catch (error) {
     console.error(`Erro ao cancelar notificação ${notificationId}:`, error);
     throw error;

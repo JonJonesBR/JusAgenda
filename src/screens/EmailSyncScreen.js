@@ -1,19 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TextInput, TouchableOpacity } from 'react-native';
-import { Text, Button, CheckBox, Card, Icon } from '@rneui/themed';
-import { useNavigation } from '@react-navigation/native';
-import { useEvents } from '../contexts/EventContext';
-import EmailService from '../services/EmailService';
-import { COLORS } from '../utils/common';
-import { formatDateTime } from '../utils/dateUtils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  TextInput,
+  TouchableOpacity,
+} from "react-native";
+import { Text, Button, CheckBox, Card, Icon } from "@rneui/themed";
+import { useNavigation } from "@react-navigation/native";
+import { useEvents } from "../contexts/EventContext";
+import EmailService from "../services/EmailService";
+import { COLORS } from "../utils/common";
+import { formatDateTime } from "../utils/dateUtils";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const EMAIL_STORAGE_KEY = '@jusagenda_email';
+const EMAIL_STORAGE_KEY = "@jusagenda_email";
 
 const EmailSyncScreen = () => {
   const navigation = useNavigation();
   const { events } = useEvents();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [isEmailAvailable, setIsEmailAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,8 +37,8 @@ const EmailSyncScreen = () => {
       setIsEmailAvailable(available);
       if (!available) {
         Alert.alert(
-          'Aviso',
-          'Não foi possível encontrar um aplicativo de email configurado no seu dispositivo. Algumas funcionalidades podem estar limitadas.'
+          "Aviso",
+          "Não foi possível encontrar um aplicativo de email configurado no seu dispositivo. Algumas funcionalidades podem estar limitadas."
         );
       }
     })();
@@ -45,9 +52,9 @@ const EmailSyncScreen = () => {
 
   // Alterna a seleção de um evento
   const toggleEventSelection = (eventId) => {
-    setSelectedEvents(current => {
+    setSelectedEvents((current) => {
       return current.includes(eventId)
-        ? current.filter(id => id !== eventId)
+        ? current.filter((id) => id !== eventId)
         : [...current, eventId];
     });
   };
@@ -57,41 +64,49 @@ const EmailSyncScreen = () => {
     if (selectedEvents.length === events.length) {
       setSelectedEvents([]);
     } else {
-      setSelectedEvents(events.map(event => event.id));
+      setSelectedEvents(events.map((event) => event.id));
     }
   };
 
   // Envia os eventos selecionados por email
   const handleSyncEvents = async () => {
     if (!validateEmail(email)) {
-      Alert.alert('Erro', 'Por favor, insira um email válido.');
+      Alert.alert("Erro", "Por favor, insira um email válido.");
       return;
     }
 
     if (selectedEvents.length === 0) {
-      Alert.alert('Aviso', 'Selecione pelo menos um compromisso para sincronizar.');
+      Alert.alert(
+        "Aviso",
+        "Selecione pelo menos um compromisso para sincronizar."
+      );
       return;
     }
 
     setIsLoading(true);
     try {
-      const eventsToSync = events.filter(event => selectedEvents.includes(event.id));
+      const eventsToSync = events.filter((event) =>
+        selectedEvents.includes(event.id)
+      );
       const result = await EmailService.syncEventsViaEmail(eventsToSync, email);
-      
+
       if (result.success) {
         Alert.alert(
-          'Sincronização Bem-Sucedida',
-          'Os compromissos foram enviados para o seu email com sucesso!'
+          "Sincronização Bem-Sucedida",
+          "Os compromissos foram enviados para o seu email com sucesso!"
         );
         setSelectedEvents([]);
       } else {
         Alert.alert(
-          'Erro na Sincronização',
-          'Não foi possível enviar o email. Por favor, tente novamente.'
+          "Erro na Sincronização",
+          "Não foi possível enviar o email. Por favor, tente novamente."
         );
       }
     } catch (error) {
-      Alert.alert('Erro', error.message || 'Ocorreu um erro ao sincronizar os compromissos.');
+      Alert.alert(
+        "Erro",
+        error.message || "Ocorreu um erro ao sincronizar os compromissos."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -100,49 +115,58 @@ const EmailSyncScreen = () => {
   // Configura alertas de email para um evento
   const configureEmailAlert = async (eventId) => {
     if (!validateEmail(email)) {
-      Alert.alert('Erro', 'Por favor, insira um email válido.');
+      Alert.alert("Erro", "Por favor, insira um email válido.");
       return;
     }
 
-    const event = events.find(e => e.id === eventId);
+    const event = events.find((e) => e.id === eventId);
     if (!event) return;
 
     Alert.prompt(
-      'Configurar Alerta por Email',
-      'Quantos minutos antes do compromisso você deseja receber o alerta?',
+      "Configurar Alerta por Email",
+      "Quantos minutos antes do compromisso você deseja receber o alerta?",
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: "Cancelar", style: "cancel" },
         {
-          text: 'Configurar',
+          text: "Configurar",
           onPress: async (minutesBefore) => {
             if (isNaN(minutesBefore) || minutesBefore <= 0) {
-              Alert.alert('Erro', 'Por favor, insira um número válido maior que zero.');
+              Alert.alert(
+                "Erro",
+                "Por favor, insira um número válido maior que zero."
+              );
               return;
             }
 
             try {
               setIsLoading(true);
               const result = await EmailService.configureEmailAlert(
-                event, 
-                email, 
+                event,
+                email,
                 parseInt(minutesBefore, 10)
               );
-              
+
               if (result.success) {
-                Alert.alert('Sucesso', result.message);
+                Alert.alert("Sucesso", result.message);
               } else {
-                Alert.alert('Erro', result.error || 'Não foi possível configurar o alerta.');
+                Alert.alert(
+                  "Erro",
+                  result.error || "Não foi possível configurar o alerta."
+                );
               }
             } catch (error) {
-              Alert.alert('Erro', error.message || 'Ocorreu um erro ao configurar o alerta.');
+              Alert.alert(
+                "Erro",
+                error.message || "Ocorreu um erro ao configurar o alerta."
+              );
             } finally {
               setIsLoading(false);
             }
-          }
-        }
+          },
+        },
       ],
-      'plain-text',
-      '30'
+      "plain-text",
+      "30"
     );
   };
 
@@ -169,7 +193,11 @@ const EmailSyncScreen = () => {
       <View style={styles.selectionHeader}>
         <Text style={styles.sectionTitle}>Selecione os Compromissos</Text>
         <Button
-          title={selectedEvents.length === events.length ? "Desmarcar Todos" : "Selecionar Todos"}
+          title={
+            selectedEvents.length === events.length
+              ? "Desmarcar Todos"
+              : "Selecionar Todos"
+          }
           type="clear"
           onPress={selectAllEvents}
         />
@@ -177,7 +205,7 @@ const EmailSyncScreen = () => {
 
       <ScrollView style={styles.eventsList}>
         {events.length > 0 ? (
-          events.map(event => (
+          events.map((event) => (
             <Card key={event.id} containerStyle={styles.eventCard}>
               <View style={styles.eventHeader}>
                 <CheckBox
@@ -189,16 +217,22 @@ const EmailSyncScreen = () => {
               </View>
               <Text style={styles.eventDate}>{formatDateTime(event.date)}</Text>
               <View style={styles.eventActions}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.alertButton}
                   onPress={() => configureEmailAlert(event.id)}
                   disabled={!isEmailAvailable}
                 >
-                  <Icon name="email" size={20} color={isEmailAvailable ? COLORS.primary : "#aaa"} />
-                  <Text style={{
-                    color: isEmailAvailable ? COLORS.primary : "#aaa",
-                    marginLeft: 5
-                  }}>
+                  <Icon
+                    name="email"
+                    size={20}
+                    color={isEmailAvailable ? COLORS.primary : "#aaa"}
+                  />
+                  <Text
+                    style={{
+                      color: isEmailAvailable ? COLORS.primary : "#aaa",
+                      marginLeft: 5,
+                    }}
+                  >
                     Configurar Alerta
                   </Text>
                 </TouchableOpacity>
@@ -206,7 +240,9 @@ const EmailSyncScreen = () => {
             </Card>
           ))
         ) : (
-          <Text style={styles.noEventsText}>Nenhum compromisso encontrado.</Text>
+          <Text style={styles.noEventsText}>
+            Nenhum compromisso encontrado.
+          </Text>
         )}
       </ScrollView>
 
@@ -217,7 +253,7 @@ const EmailSyncScreen = () => {
         disabled={!isEmailAvailable || isLoading || selectedEvents.length === 0}
         loading={isLoading}
         onPress={handleSyncEvents}
-        icon={{ name: 'sync', color: 'white', type: 'material' }}
+        icon={{ name: "sync", color: "white", type: "material" }}
       />
     </View>
   );
@@ -235,28 +271,28 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
     color: COLORS.primary,
   },
   emailInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 5,
     padding: 10,
     marginBottom: 5,
   },
   selectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 15,
     marginTop: 5,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.textPrimary,
   },
   eventsList: {
@@ -269,19 +305,19 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   eventHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   checkbox: {
     padding: 0,
     margin: 0,
     marginRight: 5,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 0,
   },
   eventTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     flex: 1,
     color: COLORS.textPrimary,
   },
@@ -291,17 +327,17 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   eventActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     marginTop: 10,
   },
   alertButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 5,
   },
   noEventsText: {
-    textAlign: 'center',
+    textAlign: "center",
     margin: 30,
     fontSize: 16,
     color: COLORS.textSecondary,
@@ -316,4 +352,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EmailSyncScreen; 
+export default EmailSyncScreen;

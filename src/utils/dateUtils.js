@@ -1,4 +1,4 @@
-import { moment } from './common';
+import { moment } from "./common";
 
 /**
  * Valida se a data fornecida é válida.
@@ -20,10 +20,10 @@ export const isValidDate = (date) => {
  * @param {string} format - Formato desejado.
  * @returns {string} Data formatada ou string vazia se a data for inválida.
  */
-export const formatDate = (date, format = 'DD/MM/YYYY') => {
+export const formatDate = (date, format = "DD/MM/YYYY") => {
   if (!isValidDate(date)) {
     console.warn(`Invalid date provided: ${date}`);
-    return '';
+    return "";
   }
   return moment(date).format(format);
 };
@@ -36,9 +36,9 @@ export const formatDate = (date, format = 'DD/MM/YYYY') => {
 export const formatDateTime = (date) => {
   if (!isValidDate(date)) {
     console.warn(`Invalid date provided: ${date}`);
-    return '';
+    return "";
   }
-  return moment(date).format('DD/MM/YYYY HH:mm');
+  return moment(date).format("DD/MM/YYYY HH:mm");
 };
 
 /**
@@ -49,9 +49,9 @@ export const formatDateTime = (date) => {
 export const formatFullDate = (date) => {
   if (!isValidDate(date)) {
     console.warn(`Invalid date provided: ${date}`);
-    return '';
+    return "";
   }
-  return moment(date).format('dddd, DD [de] MMMM [de] YYYY');
+  return moment(date).format("dddd, DD [de] MMMM [de] YYYY");
 };
 
 /**
@@ -62,9 +62,9 @@ export const formatFullDate = (date) => {
 export const formatTime = (date) => {
   if (!isValidDate(date)) {
     console.warn(`Invalid date provided: ${date}`);
-    return '';
+    return "";
   }
-  return moment(date).format('HH:mm');
+  return moment(date).format("HH:mm");
 };
 
 /**
@@ -77,7 +77,7 @@ export const isToday = (date) => {
     console.warn(`Invalid date provided: ${date}`);
     return false;
   }
-  return moment(date).isSame(moment(), 'day');
+  return moment(date).isSame(moment(), "day");
 };
 
 /**

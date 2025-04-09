@@ -1,9 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native'; // Added Alert import
-import { Text, Card, Icon } from '@rneui/themed';
-import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
-import { searchCompromissos } from '../services/EventService';
-import { useEvents } from '../contexts/EventContext'; // Added useEvents import
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+} from "react-native"; // Added Alert import
+import { Text, Card, Icon } from "@rneui/themed";
+import {
+  useNavigation,
+  useRoute,
+  useIsFocused,
+} from "@react-navigation/native";
+import { searchCompromissos } from "../services/EventService";
+import { useEvents } from "../contexts/EventContext"; // Added useEvents import
 
 const SearchResultsScreen = () => {
   const navigation = useNavigation();
@@ -15,16 +25,16 @@ const SearchResultsScreen = () => {
 
   const searchForEvents = useCallback(async () => {
     try {
-      let results = await searchCompromissos(term || '');
+      let results = await searchCompromissos(term || "");
       if (filters && filters.length > 0) {
-        results = results.filter(event =>
+        results = results.filter((event) =>
           filters.includes(event.type?.toLowerCase())
         );
       }
       results.sort((a, b) => new Date(a.date) - new Date(b.date));
       setEvents(results);
     } catch (error) {
-      console.error('Error searching events:', error);
+      console.error("Error searching events:", error);
       setEvents([]);
     }
   }, [term, filters]);
@@ -34,66 +44,82 @@ const SearchResultsScreen = () => {
   }, [isFocused, searchForEvents]);
 
   // Function to handle event press and show options
-  const handleEventPress = useCallback((event) => {
-    Alert.alert(
-      'Opções',
-      'O que você deseja fazer?',
-      [
-        { text: 'Visualizar', onPress: () => navigation.navigate('EventView', { event }) },
-        { text: 'Editar', onPress: () => navigation.navigate('EventDetails', { event }) },
-        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(event) },
-        { text: 'Cancelar', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
-  }, [navigation, confirmDelete]); // Added confirmDelete to dependencies
+  const handleEventPress = useCallback(
+    (event) => {
+      Alert.alert(
+        "Opções",
+        "O que você deseja fazer?",
+        [
+          {
+            text: "Visualizar",
+            onPress: () => navigation.navigate("EventView", { event }),
+          },
+          {
+            text: "Editar",
+            onPress: () => navigation.navigate("EventDetails", { event }),
+          },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: () => confirmDelete(event),
+          },
+          { text: "Cancelar", style: "cancel" },
+        ],
+        { cancelable: true }
+      );
+    },
+    [navigation, confirmDelete]
+  ); // Added confirmDelete to dependencies
 
   // Function to confirm event deletion
-  const confirmDelete = useCallback((event) => {
-    Alert.alert(
-      'Confirmar Exclusão',
-      'Tem certeza que deseja excluir este compromisso?',
-      [
-        { text: 'Não', style: 'cancel' },
-        {
-          text: 'Sim',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteEvent(event.id);
-              // Refresh both the context and the local search results
-              await refreshEvents();
-              await searchForEvents();
-            } catch (error) {
-              Alert.alert('Erro', 'Não foi possível excluir o compromisso');
-            }
+  const confirmDelete = useCallback(
+    (event) => {
+      Alert.alert(
+        "Confirmar Exclusão",
+        "Tem certeza que deseja excluir este compromisso?",
+        [
+          { text: "Não", style: "cancel" },
+          {
+            text: "Sim",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteEvent(event.id);
+                // Refresh both the context and the local search results
+                await refreshEvents();
+                await searchForEvents();
+              } catch (error) {
+                Alert.alert("Erro", "Não foi possível excluir o compromisso");
+              }
+            },
           },
-        },
-      ],
-      { cancelable: true }
-    );
-  }, [deleteEvent, refreshEvents, searchForEvents]); // Added dependencies
+        ],
+        { cancelable: true }
+      );
+    },
+    [deleteEvent, refreshEvents, searchForEvents]
+  ); // Added dependencies
 
   const getEventTypeIcon = useCallback((type) => {
     switch (type?.toLowerCase()) {
-      case 'audiencia':
-        return { name: 'gavel', color: '#6200ee' };
-      case 'reuniao':
-        return { name: 'groups', color: '#03dac6' };
-      case 'prazo':
-        return { name: 'timer', color: '#ff0266' };
+      case "audiencia":
+        return { name: "gavel", color: "#6200ee" };
+      case "reuniao":
+        return { name: "groups", color: "#03dac6" };
+      case "prazo":
+        return { name: "timer", color: "#ff0266" };
       default:
-        return { name: 'event', color: '#018786' };
+        return { name: "event", color: "#018786" };
     }
   }, []);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
+    return date.toLocaleDateString("pt-BR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
     });
   };
 
@@ -102,7 +128,7 @@ const SearchResultsScreen = () => {
       <View style={styles.emptyContainer}>
         <Icon name="search-off" size={48} color="#757575" />
         <Text style={styles.emptyText}>
-          Nenhum compromisso encontrado{term ? ` para "${term}"` : ''}
+          Nenhum compromisso encontrado{term ? ` para "${term}"` : ""}
         </Text>
       </View>
     );
@@ -151,8 +177,11 @@ const SearchResultsScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.resultsText}>
-        {events.length} {events.length === 1 ? 'compromisso encontrado' : 'compromissos encontrados'}
-        {term ? ` para "${term}"` : ''}
+        {events.length}{" "}
+        {events.length === 1
+          ? "compromisso encontrado"
+          : "compromissos encontrados"}
+        {term ? ` para "${term}"` : ""}
       </Text>
       <FlatList
         data={events}
@@ -166,21 +195,44 @@ const SearchResultsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
   listContainer: { padding: 16 },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-  emptyText: { marginTop: 16, fontSize: 16, color: '#757575', textAlign: 'center' },
-  resultsText: { padding: 16, fontSize: 16, color: '#000' },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#757575",
+    textAlign: "center",
+  },
+  resultsText: { padding: 16, fontSize: 16, color: "#000" },
   card: { marginBottom: 16, padding: 16, borderRadius: 12, elevation: 4 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  eventType: { marginLeft: 8, fontSize: 16, fontWeight: 'bold', color: '#6200ee' },
-  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
-  dateContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  date: { marginLeft: 8, fontSize: 14, color: '#757575' },
-  locationContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  location: { marginLeft: 8, fontSize: 14, color: '#757575', flex: 1 },
-  clientContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  client: { marginLeft: 8, fontSize: 14, color: '#757575', flex: 1 }
+  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  eventType: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#6200ee",
+  },
+  title: { fontSize: 18, fontWeight: "bold", marginBottom: 8 },
+  dateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  date: { marginLeft: 8, fontSize: 14, color: "#757575" },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  location: { marginLeft: 8, fontSize: 14, color: "#757575", flex: 1 },
+  clientContainer: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  client: { marginLeft: 8, fontSize: 14, color: "#757575", flex: 1 },
 });
 
 export default SearchResultsScreen;

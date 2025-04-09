@@ -1,12 +1,13 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, Button, StyleSheet, SafeAreaView } from 'react-native';
-import { Icon } from '@rneui/themed';
-import { lightTheme } from '../theme/theme';
+import React, { Component, ErrorInfo, ReactNode } from "react";
+import { View, Text, Button, StyleSheet, SafeAreaView } from "react-native";
+import { Icon } from "@rneui/themed";
+import { ThemeContext } from "../contexts/ThemeContext";
+import type { ErrorHandlerProps } from "./ErrorHandler";
 
 interface Props {
   children: ReactNode;
   onReset?: () => void;
-  fallbackComponent?: React.ComponentType<{ error: Error; resetError: () => void }>;
+  fallbackComponent?: React.ComponentType<ErrorHandlerProps>;
 }
 
 interface State {
@@ -21,6 +22,8 @@ interface State {
  * and displays a fallback UI instead of crashing the whole app
  */
 class ErrorBoundary extends Component<Props, State> {
+  static contextType = ThemeContext;
+  declare context: React.ContextType<typeof ThemeContext>;
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -41,11 +44,11 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log error to an error reporting service
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
     this.setState({
       errorInfo,
     });
-    
+
     // Here you could add integration with error monitoring services like Sentry
     // if (process.env.NODE_ENV === 'production') {
     //   Sentry.captureException(error);
@@ -72,27 +75,46 @@ class ErrorBoundary extends Component<Props, State> {
     if (hasError) {
       // Use custom fallback if provided
       if (FallbackComponent) {
-        return <FallbackComponent error={error!} resetError={this.resetError} />;
+        return (
+          <FallbackComponent error={error} onRetry={this.resetError} />
+        );
       }
 
       // Default fallback UI
+      const context = this.context;
+      const fallbackTheme = {
+        colors: {
+          primary: "#6200ee",
+          background: "#FFFFFF",
+          card: "#FFFFFF",
+          text: "#000000",
+          textSecondary: "#666666",
+          border: "#E0E0E0",
+          notification: "#6200ee",
+          error: "#B00020",
+        },
+      };
+
+      const colors = context?.theme.colors || fallbackTheme.colors;
+      const theme = context?.theme || fallbackTheme;
+
       return (
-        <SafeAreaView style={styles.container}>
-          <View style={styles.content}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+          <View style={styles.container}>
             <Icon
               name="error-outline"
               size={60}
-              color={lightTheme.colors.error}
+              color={colors.error}
               style={styles.icon}
             />
-            <Text style={styles.errorTitle}>Oops! Algo deu errado</Text>
-            <Text style={styles.errorMessage}>
-              {error?.message || 'Ocorreu um erro inesperado na aplicação.'}
+            <Text style={[styles.title, { color: theme.colors.text }]}>Oops! Algo deu errado</Text>
+            <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+              {error?.message || "Ocorreu um erro inesperado na aplicação."}
             </Text>
             <Button
               title="Tentar Novamente"
               onPress={this.resetError}
-              color={lightTheme.colors.primary}
+              color={colors.primary}
             />
           </View>
         </SafeAreaView>
@@ -103,33 +125,32 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
+
+
 const styles = StyleSheet.create({
   container: {
+    alignItems: "center",
     flex: 1,
-    backgroundColor: lightTheme.colors.background,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: lightTheme.spacing.lg,
+    justifyContent: "center",
+    padding: 24 // Valor padrão para substituir theme.spacing.lg
   },
   icon: {
-    marginBottom: lightTheme.spacing.md,
+    marginBottom: 16
   },
-  errorTitle: {
-    fontSize: lightTheme.typography.fontSize.xl,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: lightTheme.spacing.sm,
-    textAlign: 'center',
+  message: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: "center"
   },
-  errorMessage: {
-    fontSize: lightTheme.typography.fontSize.md,
-    color: '#666666',
-    marginBottom: lightTheme.spacing.lg,
-    textAlign: 'center',
+  safeArea: {
+    flex: 1
   },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center"
+  }
 });
 
 export default ErrorBoundary;

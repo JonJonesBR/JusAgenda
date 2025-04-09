@@ -1,37 +1,39 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
-import { lightTheme, darkTheme, AppTheme } from '../theme/theme';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useColorScheme } from "react-native";
+import { lightTheme, darkTheme, AppTheme } from "../theme/theme";
 
 type ThemeContextType = {
   theme: AppTheme;
-  isDark: boolean;
+  isDarkMode: boolean;
   toggleTheme: () => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setTheme: (theme: "light" | "dark") => void;
 };
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const colorScheme = useColorScheme();
-  const [isDark, setIsDark] = useState<boolean>(colorScheme === 'dark');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(colorScheme === "dark");
 
   // Update theme based on system preference changes
   useEffect(() => {
-    setIsDark(colorScheme === 'dark');
+    setIsDarkMode(colorScheme === "dark");
   }, [colorScheme]);
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
+    setIsDarkMode(!isDarkMode);
   };
 
-  const setTheme = (theme: 'light' | 'dark') => {
-    setIsDark(theme === 'dark');
+  const setTheme = (theme: "light" | "dark") => {
+    setIsDarkMode(theme === "dark");
   };
 
-  const theme = isDark ? darkTheme : lightTheme;
+  const theme = isDarkMode ? darkTheme : lightTheme;
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -40,7 +42,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    throw new Error("useTheme must be used within a ThemeProvider");
   }
   return context;
 };

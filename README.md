@@ -3,6 +3,7 @@
 JusAgenda é o assistente definitivo para advogados! Organize prazos, audiências, reuniões e muito mais com um aplicativo prático e integrado. Receba alertas sobre compromissos importantes e sincronize suas tarefas diretamente com seu e-mail, garantindo que nada escape do radar.
 
 ## ✨ Funcionalidades Principais
+
 - **Acompanhamento de Prazos:** Nunca perca uma data importante.
 - **Agendamento de Audiências:** Planeje e gerencie suas audiências com facilidade.
 - **Reuniões com Clientes:** Programe e organize reuniões com seus clientes.
@@ -13,17 +14,19 @@ JusAgenda é o assistente definitivo para advogados! Organize prazos, audiência
 - **Exportar Compromissos:** Exporte compromissos em Word, Excel e PDF.
 
 ## 🛠️ Tecnologias Utilizadas
+
 - **React Native:** Criação de interfaces modernas para mobile.
 - **AsyncStorage:** Armazenamento local de dados para acesso rápido.
 
 ## 🚀 Como Contribuir?
+
 1. Faça um Fork deste repositório.
 2. Crie uma nova branch para sua funcionalidade:
-git checkout -b feature/minha-nova-feature
+   git checkout -b feature/minha-nova-feature
 3. Faça commits das alterações:
-git commit -m "Adiciona nova funcionalidade: [descreva aqui]"
+   git commit -m "Adiciona nova funcionalidade: [descreva aqui]"
 4. Envie sua branch para o repositório remoto:
-git push origin feature/minha-nova-feature
+   git push origin feature/minha-nova-feature
 5. Abra um Pull Request.
 
 ## 📝 Licença
