@@ -52,11 +52,11 @@ const SearchResultsScreen = () => {
         [
           {
             text: "Visualizar",
-            onPress: () => navigation.navigate("EventView", { event }),
+            onPress: () => navigation.navigate("EventDetails", { event, editMode: false }),
           },
           {
             text: "Editar",
-            onPress: () => navigation.navigate("EventDetails", { event }),
+            onPress: () => navigation.navigate("EventDetails", { event, editMode: true }),
           },
           {
             text: "Excluir",

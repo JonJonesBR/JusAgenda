@@ -1,9 +1,10 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useTheme } from "../../contexts/ThemeContext";
-import SyncExportOptionsScreen from "../../screens/SyncExportOptionsScreen"; // Import the new screen
+import SyncExportOptionsScreen from "../../screens/SyncExportOptionsScreen";
 import EmailSyncScreen from "../../screens/EmailSyncScreen";
-import ExportScreen from "../../screens/ExportScreen"; // Import ExportScreen
+import ExportScreen from "../../screens/ExportScreen";
+import FeedbackScreen from "../../screens/FeedbackScreen"; // Nova tela de feedback
 import { navigationConfig } from "../navigationConfig";
 
 const Stack = createNativeStackNavigator();
@@ -58,7 +59,16 @@ const SyncStack = () => {
         name="Export"
         component={ExportScreen}
         options={{
-          title: "Exportar", // Title for the export screen
+          title: "Exportar",
+          headerTitleAlign: "center",
+          headerTitleStyle: commonHeaderTitleStyle,
+        }}
+      />
+      <Stack.Screen
+        name="Feedback"
+        component={FeedbackScreen}
+        options={{
+          title: "Feedback",
           headerTitleAlign: "center",
           headerTitleStyle: commonHeaderTitleStyle,
         }}

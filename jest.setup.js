@@ -5,12 +5,13 @@ const { jest } = require("@jest/globals");
 global.jest = jest;
 
 // Mock AsyncStorage
-jest.mock("@react-native-async-storage/async-storage", () => ({
-  setItem: jest.fn(),
-  getItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-}));
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
+jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
+
+jest.useFakeTimers();
 
 // Mock Expo Notifications
 jest.mock("expo-notifications", () => ({
@@ -32,6 +33,55 @@ jest.mock("react-native-fs", () => ({
   readFile: jest.fn(),
   exists: jest.fn(),
   unlink: jest.fn(),
+}));
+
+// Mock expo-file-system
+jest.mock("expo-file-system", () => ({
+  writeAsStringAsync: jest.fn(),
+  readAsStringAsync: jest.fn(),
+  documentDirectory: '/mock/documents/',
+  EncodingType: { UTF8: 'utf8' },
+}));
+
+// Mock expo-sharing
+jest.mock("expo-sharing", () => ({
+  shareAsync: jest.fn(),
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+}));
+
+// Mock expo-device
+jest.mock("expo-device", () => ({
+  brand: 'MockBrand',
+  modelName: 'MockModel',
+  osName: 'MockOS',
+  osVersion: '1.0',
+}));
+
+// Mock expo-print
+jest.mock("expo-print", () => ({
+  printAsync: jest.fn(),
+  selectPrinterAsync: jest.fn(),
+}));
+
+// Mock expo-constants
+jest.mock("expo-constants", () => ({
+  manifest: {},
+  appOwnership: 'expo',
+  platform: { ios: {}, android: {}, web: {} },
+}));
+
+// Mock expo-linear-gradient
+jest.mock('expo-linear-gradient', () => ({
+  LinearGradient: ({ children }) => children || null,
+}));
+
+// Mock expo-media-library
+jest.mock('expo-media-library', () => ({
+  getPermissionsAsync: jest.fn(),
+  requestPermissionsAsync: jest.fn(),
+  createAssetAsync: jest.fn(),
+  createAlbumAsync: jest.fn(),
+  addAssetsToAlbumAsync: jest.fn(),
 }));
 
 // Mock react-native Platform

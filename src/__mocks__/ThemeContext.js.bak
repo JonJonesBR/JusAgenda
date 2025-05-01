@@ -1,0 +1,17 @@
+const React = require('react');
+
+const theme = {
+  colors: {
+    primary: '#1976D2',
+    background: '#FFFFFF',
+    text: '#222',
+    textSecondary: '#666',
+  },
+};
+
+const ThemeContext = React.createContext({ theme, isDarkMode: false });
+
+module.exports = {
+  ThemeContext,
+  useTheme: () => ({ theme, isDarkMode: false }),
+};

@@ -197,7 +197,7 @@ const SearchScreen = () => {
           {
             text: "Visualizar",
             onPress: () =>
-              navigation.navigate("EventView", {
+              navigation.navigate("EventDetails", {
                 event: {
                   id: event.id,
                   title: event.title,
@@ -210,6 +210,7 @@ const SearchScreen = () => {
                   location: event.local,
                   description: event.descricao,
                 },
+                editMode: true,
               }),
           },
           {
@@ -227,6 +228,7 @@ const SearchScreen = () => {
                       ? event.date.toISOString()
                       : event.date,
                 },
+                editMode: true, // Ensure edit mode
               }),
           },
           {

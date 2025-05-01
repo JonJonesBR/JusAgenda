@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef, // Import useRef
 } from "react";
 import {
   getAllCompromissos,
@@ -19,17 +20,6 @@ import {
 import * as NotificationService from "../services/notifications";
 import { Event, EventContextType, EventFormData } from "../types/event";
 
-// Criando um tipo para mapear entre as propriedades da interface Event e as propriedades usadas nos componentes
-type EventAdapter = {
-  id: string;
-  title: string;
-  type: string;
-  date: Date | string;
-  location?: string;
-  description?: string;
-  client?: string;
-};
-
 const EventContext = createContext<EventContextType | null>(null);
 
 /**
@@ -41,68 +31,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDeleteEvent, setPendingDeleteEvent] = useState<Event | null>(null); // State for event pending deletion
+  const deleteTimerRef = useRef<NodeJS.Timeout | null>(null); // Ref for the delete confirmation timer
 
   /**
    * Busca e atualiza a lista de eventos de forma assíncrona.
    */
-  // Função para converter do formato do serviço para o formato da interface Event
-  const adaptToEventInterface = useCallback((eventData: EventAdapter): Event => {
-    const rawDate = (eventData as any).date || (eventData as any).data;
-    let parsedDate = new Date(rawDate as string);
-    if (!(parsedDate instanceof Date) || isNaN(parsedDate.getTime())) {
-      parsedDate = new Date();
-    }
-
-    return {
-      id: eventData.id,
-      title: eventData.title,
-      cliente: eventData.client || '',
-      tipo: eventData.type || '',
-      data: parsedDate,
-      local: eventData.location || '',
-      descricao: eventData.description || '',
-      numeroProcesso: '',
-      competencia: '',
-      vara: '',
-      comarca: '',
-      estado: '',
-      reu: '',
-      telefoneCliente: '',
-      emailCliente: '',
-      telefoneReu: '',
-      emailReu: '',
-      juiz: '',
-      promotor: '',
-      perito: '',
-      prepostoCliente: '',
-      testemunhas: '',
-      documentosNecessarios: '',
-    };
-  }, []);
-
-  // Função para converter do formato da interface Event para o formato usado nos componentes
-  const adaptFromEventInterface = useCallback((event: Event): EventAdapter => {
-    return {
-      id: event.id,
-      title: event.title || '',
-      type: event.tipo,
-      date: event.data,
-      location: event.local,
-      description: event.descricao,
-      client: event.cliente,
-    };
-  }, []);
-
   const refreshEvents = useCallback(async () => {
     try {
       const allEvents = await getAllCompromissos();
-      // Adaptar os eventos recebidos para o formato da interface Event
-      const adaptedEvents = allEvents.map((e) => {
-        const event = adaptToEventInterface(e);
-        console.log("Adapted event:", event.id, typeof event.data, event.data, typeof (event as any).date, (event as any).date);
-        return event;
-      });
-      setEvents(adaptedEvents);
+      setEvents(allEvents);
     } catch (err: unknown) {
       console.error("Erro ao atualizar eventos:", err);
       if (err instanceof Error) {
@@ -111,7 +49,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setError("Erro desconhecido ao atualizar evento");
       }
     }
-  }, [adaptToEventInterface]);
+  }, []);
 
   useEffect(() => {
     refreshEvents();
@@ -136,25 +74,22 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setLoading(true);
       setError(null);
       try {
-        // Converter do formato da interface Event para o formato usado nos serviços
-        const adaptedEventData = adaptFromEventInterface(eventData);
-        
         // Validação e garantia de que a data seja válida.
         if (
-          !adaptedEventData.date ||
-          !(adaptedEventData.date instanceof Date) ||
-          isNaN((adaptedEventData.date as Date).getTime())
+          !eventData.data ||
+          !(eventData.data instanceof Date) ||
+          isNaN((eventData.data as Date).getTime())
         ) {
           const currentDate = new Date();
           console.warn(
             `[Event ${
-              adaptedEventData.id || "undefined"
+              eventData.id || "undefined"
             }] Invalid or missing date field, using current date: ${currentDate.toISOString()}`
           );
-          adaptedEventData.date = currentDate;
+          eventData.data = currentDate;
         }
         // Chamada do serviço para adicionar o compromisso.
-        const newEvent = await addCompromissoService(adaptedEventData);
+        const newEvent = await addCompromissoService(eventData);
         if (newEvent) {
           await refreshEvents();
           triggerUpdate();
@@ -162,7 +97,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             await NotificationService.sendEmail(
               "recipient@example.com", // Substitua pelo e-mail do destinatário
               "New Event Created",
-              `A new event "${adaptedEventData.title}" has been created.`
+              `A new event "${eventData.title}" has been created.`
             );
           }
           return true;
@@ -180,7 +115,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setLoading(false);
       }
     },
-    [triggerUpdate, refreshEvents, adaptFromEventInterface]
+    [triggerUpdate, refreshEvents]
   );
 
   /**
@@ -191,7 +126,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    * @returns {Promise<boolean>} True se atualizado com sucesso; caso contrário, false.
    */
   const updateEvent = useCallback(
-    async (eventData: Event | EventFormData, sendEmailFlag: boolean = false): Promise<boolean> => {
+    async (eventData: Event | EventFormData & { id?: string }, sendEmailFlag: boolean = false): Promise<boolean> => {
       setLoading(true);
       setError(null);
       try {
@@ -290,31 +225,125 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    *
    * @param {string} id - Identificador do evento.
    * @param {boolean} [sendEmailFlag] - Flag para envio de notificação por e-mail.
-   * @returns {Promise<boolean>} Resultado da operação.
+   * @returns {Promise<Event | null>} O evento excluído temporariamente ou null se não encontrado/erro.
    */
   const deleteEvent = useCallback(
-    async (id: string, sendEmailFlag: boolean = false): Promise<boolean> => {
-      try {
-        const success = await deleteCompromissoService(id);
-        if (success) {
-          await refreshEvents();
-          triggerUpdate();
-          if (sendEmailFlag) {
-            await NotificationService.sendEmail(
-              "recipient@example.com",
-              "Event Deleted",
-              "An event has been deleted."
-            );
-          }
+    async (id: string): Promise<Event | null> => {
+      // Clear any existing delete timer
+      if (deleteTimerRef.current) {
+        clearTimeout(deleteTimerRef.current);
+        deleteTimerRef.current = null;
+      }
+      // If there's an event already pending deletion, confirm it first
+      if (pendingDeleteEvent) {
+        try {
+          await deleteCompromissoService(pendingDeleteEvent.id);
+        } catch (err) {
+          console.error("Erro ao confirmar exclusão anterior:", err);
+          // Optionally show an error message to the user
         }
-        return success;
-      } catch (err) {
-        console.error("Erro ao excluir evento:", err);
+        setPendingDeleteEvent(null); // Clear the previously pending event
+      }
+
+      const eventToDelete = events.find((event) => event.id === id);
+      if (!eventToDelete) {
+        console.error("Evento não encontrado para exclusão:", id);
+        setError("Evento não encontrado para exclusão.");
+        return null;
+      }
+
+      // Optimistic update: remove from local state
+      setEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
+      setPendingDeleteEvent(eventToDelete); // Store the event for potential undo
+
+      // Return the deleted event so the UI can show the undo message
+      return eventToDelete;
+    },
+    [events, pendingDeleteEvent] // Removed triggerUpdate and refreshEvents, handled by confirm/undo
+  );
+
+  /**
+   * Confirma a exclusão do evento que está pendente.
+   * @returns {Promise<boolean>} True se a exclusão foi confirmada com sucesso, false caso contrário.
+   */
+  const confirmDeleteEvent = useCallback(async (): Promise<boolean> => {
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+
+    if (!pendingDeleteEvent) {
+      console.log("Nenhum evento pendente para confirmar exclusão.");
+      return false; // Or true, depending on desired behavior when called without a pending event
+    }
+
+    const idToDelete = pendingDeleteEvent.id;
+    setPendingDeleteEvent(null); // Clear pending state immediately
+
+    try {
+      setLoading(true);
+      const success = await deleteCompromissoService(idToDelete);
+      if (success) {
+        console.log(`Evento ${idToDelete} excluído permanentemente.`);
+        // Optionally trigger a full refresh if needed, though optimistic update might suffice
+        // await refreshEvents();
+        triggerUpdate(); // Ensure UI reflects the change if not using refreshEvents
+        return true;
+      } else {
+        console.error(`Falha ao excluir evento ${idToDelete} do serviço.`);
+        setError("Falha ao confirmar a exclusão do evento.");
+        // Attempt to restore the event locally if service deletion failed
+        const eventToRestore = events.find(e => e.id === idToDelete); // Check if it was somehow added back
+        if (!eventToRestore && pendingDeleteEvent) { // Use the original pending event data if needed
+             setEvents(prev => [...prev, pendingDeleteEvent]);
+             triggerUpdate();
+        }
         return false;
       }
-    },
-    [triggerUpdate, refreshEvents]
-  );
+    } catch (err) {
+      console.error("Erro ao confirmar exclusão do evento:", err);
+       if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Erro desconhecido ao confirmar exclusão");
+        }
+       // Attempt to restore the event locally on error
+       const eventToRestore = events.find(e => e.id === idToDelete);
+       if (!eventToRestore && pendingDeleteEvent) {
+            setEvents(prev => [...prev, pendingDeleteEvent]);
+            triggerUpdate();
+       }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [pendingDeleteEvent, triggerUpdate, events]); // Added events dependency
+
+  /**
+   * Desfaz a exclusão do evento pendente.
+   */
+  const undoDeleteEvent = useCallback(() => {
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+
+    if (pendingDeleteEvent) {
+      setEvents((prevEvents) => {
+        // Add the event back and sort to maintain order (optional but good practice)
+        const restoredEvents = [...prevEvents, pendingDeleteEvent];
+        restoredEvents.sort(
+          (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
+        );
+        return restoredEvents;
+      });
+      console.log(`Exclusão do evento ${pendingDeleteEvent.id} desfeita.`);
+      setPendingDeleteEvent(null);
+      triggerUpdate(); // Ensure UI updates
+    } else {
+      console.log("Nenhum evento pendente para desfazer exclusão.");
+    }
+  }, [pendingDeleteEvent, triggerUpdate]);
 
   /**
    * Realiza a busca de eventos com base em um termo e filtros.
@@ -401,6 +430,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       searchEvents,
       getEventById,
       updateEventNotifications,
+      confirmDeleteEvent, // Add new functions to context value
+      undoDeleteEvent,    // Add new functions to context value
+      deleteTimerRef,     // Expose timer ref if needed by UI (optional)
+      pendingDeleteEvent, // Expose pending event if needed (optional)
     }),
     [
       events,
@@ -409,10 +442,13 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       refreshEvents,
       addEvent,
       updateEvent,
-      deleteEvent,
+      deleteEvent, // Keep original deleteEvent here
       searchEvents,
       getEventById,
       updateEventNotifications,
+      confirmDeleteEvent, // Add dependencies
+      undoDeleteEvent,    // Add dependencies
+      pendingDeleteEvent, // Add dependency
     ]
   );
 

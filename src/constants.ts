@@ -85,3 +85,9 @@ export const ROUTES = {
   EVENT_DETAILS: "EventDetails",
   // ...outras rotas
 } as const;
+
+export const PRIORIDADES = {
+  ALTA: 'alta',
+  MEDIA: 'media',
+  BAIXA: 'baixa'
+} as const;

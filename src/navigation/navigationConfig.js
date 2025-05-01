@@ -13,7 +13,7 @@ export const navigationConfig = {
   },
   headerTintColor: "#fff",
   headerTitleStyle: {
-    fontWeight: "bold",
+    fontWeight: "700",
     color: "#fff",
     fontSize: 18,
   },

@@ -53,7 +53,11 @@ const HomeStack = () => {
         name="EventDetails"
         component={EventDetailsScreen}
         options={({ route }) => ({
-          title: route?.params?.event ? "Editar Evento" : "Novo Evento",
+          title: route?.params?.event 
+            ? route?.params?.editMode 
+              ? "Editar Compromisso" 
+              : "Detalhes do Compromisso"
+            : "Novo Compromisso",
           headerTitleStyle: commonHeaderTitleStyle,
         })}
       />

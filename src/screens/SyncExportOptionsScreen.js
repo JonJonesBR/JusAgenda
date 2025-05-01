@@ -85,6 +85,21 @@ const SyncExportOptionsScreen = () => {
         />
         <Text style={styles.optionText}>Exportar Compromissos</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.optionButton}
+        onPress={() => navigation.navigate("Feedback")}
+        activeOpacity={0.7}
+        accessibilityLabel="Enviar Feedback"
+      >
+        <Icon
+          name="feedback"
+          type="material"
+          size={28}
+          color={theme.colors.primary}
+          style={styles.optionIcon}
+        />
+        <Text style={styles.optionText}>Enviar Feedback</Text>
+      </TouchableOpacity>
     </View>
   );
 };

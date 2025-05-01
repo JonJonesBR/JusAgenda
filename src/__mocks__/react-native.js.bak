@@ -1,0 +1,22 @@
+// Manual mock for react-native to ensure NativeModules.SettingsManager is always present
+module.exports = {
+  Text: (props) => props.children || null,
+  Button: () => null,
+  TouchableOpacity: (props) => props.children || null,
+  View: (props) => props.children || null,
+  TextInput: () => null,
+  ScrollView: (props) => props.children || null,
+  FlatList: () => null,
+  SectionList: () => null,
+  Image: () => null,
+  Platform: { OS: 'ios' },
+  StyleSheet: { create: (styles) => styles },
+  NativeModules: {
+    SettingsManager: {
+      settings: {
+        AppleLocale: 'en_US',
+        AppleLanguages: ['en-US']
+      }
+    }
+  }
+};

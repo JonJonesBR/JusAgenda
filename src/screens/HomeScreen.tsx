@@ -1,30 +1,35 @@
 // HomeScreen.tsx
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from "react";
+// Usando View direto do react-native em vez do componente otimizado
+// até que o problema de importação seja resolvido
 import type { Event, EventContextType } from "../types/event";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-type RootStackParamList = {
-  EventView: { event: Event };
-  EventDetails: { event: Event; editMode?: boolean };
-  Search: undefined;
-};
-
 import {
   View,
+  Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
+  ScrollView,
   Alert,
-  StatusBar,
-  Dimensions,
+  RefreshControl,
 } from "react-native";
-import { FAB, Card, Icon, Button, Text } from "@rneui/themed";
-import { useNavigation, useIsFocused } from "@react-navigation/native";
-import { useEvents } from "../contexts/EventContext";
+
+import { useIsFocused, useNavigation } from "@react-navigation/native";
+import { FAB, Button, Card, Icon } from "@rneui/themed";
 import { useTheme } from "../contexts/ThemeContext";
-import UpcomingEvents from "../components/UpcomingEvents";
+import { useEvents } from "../contexts/EventContext";
 import { LinearGradient } from "expo-linear-gradient";
-import { formatDateTime, isToday } from "../utils/dateUtils";
+import UpcomingEvents from "../components/UpcomingEvents";
+import { formatDateTime } from "../utils/dateUtils";
+
+// Tipagem para RootStackParamList
+type RootStackParamList = {
+  Home: undefined;
+  EventDetails: { event?: Event; editMode: boolean };
+  Search: undefined;
+  Calendar: undefined;
+};
 
 const ALERT_MESSAGES = {
   DELETE_CONFIRM: {
@@ -41,35 +46,91 @@ const ALERT_MESSAGES = {
   },
 };
 
+console.log('DEBUG HomeScreen.tsx: HomeScreen carregado, NODE_ENV=', process.env.NODE_ENV);
 const HomeScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
-  const { events, refreshEvents, deleteEvent } = useEvents() as EventContextType;
+  const { events, deleteEvent, refreshEvents: getEvents } = useEvents() as EventContextType;
   const { theme, isDarkMode } = useTheme();
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const lastUpdatedRef = useRef<Date>(new Date(0));
 
+  // Função para atualizar eventos
+  const refreshEvents = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await getEvents();
+      lastUpdatedRef.current = new Date();
+    } catch (error) {
+      Alert.alert("Erro", "Falha ao atualizar eventos");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [getEvents]);
+  
+  // Verificar se precisamos atualizar eventos quando a tela for focada
   useEffect(() => {
+    // Se a tela está em foco, atualizamos os eventos, mas apenas se não tivermos dados
     if (isFocused) {
-      refreshEvents();
+      // Performance: só carrega se não houver eventos ou se a última atualização foi há mais de 5 minutos
+      const lastUpdateTime = lastUpdatedRef.current;
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      
+      if (lastUpdateTime < fiveMinutesAgo) {
+        console.log('[Performance] Refreshing events due to stale data');
+        refreshEvents();
+      } else {
+        console.log('[Performance] Skipping refresh - data is fresh');
+      }
     }
   }, [isFocused, refreshEvents]);
 
-  useEffect(() => {
-    if (events.length > 0) {
-      const now = new Date();
-      const upcoming = events
-        .filter((event) => new Date(event.data) >= now)
-        .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
-
-      if (upcoming.length > 0) {
-        setNextEvent(upcoming[0]);
-      } else {
-        setNextEvent(null);
+  // Calcular o próximo evento com memoização para evitar cálculos repetidos
+  const calculatedNextEvent = useMemo(() => {
+    // Evitar cálculos desnecessários se não há eventos
+    if (events.length === 0) return null;
+    
+    const startTime = performance.now();
+    const now = new Date();
+    
+    // Encontrar o próximo evento com uma única iteração em vez de filter + sort
+    let closestEvent = null;
+    let closestTime = Number.MAX_SAFE_INTEGER;
+    
+    for (const event of events) {
+      try {
+        const eventDate = new Date(event.data);
+        if (isNaN(eventDate.getTime())) continue;
+        
+        if (eventDate >= now) {
+          const timeDiff = eventDate.getTime() - now.getTime();
+          if (timeDiff < closestTime) {
+            closestTime = timeDiff;
+            closestEvent = event;
+          }
+        }
+      } catch (error) {
+        // Ignorar eventos com datas inválidas
+        console.warn(`Invalid date in event ${event.id}`, error);
       }
-    } else {
-      setNextEvent(null);
     }
-  }, [events]);
+    
+    // Log de performance apenas se demorar mais de 5ms
+    const endTime = performance.now();
+    const processingTime = endTime - startTime;
+    if (processingTime > 5) {
+      console.log(`[Performance] Next event calculation took ${processingTime.toFixed(2)}ms for ${events.length} events`);
+    }
+    
+    return closestEvent;
+  }, [events]);  // Depende apenas dos eventos
+  
+  // Atualiza o estado apenas quando o evento calculado mudar
+  useEffect(() => {
+    setNextEvent(calculatedNextEvent);
+  }, [calculatedNextEvent]);
 
   const handleEventPress = useCallback(
     (event: Event) => {
@@ -79,11 +140,11 @@ const HomeScreen = () => {
         [
           {
             text: "Visualizar",
-            onPress: () => navigation.navigate("EventView", { event }),
+            onPress: () => navigation.navigate("EventDetails", { event, editMode: false }),
           },
           {
             text: "Editar",
-            onPress: () => navigation.navigate("EventDetails", { event }),
+            onPress: () => navigation.navigate("EventDetails", { event, editMode: true }),
           },
           {
             text: "Excluir",
@@ -130,130 +191,157 @@ const HomeScreen = () => {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
+      backgroundColor: "#f2f2f7",
     },
     header: {
-      paddingTop: 40,
-      paddingBottom: 20,
-      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 10,
+      paddingHorizontal: 16,
     },
     sectionTitle: {
-      fontSize: 22,
+      fontSize: 18,
       fontWeight: "bold",
-      color: theme.colors.text,
+      color: "#333",
       marginVertical: 16,
-      marginLeft: 20,
+      marginLeft: 16,
     },
     welcomeCard: {
-      marginHorizontal: 20,
-      marginTop: 20,
-      borderRadius: 16,
-      elevation: 5,
+      borderRadius: 12,
       padding: 0,
-      overflow: "hidden",
-      backgroundColor: theme.colors.background,
-      borderColor: theme.colors.border,
+      margin: 16,
+      marginBottom: 8,
+      elevation: 3,
     },
     gradientContainer: {
+      borderRadius: 12,
       padding: 20,
     },
     welcomeTitle: {
-      fontSize: 24,
+      fontSize: 22,
       fontWeight: "bold",
-      color: isDarkMode ? "#fff" : "#fff",
-      marginBottom: 6,
+      color: "#fff",
+      marginBottom: 8,
     },
     welcomeSubtitle: {
       fontSize: 16,
-      color: isDarkMode ? "#fff" : "#fff",
+      color: "#fff",
       opacity: 0.9,
-      marginBottom: 16,
+      marginBottom: 20,
     },
     buttonContainer: {
       flexDirection: "row",
-      marginTop: 10,
     },
     actionButton: {
-      borderRadius: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      marginRight: 12,
-      backgroundColor: isDarkMode
-        ? "rgba(255,255,255,0.2)"
-        : "rgba(255,255,255,0.25)",
       flexDirection: "row",
       alignItems: "center",
+      backgroundColor: "rgba(255, 255, 255, 0.25)",
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      marginRight: 12,
     },
     actionButtonText: {
       color: "#fff",
-      fontWeight: "bold",
-      marginLeft: 6,
+      marginLeft: 8,
+      fontWeight: "600",
     },
     nextEventCard: {
-      marginHorizontal: 20,
-      marginVertical: 10,
       borderRadius: 12,
-      padding: 16,
-      backgroundColor: theme.colors.background,
-      borderColor: theme.colors.border,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      margin: 16,
+      marginTop: 8,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      elevation: 2,
     },
     nextEventHeader: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 12,
+      justifyContent: "space-between",
+      marginBottom: 16,
     },
     nextEventTitle: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: theme.colors.text,
-      marginLeft: 10,
-    },
-    nextEventContent: {
-      backgroundColor: isDarkMode
-        ? theme.colors.background
-        : theme.colors.background,
-      borderRadius: 8,
-      padding: 16,
-      marginTop: 8,
-    },
-    eventTitle: {
       fontSize: 16,
       fontWeight: "bold",
-      color: theme.colors.text,
-      marginBottom: 4,
+      color: "#333",
+      marginBottom: 8,
+    },
+    eventTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      color: "#333",
+      marginBottom: 12,
+    },
+    nextEventContent: {
+      marginBottom: 16,
     },
     eventDetail: {
       flexDirection: "row",
       alignItems: "center",
-      marginTop: 8,
+      marginBottom: 8,
     },
     eventDetailText: {
       fontSize: 14,
-      color: theme.colors.textSecondary,
-      marginLeft: 6,
-    },
-    noEventText: {
-      fontSize: 15,
-      color: theme.colors.textSecondary,
-      fontStyle: "italic",
-      textAlign: "center",
-      marginVertical: 10,
+      color: "#666",
+      marginLeft: 8,
     },
     nextEventActions: {
       flexDirection: "row",
       justifyContent: "flex-end",
-      marginTop: 16,
+      marginTop: 12,
     },
     nextEventButton: {
       marginLeft: 10,
     },
     nextEventButtonText: {
       color: theme.colors.primary,
-      fontWeight: "bold",
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    emptyNextEvent: {
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20,
+      marginTop: 10,
+    },
+    emptyNextEventText: {
+      fontSize: 16,
+      color: "#666",
+      textAlign: "center",
+      marginVertical: 16,
+      marginBottom: 24,
+    },
+    eventTypeTag: {
+      backgroundColor: "rgba(33, 150, 243, 0.1)",
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 16,
+      alignSelf: "flex-start",
+    },
+    eventTypeText: {
+      fontSize: 12,
+      color: "#2196F3",
+      fontWeight: "500",
+    },
+    nextEventDate: {
+      fontSize: 14,
+      color: "#757575",
+      fontWeight: "500",
+    },
+    nextEventDetail: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    nextEventText: {
+      fontSize: 14,
+      color: "#666",
+      marginLeft: 8,
+    },
+    noEventText: {
+      fontSize: 16,
+      color: "#666",
+      textAlign: "center",
+      marginVertical: 24,
     },
     fab: {
       position: "absolute",
@@ -263,142 +351,205 @@ const HomeScreen = () => {
     },
   });
 
-  const getGradientColors = () => {
-    if (isDarkMode) {
-      return ["#3700B3", "#5600E8", "#7928CA"];
-    } else {
-      return ["#6200ee", "#6F18FF", "#7928CA"];
-    }
-  };
-
-  return (
-    <View style={styles.container}>
-      <StatusBar
-        barStyle={isDarkMode ? "light-content" : "dark-content"}
-        backgroundColor={theme.colors.primary}
-      />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Card containerStyle={styles.welcomeCard}>
-            <LinearGradient
-              colors={getGradientColors() as [string, string, ...string[]]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.gradientContainer}
-            >
-              <Text style={styles.welcomeTitle}>Bem-vindo ao JusAgenda</Text>
-              <Text style={styles.welcomeSubtitle}>
-                Gerencie sua agenda jurídica com facilidade
-              </Text>
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-onPress={() =>
-  navigation.navigate("EventDetails", { event: nextEvent ?? {} as Event, editMode: true })
-}
-                >
-                  <Icon name="add-circle" color="#fff" size={16} />
-                  <Text style={styles.actionButtonText}>Novo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => navigation.navigate("Search")}
-                >
-                  <Icon name="search" color="#fff" size={16} />
-                  <Text style={styles.actionButtonText}>Buscar</Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Card>
+  // Componente memoizado para o card de boas-vindas
+  const WelcomeCard = memo(({ onAddPress, onSearchPress }: { 
+    onAddPress: () => void; 
+    onSearchPress: () => void; 
+  }) => (
+    <Card containerStyle={styles.welcomeCard}>
+      <LinearGradient
+        colors={[
+          theme.colors.primary,
+          isDarkMode ? "#222266" : "#4444aa",
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <Text style={styles.welcomeTitle}>Bem-vindo ao JusAgenda</Text>
+        <Text style={styles.welcomeSubtitle}>
+          Gerencie seus compromissos jurídicos
+        </Text>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onAddPress}
+          >
+            <Icon name="add" size={18} color="#fff" />
+            <Text style={styles.actionButtonText}>Novo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onSearchPress}
+          >
+            <Icon name="search" size={18} color="#fff" />
+            <Text style={styles.actionButtonText}>Buscar</Text>
+          </TouchableOpacity>
         </View>
-
-        {nextEvent && (
-          <>
-            <Text style={styles.sectionTitle}>Próximo Compromisso</Text>
-            <Card containerStyle={styles.nextEventCard}>
-              <View style={styles.nextEventHeader}>
-                <Icon
-                  name={
-                    nextEvent.tipo === "audiencia"
-                      ? "gavel"
-                      : nextEvent.tipo === "reuniao"
-                      ? "groups"
-                      : nextEvent.tipo === "prazo"
-                      ? "timer"
-                      : "event"
-                  }
-                  color={theme.colors.primary}
-                  size={24}
-                  style={{
-                    backgroundColor: isDarkMode
-                      ? theme.colors.background
-                      : `${theme.colors.primary}15`,
-                    padding: 10,
-                    borderRadius: 8,
-                  }}
-                />
-                <Text style={styles.nextEventTitle}>
-                  {isToday(nextEvent.data) ? "Hoje" : "Em breve"}
-                </Text>
-              </View>
-              <View style={styles.nextEventContent}>
-                <Text style={styles.eventTitle}>{nextEvent.title}</Text>
-                <View style={styles.eventDetail}>
-                  <Icon
-                    name="calendar-today"
-                    size={16}
-                    color={theme.colors.textSecondary}
-                  />
-                  <Text style={styles.eventDetailText}>
-                    {formatDateTime(nextEvent.data)}
-                  </Text>
-                </View>
-                {nextEvent.local && (
-                  <View style={styles.eventDetail}>
-                    <Icon
-                      name="location-on"
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                    <Text style={styles.eventDetailText}>
-                      {nextEvent.local}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.nextEventActions}>
-                <TouchableOpacity
-                  style={styles.nextEventButton}
-                  onPress={() =>
-                    navigation.navigate("EventView", { event: nextEvent })
-                  }
-                >
-                  <Text style={styles.nextEventButtonText}>Ver Detalhes</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.nextEventButton}
-onPress={() =>
-  navigation.navigate("EventDetails", { event: nextEvent, editMode: true })
-}
-                >
-                  <Text style={styles.nextEventButtonText}>Editar</Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
-          </>
+      </LinearGradient>
+    </Card>
+  ));
+  
+  // Componente memoizado para o próximo evento
+  const NextEventCard = memo(({ event, onViewDetails, onEdit }: {
+    event: Event | null;
+    onViewDetails: (event: Event) => void;
+    onEdit: (event: Event) => void;
+  }) => {
+    if (!event) {
+      return (
+        <Card containerStyle={styles.nextEventCard}>
+          <Text style={styles.sectionTitle}>Próximo Compromisso</Text>
+          <View style={styles.emptyNextEvent}>
+            <Icon
+              name="event-available"
+              size={48}
+              color={theme.colors.textSecondary}
+            />
+            <Text style={styles.emptyNextEventText}>
+              Você não tem compromissos futuros agendados
+            </Text>
+            <Button
+              title="Adicionar Compromisso"
+              icon={{
+                name: "add",
+                size: 16,
+                color: "white",
+              }}
+              buttonStyle={{
+                backgroundColor: theme.colors.primary,
+                borderRadius: 8,
+              }}
+              onPress={() => navigation.navigate("EventDetails", { editMode: true })}
+            />
+          </View>
+        </Card>
+      );
+    }
+    
+    return (
+      <Card containerStyle={styles.nextEventCard}>
+        <Text style={styles.sectionTitle}>Próximo Compromisso</Text>
+        <View style={styles.nextEventHeader}>
+          <View style={styles.eventTypeTag}>
+            <Text style={styles.eventTypeText}>
+              {event.tipo?.charAt(0).toUpperCase() +
+                event.tipo?.slice(1) || "Compromisso"}
+            </Text>
+          </View>
+          <Text style={styles.nextEventDate}>
+            {formatDateTime(event.data)}
+          </Text>
+        </View>
+        <Text style={styles.nextEventTitle}>{event.title}</Text>
+        {event.local && (
+          <View style={styles.nextEventDetail}>
+            <Icon name="location-on" size={16} color="#757575" />
+            <Text style={styles.nextEventText}>{event.local}</Text>
+          </View>
         )}
+        {event.cliente && (
+          <View style={styles.nextEventDetail}>
+            <Icon name="person" size={16} color="#757575" />
+            <Text style={styles.nextEventText}>{event.cliente}</Text>
+          </View>
+        )}
+        <View style={styles.nextEventActions}>
+          <Button
+            title="Ver Detalhes"
+            type="outline"
+            buttonStyle={styles.nextEventButton}
+            titleStyle={{
+              color: theme.colors.primary,
+              fontSize: 14,
+            }}
+            icon={{
+              name: "visibility",
+              size: 16,
+              color: theme.colors.primary,
+            }}
+            onPress={() => onViewDetails(event)}
+          />
+          <Button
+            title="Editar"
+            type="clear"
+            buttonStyle={styles.nextEventButton}
+            titleStyle={{
+              color: theme.colors.primary,
+              fontSize: 14,
+            }}
+            icon={{
+              name: "edit",
+              size: 16,
+              color: theme.colors.primary,
+            }}
+            onPress={() => onEdit(event)}
+          />
+        </View>
+      </Card>
+    );
+  });
+  
+  // Handlers memoizados para evitar re-renders desnecessários
+  const handleAddPress = useCallback(() => {
+    navigation.navigate("EventDetails", { editMode: true });
+  }, [navigation]);
+  
+  const handleSearchPress = useCallback(() => {
+    navigation.navigate("Search");
+  }, [navigation]);
+  
+  const handleViewDetails = useCallback((event: Event) => {
+    navigation.navigate("EventDetails", {
+      event,
+      editMode: false,
+    });
+  }, [navigation]);
+  
+  const handleEdit = useCallback((event: Event) => {
+    navigation.navigate("EventDetails", {
+      event,
+      editMode: true,
+    });
+  }, [navigation]);
+  
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true} // Melhora performance ao remover views fora de tela
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refreshEvents}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
+        {/* Welcome Card - Memoizado para evitar re-renders */}
+        <WelcomeCard 
+          onAddPress={handleAddPress} 
+          onSearchPress={handleSearchPress} 
+        />
 
-        <Text style={styles.sectionTitle}>Compromissos Futuros</Text>
+        {/* Next Event Card - Memoizado */}
+        <NextEventCard 
+          event={nextEvent} 
+          onViewDetails={handleViewDetails} 
+          onEdit={handleEdit} 
+        />
+
+        {/* Upcoming Events - Componente já externo */}
+        <Text style={styles.sectionTitle}>Compromissos Próximos</Text>
         <UpcomingEvents onEventPress={handleEventPress} />
       </ScrollView>
 
       <FAB
         icon={{ name: "add", color: "white" }}
         color={theme.colors.primary}
-        style={styles.fab}
-        onPress={() =>
-          navigation.navigate("EventDetails", { event: nextEvent ?? {} as Event })
-        }
+        placement="right"
+        onPress={handleAddPress}
       />
     </View>
   );

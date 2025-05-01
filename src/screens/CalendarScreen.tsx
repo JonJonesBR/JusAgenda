@@ -1,33 +1,35 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
-import type { Event, EventContextType } from "../types/event";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-
-type RootStackParamList = {
-  EventView: { event: Event };
-  EventDetails: { event: Event };
-  Sync: { screen: string };
-};
-
+import React, { useState, useEffect, useCallback, memo } from "react";
 import {
   View,
+  Text,
   StyleSheet,
+  TouchableOpacity,
+  Modal,
   Alert,
-  StatusBar,
-  Platform,
-  RefreshControl,
-  FlatList,
 } from "react-native";
-import { TouchableOpacity } from "react-native-gesture-handler";
-import { Text, Card, Icon, Button, Overlay } from "@rneui/themed";
+import { FAB, Icon } from "@rneui/themed";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
+import { Agenda, LocaleConfig } from "react-native-calendars";
+import { useEvents } from "../contexts/EventContext";
+import { useTheme } from "../contexts/ThemeContext";
+import { calendarTheme } from "../theme/calendarTheme";
+import moment from "moment";
+import "moment/locale/pt-br";
 import * as Haptics from "expo-haptics";
 import Toast from "react-native-toast-message";
-import SkeletonLoader from "../components/SkeletonLoader";
-import { Calendar, LocaleConfig } from "react-native-calendars";
-import { useNavigation } from "@react-navigation/native";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { useEvents } from "../contexts/EventContext";
+
+// Componentes de performance
+import { LazyComponent } from "../components/LazyComponent";
+import { OptimizedFlatList } from "../components/OptimizedFlatList";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+import { useResponsiveDimensions, responsiveSize } from "../utils/responsiveUtils";
+import { prefetchManager, PrefetchResourceType } from "../utils/prefetchManager";
 import { formatDate, formatTime } from "../utils/dateUtils";
-import { COLORS } from "../utils/common";
+import type { Event } from "../types/event";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+moment.locale("pt-br");
 
 // Configuração do calendário em português
 LocaleConfig.locales["pt-br"] = {
@@ -46,18 +48,18 @@ LocaleConfig.locales["pt-br"] = {
     "Dezembro",
   ],
   monthNamesShort: [
-    "Jan.",
-    "Fev.",
-    "Mar.",
-    "Abr.",
-    "Mai.",
-    "Jun.",
-    "Jul.",
-    "Ago.",
-    "Set.",
-    "Out.",
-    "Nov.",
-    "Dez.",
+    "Jan",
+    "Fev",
+    "Mar",
+    "Abr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Set",
+    "Out",
+    "Nov",
+    "Dez",
   ],
   dayNames: [
     "Domingo",
@@ -68,584 +70,548 @@ LocaleConfig.locales["pt-br"] = {
     "Sexta",
     "Sábado",
   ],
-  dayNamesShort: ["Dom.", "Seg.", "Ter.", "Qua.", "Qui.", "Sex.", "Sáb."],
+  dayNamesShort: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
   today: "Hoje",
 };
 LocaleConfig.defaultLocale = "pt-br";
 
+type NavigationProp = NativeStackNavigationProp<{
+  EventDetails: { event?: Event; editMode?: boolean };
+}>;
+
 const CalendarScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { events, refreshEvents, deleteEvent, loading } = useEvents() as EventContextType;
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [deletedEvent, setDeletedEvent] = useState<Event | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [markedDates, setMarkedDates] = useState<Record<string, { marked: boolean; dotColor: string }>>({});
-  const [isFilterVisible, setIsFilterVisible] = useState<boolean>(false);
-  const [filterType, setFilterType] = useState<"all" | "specific" | "range">("all");
-  const [startDate, setStartDate] = useState<Date>(new Date());
-  const [endDate, setEndDate] = useState<Date>(new Date());
+  // Hooks para navegação e estado
+  const navigation = useNavigation<NavigationProp>();
+  const isFocused = useIsFocused();
+  const { theme } = useTheme();
+  const { events, deleteEvent } = useEvents();
+  
+  // Estados para o gerenciamento do calendário
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
+  const [eventsMap, setEventsMap] = useState<{[key: string]: Event[]}>({});
+  const [markedDates, setMarkedDates] = useState<{[key: string]: any}>({});
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
-  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  const [datePickerType, setDatePickerType] = useState<"start" | "end">("start");
-  const [isEventsModalVisible, setIsEventsModalVisible] = useState<boolean>(false);
+  
+  // Estados para gerenciamento de modais
+  // Removendo estados não utilizados para limpar o código
+  const [isEventsModalVisible, setIsEventsModalVisible] = useState(false);
+  const [menuEvent, setMenuEvent] = useState<Event | null>(null);
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [showUndoDelete, setShowUndoDelete] = useState(false);
+  const [lastDeletedEvent, setLastDeletedEvent] = useState<Event | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadEvents = async () => {
-      try {
-        await refreshEvents();
-        if (isMounted) {
-          setFilteredEvents(events);
-        }
-      } catch (error) {
-        console.error("Error loading events:", error);
-      }
-    };
-    loadEvents();
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshEvents]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refreshEvents();
-    setFilteredEvents(events);
-    setRefreshing(false);
-  }, [refreshEvents, events]);
-
+  // Obter cor do evento com base no tipo (memoizada para evitar recálculos desnecessários)
   const getEventColor = useCallback((type: string) => {
     switch (type?.toLowerCase()) {
       case "audiencia":
-        return "#6200ee";
-      case "reuniao":
-        return "#03dac6";
+        return theme.colors.warning;
       case "prazo":
-        return "#ff0266";
-      default:
-        return "#018786";
-    }
-  }, []);
-
-  const updateMarkedDates = useCallback(
-    (eventsToMark: Event[]) => {
-      const marks: Record<string, { marked: boolean; dotColor: string }> = {};
-      eventsToMark.forEach((event) => {
-        try {
-          const eventDate = new Date(event.data);
-          if (isNaN(eventDate.getTime())) {
-            console.warn(`Invalid date found in event: ${event.id}`);
-            return;
-          }
-          const dateString = eventDate.toISOString().split("T")[0];
-          marks[dateString] = {
-            marked: true,
-            dotColor: getEventColor(event.tipo),
-          };
-        } catch (error) {
-          console.warn(
-            `Error processing date for event ${event.id || "unknown"}:`,
-            error
-          );
-        }
-      });
-      setMarkedDates(marks);
-    },
-    [getEventColor]
-  );
-
-  useEffect(() => {
-    try {
-      if (filterType === "all") {
-        setFilteredEvents(events);
-      }
-      if (events && Array.isArray(events)) {
-        updateMarkedDates(events);
-      }
-    } catch (error) {
-      console.error("Error updating filtered events or marked dates:", error);
-    }
-  }, [events, filterType, updateMarkedDates]);
-
-  const handleDatePickerChange = useCallback(
-    (e: any, selected?: Date) => {
-      setShowDatePicker(false);
-      if (selected) {
-        if (datePickerType === "start") {
-          setStartDate(selected);
-        } else {
-          setEndDate(selected);
-        }
-      }
-    },
-    [datePickerType]
-  );
-
-  const getEventTypeIcon = useCallback((type: string) => {
-    switch (type?.toLowerCase()) {
-      case "audiencia":
-        return { name: "gavel", color: "#6200ee" };
+        return theme.colors.error;
       case "reuniao":
-        return { name: "groups", color: "#03dac6" };
-      case "prazo":
-        return { name: "timer", color: "#ff0266" };
+        return theme.colors.success;
+      case "outro":
+        return theme.colors.primary;
       default:
-        return { name: "event", color: "#018786" };
+        return theme.colors.grey1;
     }
-  }, []);
+  }, [theme.colors]);
 
-  const getDayEvents = useCallback(
-    (dateString: string): Event[] => {
-      return filteredEvents.filter((event) => {
-        try {
-          const eventDate = new Date(event.data);
-          if (isNaN(eventDate.getTime())) {
-            console.warn(`Invalid date found in event: ${event.id}`);
-            return false;
-          }
-          return eventDate.toISOString().split("T")[0] === dateString;
-        } catch (error) {
-          console.warn(
-            `Error processing date for event ${event.id || "unknown"}:`,
-            error
-          );
-          return false;
-        }
-      });
-    },
-    [filteredEvents]
-  );
-
-  const applyFilter = useCallback(() => {
-    try {
-      switch (filterType) {
-        case "all":
-          setFilteredEvents(events);
-          break;
-        case "specific":
-          setFilteredEvents(
-            events.filter((event) => {
-              try {
-                const eventDate = new Date(event.data);
-                if (isNaN(eventDate.getTime())) {
-                  console.warn(`Invalid date found in event: ${event.id}`);
-                  return false;
-                }
-                const filterDate = startDate.toISOString().split("T")[0];
-                return eventDate.toISOString().split("T")[0] === filterDate;
-              } catch (error) {
-                console.warn(
-                  `Error processing date for event ${event.id || "unknown"}:`,
-                  error
-                );
-                return false;
-              }
-            })
-          );
-          break;
-        case "range":
-          setFilteredEvents(
-            events.filter((event) => {
-              try {
-                const eventDate = new Date(event.data);
-                if (isNaN(eventDate.getTime())) {
-                  console.warn(`Invalid date found in event: ${event.id}`);
-                  return false;
-                }
-                return eventDate >= startDate && eventDate <= endDate;
-              } catch (error) {
-                console.warn(
-                  `Error processing date for event ${event.id || "unknown"}:`,
-                  error
-                );
-                return false;
-              }
-            })
-          );
-          break;
-        default:
-          setFilteredEvents(events);
-      }
-    } catch (error) {
-      console.error("Error applying filter:", error);
-      setFilteredEvents(events);
-    }
-  }, [events, filterType, startDate, endDate]);
-
-  const undoDelete = useCallback(async () => {
-    if (deletedEvent) {
+  // Preparar dados do calendário com otimização e memoização
+  const prepareCalendarData = useCallback(() => {
+    // Definir estado de carregamento
+    setRefreshing(true);
+    setIsCalendarLoading(true);
+    
+    // Usar setTimeout para evitar bloqueio da UI durante o processamento
+    setTimeout(() => {
       try {
-        await refreshEvents();
-        setDeletedEvent(null);
-        Toast.show({
-          type: "success",
-          text1: "Exclusão desfeita",
-          text2: "O compromisso foi restaurado com sucesso",
-          position: "bottom",
-        });
+        // Criar mapa de eventos agrupados por data de forma mais eficiente
+        const eventsByDate: {[key: string]: Event[]} = {};
+        const datesWithEvents: {[key: string]: any} = {};
+        
+        // Processar eventos em lotes para evitar bloqueio da UI em grandes conjuntos de dados
+        const processEvents = () => {
+          // Usar reduce para melhor performance em vez de forEach
+          events.reduce((acc, event) => {
+            const dateStr = moment(event.data).format("YYYY-MM-DD");
+            
+            // Inicializar array se necessário e adicionar evento
+            if (!acc.eventsByDate[dateStr]) {
+              acc.eventsByDate[dateStr] = [];
+            }
+            acc.eventsByDate[dateStr].push(event);
+            
+            // Marcar data no calendário com cor baseada na prioridade
+            acc.datesWithEvents[dateStr] = {
+              marked: true,
+              dotColor: getEventColor(event.tipo),
+            };
+            
+            return acc;
+          }, { eventsByDate, datesWithEvents });
+          
+          // Atualizar estados com os dados processados
+          setEventsMap(eventsByDate);
+          setMarkedDates(datesWithEvents);
+          setFilteredEvents(eventsByDate[selectedDate] || []);
+          setRefreshing(false);
+          setIsCalendarLoading(false);
+        };
+        
+        // Executar processamento
+        processEvents();
       } catch (error) {
+        console.error('Erro ao processar dados do calendário:', error);
+        setRefreshing(false);
+        setIsCalendarLoading(false);
         Toast.show({
           type: "error",
-          text1: "Erro",
-          text2: "Não foi possível restaurar o compromisso",
+          text1: "Erro ao carregar calendário",
+          text2: "Tente novamente em instantes",
           position: "bottom",
         });
       }
+    }, 100); // Pequeno atraso para permitir que a UI responda
+  }, [events, selectedDate, getEventColor]);
+
+  // Atualizar dados quando a tela recebe foco
+  useEffect(() => {
+    if (isFocused) {
+      prepareCalendarData();
+      
+      // Prefetch de eventos para os próximos meses em background
+      prefetchManager.forcePrefetch(PrefetchResourceType.EVENTS, { months: 3 })
+        .catch(err => {
+          console.warn('Erro ao prefetch de eventos:', err);
+        });
     }
-  }, [deletedEvent, refreshEvents]);
+  }, [isFocused, events, prepareCalendarData]);
 
-  const confirmDelete = useCallback(
-    (event: Event) => {
-      Alert.alert(
-        "Confirmar Exclusão",
-        "Tem certeza que deseja excluir este compromisso?",
-        [
-          { text: "Não", style: "cancel" },
-          {
-            text: "Sim",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Success
-                );
-                setDeletedEvent(event);
-                await deleteEvent(event.id);
-                await refreshEvents();
-                applyFilter();
-                Toast.show({
-                  type: "info",
-                  text1: "Compromisso excluído",
-                  text2: "Toque para desfazer",
-                  position: "bottom",
-                  visibilityTime: 4000,
-                  autoHide: true,
-                  onPress: undoDelete,
-                });
-              } catch (error) {
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Error
-                );
-                Toast.show({
-                  type: "error",
-                  text1: "Erro",
-                  text2:
-                    "Não foi possível excluir o compromisso. Tente novamente.",
-                  position: "bottom",
-                });
-              }
-            },
-          },
-        ],
-        { cancelable: true }
-      );
-    },
-    [deleteEvent, refreshEvents, undoDelete, applyFilter]
-  );
-
-  const handleEventPress = useCallback(
-    (event: Event) => {
-      Haptics.selectionAsync();
-      Alert.alert(
-        "Opções",
-        "O que você deseja fazer?",
-        [
-          {
-            text: "Visualizar",
-            onPress: () => navigation.navigate("EventView", { event }),
-          },
-          {
-            text: "Editar",
-            onPress: () => navigation.navigate("EventDetails", { event }),
-          },
-          {
-            text: "Excluir",
-            style: "destructive",
-            onPress: () => confirmDelete(event),
-          },
-          { text: "Cancelar", style: "cancel" },
-        ],
-        { cancelable: true }
-      );
-    },
-    [navigation, confirmDelete]
-  );
-
-  const handleExportFiltered = useCallback(() => {
-    // Navigate to the Sync tab, then to the SyncExportOptions screen within that tab's stack
-    navigation.navigate("Sync", { screen: "SyncExportOptions" });
-  }, [navigation]);
-
+  // Função para tratar pressionar uma data no calendário
   const onDayPress = useCallback((day: { dateString: string }) => {
     setSelectedDate(day.dateString);
+    setFilteredEvents(eventsMap[day.dateString] || []);
     setIsEventsModalVisible(true);
+  }, [eventsMap]);
+
+  // Atualizar dados com feedback visual e tátil - usado no componente Agenda
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    prepareCalendarData();
+    // Fornecer feedback tátil em dispositivos compatíveis
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }, [prepareCalendarData]);
+  
+  // Renderizar item vazio no calendário
+  const renderEmptyDate = useCallback(() => {
+    return (
+      <View style={[styles.emptyCard, { backgroundColor: theme.colors.background }]}>
+        <Icon name="event-busy" type="material" size={40} color={theme.colors.grey3} />
+        <Text style={[styles.emptyText, { color: theme.colors.grey1 }]}>Nenhum evento nesta data</Text>
+      </View>
+    );
+  }, [theme.colors]);
+
+
+  
+  // Função para tratar o toque em um evento
+  const handleEventPress = useCallback((event: Event) => {
+    // Fornecer feedback tátil ao pressionar
+    Haptics.selectionAsync().catch(() => {});
+    
+    // Definir o evento selecionado e mostrar o menu
+    setMenuEvent(event);
+    setIsMenuVisible(true);
+  }, []);
+  
+  // Renderizar item da agenda
+  const renderAgendaItem = useCallback((item: Event) => {
+    return (
+      <TouchableOpacity 
+        onPress={() => handleEventPress(item)}
+        style={[styles.eventCard, { backgroundColor: theme.colors.card }]}
+      >
+        <View style={styles.eventHeader}>
+          <Text style={[styles.eventType, { color: getEventColor(item.tipo) }]}>{item.tipo}</Text>
+          <Text style={[styles.eventTime, { color: theme.colors.text }]}>{formatTime(item.data)}</Text>
+        </View>
+        <Text style={[styles.eventTitle, { color: theme.colors.text }]}>{item.titulo}</Text>
+        <View style={styles.eventInfo}>
+          <Icon name="person" type="material" size={16} color={theme.colors.grey3} />
+          <Text style={[styles.eventText, { color: theme.colors.grey1 }]}>{item.cliente}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [theme.colors, getEventColor, handleEventPress]);
+
+
+
+  // Confirmar exclusão de evento
+  const confirmDelete = useCallback((event: Event) => {
+    setIsMenuVisible(false);
+    
+    Alert.alert(
+      "Confirmar Exclusão",
+      `Tem certeza que deseja excluir o evento "${event.titulo}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            handleDeleteEvent(event);
+          },
+        },
+      ]
+    );
   }, []);
 
-  const renderModalEvents = () => {
-    const dayEvents = getDayEvents(selectedDate);
-    if (dayEvents.length === 0) {
+  // Tratar exclusão de evento
+  const handleDeleteEvent = useCallback((event: Event) => {
+    try {
+      deleteEvent(event.id);
+      setLastDeletedEvent(event);
+      setShowUndoDelete(true);
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Toast.show({
+        type: "success",
+        text1: "Evento excluído",
+        text2: showUndoDelete ? "Toque para desfazer" : "Evento removido com sucesso",
+        position: "bottom",
+        onPress: () => {
+          // Implementar lógica para desfazer exclusão se necessário
+          if (lastDeletedEvent && showUndoDelete) {
+            // Aqui seria implementada a lógica para restaurar o evento
+            console.log('Tentando restaurar evento:', lastDeletedEvent.id);
+          }
+        }
+      });
+      
+      // Atualizar dados do calendário
+      prepareCalendarData();
+      
+      // Ocultar o toast após 3 segundos
+      setTimeout(() => {
+        setShowUndoDelete(false);
+        setLastDeletedEvent(null); // Limpar referência ao evento excluído
+      }, 3000);
+      
+    } catch (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      Toast.show({
+        type: "error",
+        text1: "Erro",
+        text2: error instanceof Error ? error.message : "Erro ao excluir evento",
+        position: "bottom",
+      });
+    }
+  }, [deleteEvent, prepareCalendarData, lastDeletedEvent]);
+  
+  // Renderizar item da lista otimizada para modo landscape tablet
+  const renderEventItem = useCallback(({ item, onEventPress }: { item: Event; onEventPress: (event: Event) => void }) => {
+    // Usar informações de dimensões responsivas para adaptar o layout
+    const { dimensions } = useResponsiveDimensions();
+    const { isTablet } = dimensions;
+    
+    // Ajustar tamanhos com base no dispositivo
+    const titleSize = responsiveSize(isTablet ? 18 : 16, 0.4);
+    const detailSize = responsiveSize(isTablet ? 14 : 12, 0.4);
+    
+    return (
+      <TouchableOpacity
+        onPress={() => onEventPress(item)}
+        style={[styles.eventItem, { backgroundColor: theme.colors.card }]}
+      >
+        <View style={styles.eventTypeContainer}>
+          <View 
+            style={[styles.eventTypeIndicator, { backgroundColor: getEventColor(item.tipo) }]} 
+          />
+          <Text style={[
+            styles.eventTypeText, 
+            { color: theme.colors.grey1, fontSize: detailSize }
+          ]}>
+            {item.tipo} • {formatTime(item.data)}
+          </Text>
+        </View>
+        
+        <Text style={[
+          styles.eventTitle, 
+          { color: theme.colors.text, fontSize: titleSize }
+        ]}>
+          {item.titulo}
+        </Text>
+        
+        <View style={styles.eventDetails}>
+          <View style={styles.eventDetail}>
+            <Icon name="person" type="material" size={14} color={theme.colors.grey3} />
+            <Text style={[
+              styles.eventDetailText, 
+              { color: theme.colors.grey2, fontSize: detailSize }
+            ]}>
+              {item.cliente}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [theme.colors, getEventColor]);
+  
+  // Renderizar menu de ações para um evento
+  const renderMenuActions = useCallback(() => {
+    if (!menuEvent) return null;
+    
+    return (
+      <Modal
+        visible={isMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsMenuVisible(false)}
+        >
+          <View style={[
+            styles.menuContainer, 
+            { backgroundColor: theme.colors.card, borderColor: theme.colors.border }
+          ]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setIsMenuVisible(false);
+                navigation.navigate("EventDetails", { event: menuEvent });
+              }}
+            >
+              <Icon name="visibility" type="material" color={theme.colors.primary} size={24} />
+              <Text style={[styles.menuText, { color: theme.colors.text }]}>Ver detalhes</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setIsMenuVisible(false);
+                navigation.navigate("EventDetails", { event: menuEvent, editMode: true });
+              }}
+            >
+              <Icon name="edit" type="material" color={theme.colors.primary} size={24} />
+              <Text style={[styles.menuText, { color: theme.colors.text }]}>Editar evento</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => confirmDelete(menuEvent)}
+            >
+              <Icon name="delete" type="material" color={theme.colors.error} size={24} />
+              <Text style={[styles.menuText, { color: theme.colors.error }]}>Excluir evento</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  }, [menuEvent, isMenuVisible, theme.colors, navigation, confirmDelete]);
+  
+  // Renderizar modal de eventos para uma data
+  const renderModalEvents = useCallback(() => {
+    return (
+      <Modal
+        visible={isEventsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsEventsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[
+            styles.eventsModal, 
+            { backgroundColor: theme.colors.card, borderColor: theme.colors.border }
+          ]}>
+            <View style={styles.eventsModalHeader}>
+              <Text style={[
+                styles.eventsModalTitle, 
+                { color: theme.colors.primary }
+              ]}>
+                Eventos em {formatDate(selectedDate)}
+              </Text>
+              
+              <TouchableOpacity onPress={() => setIsEventsModalVisible(false)}>
+                <Icon name="close" type="material" size={24} color={theme.colors.grey1} />
+              </TouchableOpacity>
+            </View>
+            
+            <OptimizedFlatList
+              data={filteredEvents}
+              renderItem={({ item }) => renderEventItem({ item, onEventPress: handleEventPress })}
+              keyExtractor={(item) => item.id}
+              estimatedItemSize={100}
+              emptyText="Nenhum evento nesta data"
+              contentContainerStyle={styles.eventList}
+              initialNumToRender={8}
+              maxToRenderPerBatch={5}
+            />
+          </View>
+        </View>
+      </Modal>
+    );
+  }, [isEventsModalVisible, selectedDate, filteredEvents, theme.colors, renderEventItem, handleEventPress]);
+
+  // Estado para controlar o carregamento do calendário
+  const [isCalendarLoading, setIsCalendarLoading] = useState(true);
+
+  // Componente de calendário carregado de forma lazy para melhorar tempo de inicialização
+  const CalendarComponent = useCallback(() => {
+    // Efeito para atualizar o estado de carregamento quando o componente for montado
+    useEffect(() => {
+      setIsCalendarLoading(false);
+    }, []);
+    
+    // Função para renderizar o calendário após o carregamento
+    const renderCalendar = () => {
       return (
-        <Card containerStyle={styles.emptyCard}>
-          <Icon name="event-busy" size={48} color="#757575" />
-          <Text style={styles.emptyText}>Nenhum compromisso nesta data</Text>
-        </Card>
+        <Agenda
+          items={eventsMap}
+          selected={selectedDate}
+          renderItem={renderAgendaItem}
+          renderEmptyData={renderEmptyDate}
+          onDayPress={onDayPress}
+          refreshControl={null}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          showClosingKnob={true}
+          theme={{
+            ...calendarTheme,
+            agendaDayTextColor: theme.colors.text,
+            agendaDayNumColor: theme.colors.text,
+            agendaTodayColor: theme.colors.primary,
+            agendaKnobColor: theme.colors.primary,
+            todayBackgroundColor: theme.colors.primary,
+            selectedDayBackgroundColor: theme.colors.primary,
+            dotColor: theme.colors.primary,
+          }}
+          futureScrollRange={6}
+          pastScrollRange={6}
+          markingType="dot"
+          markedDates={markedDates}
+          // Otimizações para evitar travamentos
+          onCalendarToggled={() => {}}
+          hideKnob={false}
+          initialNumToRender={5}
+          maxToRenderPerBatch={3}
+          windowSize={7}
+          removeClippedSubviews={true}
+        />
+      );
+    };
+
+    return (
+      <LazyComponent
+        importFunc={() => Promise.resolve({ default: renderCalendar })}
+        loadingText="Carregando calendário..."
+        preload={true}
+        fallback={<LoadingSkeleton type="calendar" style={styles.calendarSkeleton} />}
+        onLoad={() => setIsCalendarLoading(false)}
+      />
+    );
+  }, [eventsMap, selectedDate, renderAgendaItem, renderEmptyDate, onDayPress, markedDates, theme.colors, calendarTheme, refreshing]);
+
+
+  // Detectar dimensões do dispositivo para layout responsivo
+  const { dimensions } = useResponsiveDimensions();
+  const { isTablet, orientation } = dimensions;
+  
+  // Renderização condicional com base no estado de carregamento
+  const renderContent = () => {
+    // Se estiver carregando e não tiver dados, mostrar esqueleto
+    if (isCalendarLoading && Object.keys(eventsMap).length === 0) {
+      return (
+        <View style={styles.loadingContainer}>
+          <LoadingSkeleton type="calendar" style={styles.calendarSkeleton} />
+        </View>
       );
     }
-    dayEvents.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
+    // Renderização normal para dispositivos móveis
+    if (!isTablet || orientation !== 'landscape') {
+      return <CalendarComponent />;
+    }
+
+    // Layout dividido para tablets em modo paisagem
     return (
-      <FlatList<Event>
-        data={dayEvents}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item: event }) => (
-          <TouchableOpacity
-            onPress={() => {
-              setIsEventsModalVisible(false);
-              handleEventPress(event);
-            }}
-            activeOpacity={0.85}
-          >
-            <Card containerStyle={styles.eventCard}>
-              <View style={styles.eventHeader}>
-                <Icon {...getEventTypeIcon(event.tipo)} />
-                <Text style={styles.eventType}>
-                  {event.tipo?.charAt(0).toUpperCase() + event.tipo?.slice(1)}
-                </Text>
-                <Text style={styles.eventTime}>{formatTime(event.data)}</Text>
-              </View>
-              <Text style={styles.eventTitle}>{event.title}</Text>
-              {event.local && (
-                <View style={styles.eventInfo}>
-                  <Icon name="location-on" size={16} color="#757575" />
-                  <Text style={styles.eventText}>{event.local}</Text>
-                </View>
-              )}
-              {event.cliente && (
-                <View style={styles.eventInfo}>
-                  <Icon name="person" size={16} color="#757575" />
-                  <Text style={styles.eventText}>{event.cliente}</Text>
-                </View>
-              )}
-            </Card>
-          </TouchableOpacity>
-        )}
-      />
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        <View style={{ flex: 1 }}>
+          <CalendarComponent />
+        </View>
+        <View style={{ width: 350, borderLeftWidth: 1, borderLeftColor: theme.colors.border }}>
+          <View style={styles.listHeaderContainer}>
+            <Text style={[styles.listHeaderText, {color: theme.colors.text}]}>
+              Eventos em {formatDate(selectedDate)}
+            </Text>
+          </View>
+          
+          <OptimizedFlatList
+            data={filteredEvents}
+            renderItem={({item}) => renderEventItem({item, onEventPress: handleEventPress})}
+            keyExtractor={(item) => item.id}
+            estimatedItemSize={100}
+            emptyText="Nenhum evento nesta data"
+            contentContainerStyle={styles.eventList}
+            initialNumToRender={8}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+          />
+        </View>
+      </View>
     );
   };
 
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-        <View style={styles.header}>
-          <Text h4 style={styles.headerTitle}>
-            Agenda
-          </Text>
-          <View style={styles.headerButtons}>
-            <Button
-              icon={{ name: "filter-list", color: "white" }}
-              type="clear"
-              disabled
-            />
-            <Button
-              icon={{ name: "file-download", color: "white" }}
-              type="clear"
-              disabled
-            />
-          </View>
-        </View>
-        <View style={styles.skeletonCalendar}>
-          <SkeletonLoader type="list" height={300} />
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      <View style={styles.header}>
-        <Text h4 style={styles.headerTitle}>
-          Agenda
-        </Text>
-        <View style={styles.headerButtons}>
-          <Button
-            icon={{
-              name: "filter-list",
-              color: filterType !== "all" ? COLORS.secondary : "white",
-            }}
-            type="clear"
-            onPress={() => setIsFilterVisible(true)}
-          />
-          <Button
-            icon={{ name: "file-download", color: "white" }}
-            type="clear"
-            onPress={handleExportFiltered}
-          />
-        </View>
-      </View>
-      <Calendar
-        onDayPress={onDayPress}
-        markedDates={{
-          ...markedDates,
-          [selectedDate]: {
-            ...(markedDates[selectedDate] || {}),
-            selected: true,
-            selectedColor: COLORS.primary,
-          },
-        }}
-        theme={{
-          todayTextColor: COLORS.primary,
-          selectedDayBackgroundColor: COLORS.primary,
-          arrowColor: COLORS.primary,
-          monthTextColor: COLORS.primary,
-          textMonthFontSize: 16,
-          textDayHeaderFontSize: 14,
-          "stylesheet.calendar.header": { arrow: { padding: 10 } },
-        }}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {renderContent()}
+
+      <FAB
+        icon={{ name: "add", color: "white" }}
+        color={theme.colors.primary}
+        style={styles.fab}
+        onPress={() => navigation.navigate("EventDetails", { editMode: true })}
       />
-      <Overlay
-        isVisible={isEventsModalVisible}
-        onBackdropPress={() => setIsEventsModalVisible(false)}
-        overlayStyle={styles.eventsModal}
-      >
-        <View style={styles.eventsModalHeader}>
-          <Text style={styles.eventsModalTitle}>
-            Compromissos para {selectedDate}
-          </Text>
-          <Button
-            title="Fechar"
-            onPress={() => setIsEventsModalVisible(false)}
-            type="clear"
-          />
-        </View>
-        {renderModalEvents()}
-      </Overlay>
-      <Overlay
-        isVisible={isFilterVisible}
-        onBackdropPress={() => setIsFilterVisible(false)}
-        overlayStyle={styles.overlay}
-      >
-        <Text h4 style={styles.overlayTitle}>
-          Filtrar Eventos
-        </Text>
-        <View style={styles.filterOptions}>
-          <Button
-            title="Todos"
-            type={filterType === "all" ? "solid" : "outline"}
-            onPress={() => setFilterType("all")}
-            containerStyle={styles.filterButton}
-          />
-          <Button
-            title="Intervalo"
-            type={filterType === "range" ? "solid" : "outline"}
-            onPress={() => setFilterType("range")}
-            containerStyle={styles.filterButton}
-          />
-          <Button
-            title="Data Específica"
-            type={filterType === "specific" ? "solid" : "outline"}
-            onPress={() => setFilterType("specific")}
-            containerStyle={styles.filterButton}
-          />
-        </View>
-        {(filterType === "range" || filterType === "specific") && (
-          <View style={styles.dateInputs}>
-            <TouchableOpacity
-              style={styles.dateInput}
-              onPress={() => {
-                setDatePickerType("start");
-                setShowDatePicker(true);
-              }}
-            >
-              <Text style={styles.dateInputLabel}>Data Inicial</Text>
-              <Text>{formatDate(startDate)}</Text>
-            </TouchableOpacity>
-            {filterType === "range" && (
-              <TouchableOpacity
-                style={styles.dateInput}
-                onPress={() => {
-                  setDatePickerType("end");
-                  setShowDatePicker(true);
-                }}
-              >
-                <Text style={styles.dateInputLabel}>Data Final</Text>
-                <Text>{formatDate(endDate)}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-        {showDatePicker && (
-          <DateTimePicker
-            value={datePickerType === "start" ? startDate : endDate}
-            mode="date"
-            display="default"
-            onChange={handleDatePickerChange}
-          />
-        )}
-        <Button
-          title="Aplicar Filtro"
-          onPress={() => {
-            applyFilter();
-            setIsFilterVisible(false);
-          }}
-          buttonStyle={styles.applyButton}
-        />
-      </Overlay>
-    </View>
+
+      {renderModalEvents()}
+      {renderMenuActions()}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  header: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    paddingTop: Platform.OS === "ios" ? 50 : 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  container: { 
+    flex: 1, 
+    backgroundColor: "#f5f5f5" 
   },
-  headerTitle: { color: "white", fontSize: 20, fontWeight: "bold" },
-  headerButtons: { flexDirection: "row" },
-  overlay: { width: "90%", borderRadius: 10, padding: 20 },
-  overlayTitle: { textAlign: "center", marginBottom: 20 },
-  filterOptions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  filterButton: { width: "48%", marginBottom: 10 },
-  dateInputs: { marginBottom: 20 },
-  dateInput: {
-    padding: 15,
-    backgroundColor: "#f5f5f5",
+  calendarSkeleton: {
+    flex: 1,
+    marginHorizontal: 10,
+    marginTop: 10,
     borderRadius: 8,
-    marginBottom: 10,
   },
-  dateInputLabel: { color: COLORS.textSecondary, marginBottom: 5 },
-  applyButton: { backgroundColor: COLORS.primary, borderRadius: 8 },
-  eventsModal: {
-    width: "90%",
-    maxHeight: "80%",
-    borderRadius: 12,
-    padding: 16,
-  },
-  eventsModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
   },
-  eventsModalTitle: { fontSize: 18, fontWeight: "bold", color: COLORS.primary },
-  skeletonCalendar: { padding: 16, backgroundColor: "#f5f5f5" },
   emptyCard: {
     borderRadius: 12,
     padding: 24,
     alignItems: "center",
     elevation: 4,
+    marginHorizontal: 16,
+    marginVertical: 8,
   },
-  emptyText: { marginTop: 16, fontSize: 16, color: "#757575" },
+  emptyText: { 
+    marginTop: 16, 
+    fontSize: 16, 
+    color: "#757575" 
+  },
   eventCard: {
     borderRadius: 12,
     padding: 20,
@@ -656,6 +622,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+    marginHorizontal: 16,
   },
   eventHeader: {
     flexDirection: "row",
@@ -663,17 +630,132 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     justifyContent: "space-between",
   },
-  eventType: { fontSize: 16, fontWeight: "bold", color: COLORS.primary },
-  eventTime: { fontSize: 16, color: "#333" },
+  eventType: { 
+    fontSize: 16, 
+    fontWeight: "bold"
+  },
+  eventTime: { 
+    fontSize: 16
+  },
   eventTitle: {
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 12,
-    color: "#333",
     textAlign: "center",
   },
-  eventInfo: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  eventText: { marginLeft: 8, fontSize: 16, color: "#333" },
+  eventInfo: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginTop: 4 
+  },
+  eventText: { 
+    marginLeft: 8, 
+    fontSize: 16
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuContainer: {
+    width: 250,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E0E0E0",
+  },
+  menuText: {
+    fontSize: 16,
+    marginLeft: 16,
+  },
+  eventsModal: {
+    width: "90%",
+    maxHeight: "80%",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+  },
+  eventsModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  eventsModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  // Estilos responsivos
+  eventItem: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 12,
+    marginVertical: 6,
+    marginHorizontal: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  // Estilos para o layout splitview (tablet)
+  listHeaderContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+  },
+  listHeaderText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  eventList: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  // Estilos para o componente de evento
+  eventTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  eventTypeIndicator: {
+    width: 4,
+    height: 16,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  eventTypeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  eventDetails: {
+    marginTop: 8,
+  },
+  eventDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  eventDetailText: {
+    marginLeft: 6,
+    color: '#666',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+  },
 });
 
 export default memo(CalendarScreen);

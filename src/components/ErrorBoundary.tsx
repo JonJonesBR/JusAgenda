@@ -3,6 +3,7 @@ import { View, Text, Button, StyleSheet, SafeAreaView } from "react-native";
 import { Icon } from "@rneui/themed";
 import { ThemeContext } from "../contexts/ThemeContext";
 import type { ErrorHandlerProps } from "./ErrorHandler";
+import { defaultTheme } from "../theme/defaultTheme";
 
 interface Props {
   children: ReactNode;
@@ -24,6 +25,7 @@ interface State {
 class ErrorBoundary extends Component<Props, State> {
   static contextType = ThemeContext;
   declare context: React.ContextType<typeof ThemeContext>;
+
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -82,24 +84,11 @@ class ErrorBoundary extends Component<Props, State> {
 
       // Default fallback UI
       const context = this.context;
-      const fallbackTheme = {
-        colors: {
-          primary: "#6200ee",
-          background: "#FFFFFF",
-          card: "#FFFFFF",
-          text: "#000000",
-          textSecondary: "#666666",
-          border: "#E0E0E0",
-          notification: "#6200ee",
-          error: "#B00020",
-        },
-      };
-
-      const colors = context?.theme.colors || fallbackTheme.colors;
-      const theme = context?.theme || fallbackTheme;
+      const theme = context?.theme || defaultTheme;
+      const colors = theme.colors;
 
       return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
           <View style={styles.container}>
             <Icon
               name="error-outline"
@@ -107,8 +96,10 @@ class ErrorBoundary extends Component<Props, State> {
               color={colors.error}
               style={styles.icon}
             />
-            <Text style={[styles.title, { color: theme.colors.text }]}>Oops! Algo deu errado</Text>
-            <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.title, { color: colors.text }]}>
+              Oops! Algo deu errado
+            </Text>
+            <Text style={[styles.message, { color: colors.textSecondary }]}>
               {error?.message || "Ocorreu um erro inesperado na aplicação."}
             </Text>
             <Button
@@ -124,8 +115,6 @@ class ErrorBoundary extends Component<Props, State> {
     return children;
   }
 }
-
-
 
 const styles = StyleSheet.create({
   container: {

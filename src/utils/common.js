@@ -81,8 +81,11 @@ export const COMMON_STYLES = {
 };
 
 // Funções utilitárias
-export const generateId = () =>
-  Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+export const generateId = () => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substring(2, 11);
+  return `${timestamp}-${randomStr}`;
+};
 
 export const formatErrorMessage = (error) =>
   error?.message || "Ocorreu um erro inesperado";

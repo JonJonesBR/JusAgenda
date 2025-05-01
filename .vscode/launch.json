@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Android",
+            "request": "launch",
+            "type": "reactnative",
+            "cwd": "${workspaceFolder}",
+            "platform": "android",
+            "sourceMaps": true,
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "port": 8081,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Debug iOS",
+            "request": "launch",
+            "type": "reactnative",
+            "cwd": "${workspaceFolder}",
+            "platform": "ios",
+            "sourceMaps": true,
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "port": 8081,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Attach to packager",
+            "request": "attach",
+            "type": "reactnative",
+            "cwd": "${workspaceFolder}",
+            "port": 8081,
+            "sourceMaps": true
+        }
+    ]
+} 

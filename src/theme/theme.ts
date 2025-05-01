@@ -7,25 +7,46 @@ import { DefaultTheme } from "@react-navigation/native";
 
 // Type definitions for the theme
 export interface ThemeColors {
+  // Cores principais
   primary: string;
   primaryDark: string;
   primaryLight: string;
   secondary: string;
   secondaryDark: string;
   secondaryLight: string;
-  error: string;
-  warning: string;
-  success: string;
-  info: string;
+  
+  // Cores de background
   background: string;
   surface: string;
+  card: string;
+  
+  // Cores de texto
+  text: string;
   textPrimary: string;
   textSecondary: string;
   textDisabled: string;
   textHint: string;
+  
+  // Tons de cinza
+  grey1: string; // Texto secundário
+  grey2: string; // Bordas escuras, divisores
+  grey3: string; // Ícones e elementos desabilitados
+  grey4: string; // Sombras e fundos secundários
+  grey5: string; // Backgrounds de elementos desabilitados, esqueletos
+  
+  // Cores de status
+  error: string;
+  warning: string;
+  success: string;
+  info: string;
+  
+  // Utilitários
   border: string;
   divider: string;
-  text: string;
+  notification: string;
+  backdrop: string;
+  disabled: string;
+  placeholder: string;
 }
 
 export interface ThemeSpacing {
@@ -81,25 +102,46 @@ export interface AppTheme {
 export const lightTheme: AppTheme = {
   dark: false,
   colors: {
+    // Cores principais
     primary: "#6200ee",
     primaryDark: "#3700b3",
     primaryLight: "#bb86fc",
     secondary: "#03dac6",
     secondaryDark: "#018786",
     secondaryLight: "#66fff9",
-    error: "#ff0266",
-    warning: "#ff9800",
-    success: "#4caf50",
-    info: "#2196f3",
+    
+    // Cores de background
     background: "#f5f5f5",
     surface: "#ffffff",
+    card: "#ffffff",
+    
+    // Cores de texto
+    text: "#000000",
     textPrimary: "#000000",
     textSecondary: "#757575",
     textDisabled: "#9e9e9e",
     textHint: "#bdbdbd",
+    
+    // Tons de cinza
+    grey1: "#333333",
+    grey2: "#666666",
+    grey3: "#9E9E9E",
+    grey4: "#BDBDBD",
+    grey5: "#E0E0E0",
+    
+    // Cores de status
+    error: "#B00020",
+    warning: "#FB8C00",
+    success: "#43A047",
+    info: "#2196F3",
+    
+    // Utilitários
     border: "#e0e0e0",
     divider: "#e0e0e0",
-    text: "#000000",
+    notification: "#6200ee",
+    backdrop: "rgba(0,0,0,0.5)",
+    disabled: "#E0E0E0",
+    placeholder: "#9E9E9E",
   },
   spacing: {
     xs: 4,
@@ -163,19 +205,38 @@ export const darkTheme: AppTheme = {
   dark: true,
   colors: {
     ...lightTheme.colors,
+    // Cores principais
     primary: "#bb86fc",
     primaryDark: "#3700b3",
     primaryLight: "#6200ee",
     secondary: "#03dac6",
+    
+    // Cores de background
     background: "#121212",
     surface: "#1e1e1e",
+    card: "#1e1e1e",
+    
+    // Cores de texto
+    text: "#ffffff",
     textPrimary: "#ffffff",
     textSecondary: "#b0b0b0",
     textDisabled: "#6e6e6e",
     textHint: "#4e4e4e",
+    
+    // Tons de cinza
+    grey1: "#f5f5f5",
+    grey2: "#e0e0e0",
+    grey3: "#b0b0b0",
+    grey4: "#6e6e6e",
+    grey5: "#4e4e4e",
+    
+    // Utilitários
     border: "#2c2c2c",
     divider: "#2c2c2c",
-    text: "#ffffff",
+    notification: "#bb86fc",
+    backdrop: "rgba(0,0,0,0.7)",
+    disabled: "#4e4e4e",
+    placeholder: "#6e6e6e",
   },
 };
 

@@ -4,13 +4,14 @@ import HomeStack from "./stacks/HomeStack";
 import CalendarStack from "./stacks/CalendarStack";
 import SearchStack from "./stacks/SearchStack";
 import SyncStack from "./stacks/SyncStack";
+import ClientsStack from "./stacks/ClientsStack";
 import { Tab } from "./navigationConfig";
 import { useTheme } from "../contexts/ThemeContext";
 import { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
 import { RouteProp } from "@react-navigation/native";
 
 const BottomTabNavigator: React.FC = () => {
-  const { theme, isDarkMode } = useTheme();
+  const { theme } = useTheme();
 
   const tabConfig = useMemo(
     () => ({
@@ -20,7 +21,7 @@ const BottomTabNavigator: React.FC = () => {
         },
         headerTintColor: "#fff",
         headerTitleStyle: {
-          fontWeight: "bold",
+          fontWeight: "700",
           color: "#fff",
           fontSize: 18,
         },
@@ -49,6 +50,8 @@ const BottomTabNavigator: React.FC = () => {
         return "calendar-today";
       case "Search":
         return "search";
+      case "Clients":
+        return "people";
       case "Sync":
         return "settings";
       default:
@@ -75,6 +78,8 @@ const BottomTabNavigator: React.FC = () => {
             ? "Agenda"
             : route.name === "Search"
             ? "Buscar"
+            : route.name === "Clients"
+            ? "Clientes"
             : route.name === "Sync"
             ? "Opções"
             : route.name,
@@ -89,6 +94,11 @@ const BottomTabNavigator: React.FC = () => {
         name="Calendar"
         component={CalendarStack}
         options={{ title: "Agenda" }}
+      />
+      <Tab.Screen
+        name="Clients"
+        component={ClientsStack}
+        options={{ title: "Clientes" }}
       />
       <Tab.Screen
         name="Search"

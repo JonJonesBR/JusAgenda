@@ -1,0 +1,215 @@
+import React, { useState, useCallback, useEffect, memo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar
+} from 'react-native';
+import { FAB } from '@rneui/themed';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { Agenda, LocaleConfig } from 'react-native-calendars';
+import { useEvents } from '../contexts/EventContext';
+import { useTheme } from '../contexts/ThemeContext';
+import moment from 'moment';
+import 'moment/locale/pt-br';
+import { calendarTheme } from "../theme/calendarTheme";
+import * as Haptics from "expo-haptics";
+import { Event } from "../types/event";
+import { PrefetchResourceType } from "../utils/prefetchManager";
+import { responsiveSize, useResponsiveDimensions } from "../utils/responsiveUtils";
+import { formatTime } from "../utils/dateUtils";
+import { prefetchManager } from "../utils/prefetchManager";
+import BreadcrumbTrail from "../components/navigation/BreadcrumbTrail";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+moment.locale("pt-br");
+
+// Configuração do calendário em português
+LocaleConfig.locales["pt-br"] = {
+  monthNames: [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+  ],
+  monthNamesShort: [
+    "Jan",
+    "Fev",
+    "Mar",
+    "Abr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Set",
+    "Out",
+    "Nov",
+    "Dez",
+  ],
+  dayNames: [
+    "Domingo",
+    "Segunda",
+    "Terça",
+    "Quarta",
+    "Quinta",
+    "Sexta",
+    "Sábado",
+  ],
+  dayNamesShort: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
+  today: "Hoje",
+};
+LocaleConfig.defaultLocale = "pt-br";
+
+type NavigationProp = NativeStackNavigationProp<{
+  EventDetails: { event?: Event; editMode?: boolean };
+}>;
+
+const CalendarScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
+  const { theme } = useTheme();
+  const isFocused = useIsFocused();
+  const { dimensions } = useResponsiveDimensions();
+  const { isTablet } = dimensions;
+  const { events } = useEvents();
+
+  const [eventsMap, setEventsMap] = useState<{ [key: string]: Event[] }>({});
+  const [markedDates, setMarkedDates] = useState<{ [key: string]: any }>({});
+  const [selectedDate] = useState(moment().format("YYYY-MM-DD"));
+
+  const breadcrumbs = [
+    { id: 'home', label: 'Início' },
+    { id: 'calendar', label: 'Calendário' }
+  ];
+
+  const getEventColor = useCallback((type: string) => {
+    switch (type?.toLowerCase()) {
+      case "audiencia":
+        return theme.colors.warning;
+      case "prazo":
+        return theme.colors.error;
+      case "reuniao":
+        return theme.colors.success;
+      case "outro":
+        return theme.colors.primary;
+      default:
+        return theme.colors.text;
+    }
+  }, [theme.colors]);
+
+  const prepareCalendarData = useCallback(async () => {
+    try {
+      const eventsByDate: { [key: string]: Event[] } = {};
+      const markedDatesObj: { [key: string]: any } = {};
+
+      events.forEach(event => {
+        const dateStr = moment(event.data).format('YYYY-MM-DD');
+
+        if (!eventsByDate[dateStr]) {
+          eventsByDate[dateStr] = [];
+        }
+
+        eventsByDate[dateStr].push(event);
+
+        markedDatesObj[dateStr] = {
+          marked: true,
+          dotColor: getEventColor(event.tipo),
+        };
+      });
+
+      setEventsMap(eventsByDate);
+      setMarkedDates(markedDatesObj);
+
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      console.error('Erro ao preparar dados do calendário:', error);
+    }
+  }, [events, getEventColor]);
+
+  useEffect(() => {
+    if (isFocused) {
+      prepareCalendarData();
+
+      prefetchManager.forcePrefetch(PrefetchResourceType.EVENTS, { months: 3 })
+        .catch((err: Error) => console.warn('Erro ao prefetch de eventos:', err));
+
+      Haptics.selectionAsync().catch(() => {});
+    }
+  }, [isFocused, prepareCalendarData]);
+
+  // Define styles within component to access theme
+  const styles = StyleSheet.create({
+    container: { 
+      flex: 1,
+      backgroundColor: theme.colors.background
+    },
+    header: { 
+      flexDirection: "row", 
+      justifyContent: "space-between", 
+      alignItems: "center", 
+      padding: 16, 
+      paddingBottom: 8 
+    },
+    title: { 
+      fontWeight: "bold",
+      color: theme.colors.text
+    },
+    fab: { 
+      position: "absolute", 
+      bottom: 16, 
+      right: 16 
+    },
+    item: { 
+      backgroundColor: theme.colors.card, 
+      padding: 12, 
+      marginBottom: 8, 
+      borderRadius: 8 
+    },
+    emptyDate: { 
+      justifyContent: "center", 
+      alignItems: "center", 
+      height: 80 
+    },
+    eventList: { 
+      flex: 1 
+    }
+  });
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+      <BreadcrumbTrail items={breadcrumbs} />
+      <Agenda
+        items={eventsMap}
+        selected={selectedDate}
+        renderItem={(item: Event, firstItemInDay: boolean) => (
+          <View style={styles.item}>
+            <Text style={styles.title}>{item.title || item.tipo}</Text>
+          </View>
+        )}
+        renderEmptyDate={() => <View style={styles.emptyDate}><Text>Sem eventos</Text></View>}
+        rowHasChanged={(r1: Event, r2: Event) => r1.id !== r2.id}
+        markingType={'multi-dot'}
+        markedDates={markedDates}
+        theme={calendarTheme}
+      />
+      <FAB
+        icon={{ name: 'add', color: 'white' }}
+        color={theme.colors.primary}
+        style={styles.fab}
+        onPress={() => navigation.navigate('EventDetails', { editMode: true })}
+      />
+    </SafeAreaView>
+  );
+}
+
+
+export default memo(CalendarScreen);

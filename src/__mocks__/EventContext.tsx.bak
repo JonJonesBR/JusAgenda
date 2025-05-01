@@ -1,0 +1,32 @@
+const React = require('react');
+
+const defaultEvents = [
+  {
+    id: '1',
+    title: 'Audiência',
+    tipo: 'audiencia',
+    data: new Date().toISOString(),
+    local: 'Fórum Central',
+    cliente: 'João da Silva',
+    prioridade: 'alta',
+  },
+];
+
+const EventContext = React.createContext({
+  events: defaultEvents,
+  refreshEvents: () => {},
+  deleteEvent: () => {},
+});
+
+module.exports = {
+  EventContext,
+  useEvents: () => {
+    console.log('DEBUG useEvents mock chamado');
+    return {
+      events: defaultEvents,
+      refreshEvents: () => {},
+      deleteEvent: () => {},
+    };
+  },
+  EventProvider: ({ children }) => children,
+};
