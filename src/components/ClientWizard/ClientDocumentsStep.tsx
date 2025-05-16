@@ -1,16 +1,18 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Input, Text } from '@rneui/themed';
+import { Input, Text } from '@rneui/themed'; // @rneui/base não é necessário aqui se não usar componentes específicos dele
 import { useTheme } from '../../contexts/ThemeContext';
-// Removed unused Client import; using any for data prop
+import { Client } from '../../screens/ClientWizardScreen'; // Reintroduzido Client para tipagem
 
-// @ts-ignore: no type declarations for react-native-masked-text
-import { TextInputMask } from 'react-native-masked-text';
+// Tente instalar @types/react-native-masked-text
+// Se instalado, o @ts-ignore pode não ser mais necessário.
+// Se ainda der erro de tipo mesmo com @types, então o @ts-ignore pode permanecer.
+import MaskInput from 'react-native-mask-input';
 
 interface ClientDocumentsStepProps {
-  data: any;
-  onUpdate: (data: any) => void;
-  isEditMode?: boolean;
+  data: Partial<Client>; // Usando Partial<Client>
+  onUpdate: (data: Partial<Client>) => void;
+  // isEditMode?: boolean; // Removido, pois não está sendo usado
 }
 
 /**
@@ -19,10 +21,15 @@ interface ClientDocumentsStepProps {
 const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
   data,
   onUpdate,
-  isEditMode = false,
+  // isEditMode = false, // Removido, pois não está sendo usado
 }) => {
   const { theme } = useTheme();
-  
+
+  // Função para simplificar a atualização, preservando 'data'
+  const handleFieldUpdate = (field: keyof Client, value: string) => {
+    onUpdate({ ...data, [field]: value });
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -32,8 +39,8 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
         Documentos
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.grey2 }]}>
-        {data.tipo === 'pessoaFisica' 
+      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+        {data.tipo === 'pessoaFisica'
           ? 'Informe os documentos pessoais do cliente.'
           : 'Informe os documentos da empresa.'}
       </Text>
@@ -46,16 +53,16 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="000.000.000-00"
               value={data.cpf || ''}
-              onChangeText={(value) => onUpdate({ cpf: value })}
+              onChangeText={(value) => handleFieldUpdate('cpf', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               keyboardType="numeric"
               accessibilityLabel="CPF do cliente"
               returnKeyType="next"
-              InputComponent={(props: any) => (
-                <TextInputMask
+              InputComponent={(props) => (
+                <MaskInput
                   {...props}
-                  type={'cpf'}
+                  mask={'[0-9]{3}.[0-9]{3}.[0-9]{3}-[0-9]{2}'}
                 />
               )}
             />
@@ -64,9 +71,9 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
           <View style={styles.formGroup}>
             <Text style={[styles.label, { color: theme.colors.text }]}>RG</Text>
             <Input
-              placeholder="00.000.000-0"
+              placeholder="00.000.000-0" // Considere adicionar máscara para RG também se desejar
               value={data.rg || ''}
-              onChangeText={(value) => onUpdate({ rg: value })}
+              onChangeText={(value) => handleFieldUpdate('rg', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               keyboardType="numeric"
@@ -80,7 +87,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="SSP/UF"
               value={data.orgaoEmissor || ''}
-              onChangeText={(value) => onUpdate({ orgaoEmissor: value })}
+              onChangeText={(value) => handleFieldUpdate('orgaoEmissor', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               autoCapitalize="characters"
@@ -94,7 +101,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="Profissão do cliente"
               value={data.profissao || ''}
-              onChangeText={(value) => onUpdate({ profissao: value })}
+              onChangeText={(value) => handleFieldUpdate('profissao', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               autoCapitalize="words"
@@ -105,10 +112,10 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
 
           <View style={styles.formGroup}>
             <Text style={[styles.label, { color: theme.colors.text }]}>Estado Civil</Text>
-            <Input
+            <Input // Considere usar um Picker aqui para opções padronizadas
               placeholder="Estado civil do cliente"
               value={data.estadoCivil || ''}
-              onChangeText={(value) => onUpdate({ estadoCivil: value })}
+              onChangeText={(value) => handleFieldUpdate('estadoCivil', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               autoCapitalize="words"
@@ -125,16 +132,16 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="00.000.000/0000-00"
               value={data.cnpj || ''}
-              onChangeText={(value) => onUpdate({ cnpj: value })}
+              onChangeText={(value) => handleFieldUpdate('cnpj', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               keyboardType="numeric"
               accessibilityLabel="CNPJ da empresa"
               returnKeyType="next"
-              InputComponent={(props: any) => (
-                <TextInputMask
+              InputComponent={(props) => (
+                <MaskInput
                   {...props}
-                  type={'cnpj'}
+                  mask={'[0-9]{2}.[0-9]{3}.[0-9]{3}/[0-9]{4}-[0-9]{2}'}
                 />
               )}
             />
@@ -145,7 +152,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="Inscrição Estadual (se houver)"
               value={data.inscricaoEstadual || ''}
-              onChangeText={(value) => onUpdate({ inscricaoEstadual: value })}
+              onChangeText={(value) => handleFieldUpdate('inscricaoEstadual', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               keyboardType="numeric"
@@ -159,7 +166,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="Inscrição Municipal (se houver)"
               value={data.inscricaoMunicipal || ''}
-              onChangeText={(value) => onUpdate({ inscricaoMunicipal: value })}
+              onChangeText={(value) => handleFieldUpdate('inscricaoMunicipal', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               keyboardType="numeric"
@@ -173,7 +180,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="Ramo de atividade da empresa"
               value={data.ramoAtividade || ''}
-              onChangeText={(value) => onUpdate({ ramoAtividade: value })}
+              onChangeText={(value) => handleFieldUpdate('ramoAtividade', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               autoCapitalize="sentences"
@@ -187,7 +194,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
             <Input
               placeholder="Nome do responsável legal"
               value={data.responsavelLegal || ''}
-              onChangeText={(value) => onUpdate({ responsavelLegal: value })}
+              onChangeText={(value) => handleFieldUpdate('responsavelLegal', value)}
               containerStyle={styles.inputContainer}
               inputStyle={{ color: theme.colors.text }}
               autoCapitalize="words"
@@ -203,7 +210,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
         <Input
           placeholder="Informações sobre documentos adicionais"
           value={data.documentosAdicionais || ''}
-          onChangeText={(value) => onUpdate({ documentosAdicionais: value })}
+          onChangeText={(value) => handleFieldUpdate('documentosAdicionais', value)}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           multiline
@@ -216,6 +223,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
   );
 };
 
+// Estilos permanecem os mesmos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -223,25 +231,25 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  formGroup: {
+    marginBottom: 16,
+  },
+  inputContainer: {
+    paddingHorizontal: 0,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
     marginBottom: 8,
   },
   sectionDescription: {
     fontSize: 14,
     marginBottom: 20,
   },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 8,
-    fontWeight: '500',
-  },
-  inputContainer: {
-    paddingHorizontal: 0,
   },
 });
 

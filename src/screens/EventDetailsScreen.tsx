@@ -1,27 +1,46 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
-import { Button, Card, Text, Icon, Input } from '@rneui/themed';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  StatusBar,
+  Text,
+  Platform,
+  TouchableOpacity,
+  Keyboard,
+} from 'react-native';
+import { Button, Card, Icon, Input as RNEInput } from '@rneui/themed'; // Renamed Input to RNEInput to avoid conflict with our custom Input if we decide to use it here
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { useTheme } from '../contexts/ThemeContext';
-import { useEvents } from '../contexts/EventContext';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation, NavigationProp, useRoute, RouteProp } from '@react-navigation/native';
+import { useTheme, Theme } from '../contexts/ThemeContext';
+import { useEvents, Event as ContextEventType } from '../contexts/EventCrudContext';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Toast from 'react-native-toast-message';
-import type { Event } from '../types/event';
-import { PRIORIDADES } from '../constants';
+import type { Event as EventTypeFromTypes } from '../types/event'; // This is from src/types/event.ts
+import * as yup from 'yup';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatDate } from '../utils/dateUtils';
+import moment from 'moment'; // Import moment
 
-interface FormData {
+// Define a consistent shape for the form data internally in this screen
+interface EventFormData {
   id?: string;
+  title: string;
   tipo: string;
-  data: Date;
-  local?: string;
+  data: Date; // Store date as Date object in form state
+  hora?: string; // Add field for time string
   cliente: string;
-  observacoes?: string;
-  title?: string;
+  local?: string;
   descricao?: string;
   numeroProcesso?: string;
-  competencia?: string;
   vara?: string;
+  prioridade?: string;
+  presencaObrigatoria?: boolean;
+  lembretes?: string[];
+  observacoes?: string;
+  // Add other fields from EventTypeFromTypes if they are editable here
+  competencia?: string;
   comarca?: string;
   estado?: string;
   reu?: string;
@@ -39,351 +58,238 @@ interface FormData {
   honorarios?: string;
   prazoDias?: string;
   fase?: string;
-  prioridade?: string;
+  contatos?: EventTypeFromTypes['contatos'];
 }
 
-type RootStackParamList = {
-  EventDetails: { event?: FormData; editMode: boolean };
-  Home: undefined;
+type EventDetailsParams = {
+  event?: Partial<EventTypeFromTypes>; // This comes from route params, uses names from src/types/event.ts
+  editMode?: boolean;
 };
 
-interface EventDetailsScreenProps {
-  route: {
-    params: {
-      event?: FormData;
-      editMode: boolean;
-    };
-  };
-}
+type RootStackParamList = {
+  EventDetails: EventDetailsParams;
+  Home: undefined;
+  EventList?: undefined;
+};
 
-const EventDetailsScreen = ({ route }: EventDetailsScreenProps) => {
+type EventDetailsNavigationProp = NavigationProp<RootStackParamList, 'EventDetails'>;
+type EventDetailsRouteProp = RouteProp<RootStackParamList, 'EventDetails'>;
+
+// Schema validates against EventFormData names
+const eventSchema = yup.object().shape({
+  id: yup.string().required(),
+  title: yup.string().trim().required('Título do Compromisso obrigatório'),
+  tipo: yup.string().required('Tipo de Compromisso obrigatório'),
+  data: yup.date().required('Data do compromisso obrigatória').typeError('Data inválida'),
+  cliente: yup.string().trim().required('Cliente obrigatório'),
+  local: yup.string().trim().nullable(),
+  descricao: yup.string().trim().nullable(),
+  numeroProcesso: yup.string().trim().nullable(),
+  vara: yup.string().trim().nullable(),
+  prioridade: yup.string().oneOf(['alta', 'media', 'baixa', 'urgente', '', undefined]).nullable(),
+  presencaObrigatoria: yup.boolean().nullable(),
+  observacoes: yup.string().trim().nullable(),
+});
+
+const componentColors = {
+  white: '#FFFFFF',
+  black: '#000000',
+  defaultTextSecondary: '#A9A9A9',
+  defaultGrey: '#CCCCCC',
+};
+
+const EventDetailsScreen: React.FC = () => {
   const { theme } = useTheme();
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { event, editMode } = route.params;
-  const { deleteEvent, addEvent, updateEvent, refreshEvents } = useEvents();
+  const navigation = useNavigation<EventDetailsNavigationProp>();
+  const route = useRoute<EventDetailsRouteProp>();
+  const { event: initialEventData, editMode: initialEditMode = false } = route.params ?? {};
+  const isCreating = !initialEventData?.id;
+  const [isEditMode, setIsEditMode] = useState(initialEditMode || !!initialEventData?.id);
 
-  const [formData, setFormData] = useState<FormData>({
-    id: event?.id,
-    tipo: event?.tipo || '',
-    data: event?.data ? new Date(event.data) : new Date(),
-    local: event?.local || '',
-    cliente: event?.cliente || '',
-    observacoes: event?.observacoes || '',
-    title: event?.title || '',
-    descricao: event?.descricao || '',
-    numeroProcesso: event?.numeroProcesso || '',
-    competencia: event?.competencia || '',
-    vara: event?.vara || '',
-    comarca: event?.comarca || '',
-    estado: event?.estado || '',
-    reu: event?.reu || '',
-    telefoneCliente: event?.telefoneCliente || '',
-    emailCliente: event?.emailCliente || '',
-    telefoneReu: event?.telefoneReu || '',
-    emailReu: event?.emailReu || '',
-    juiz: event?.juiz || '',
-    promotor: event?.promotor || '',
-    perito: event?.perito || '',
-    prepostoCliente: event?.prepostoCliente || '',
-    testemunhas: event?.testemunhas || '',
-    documentosNecessarios: event?.documentosNecessarios || '',
-    valor: event?.valor || '',
-    honorarios: event?.honorarios || '',
-    prazoDias: event?.prazoDias || '',
-    fase: event?.fase || '',
-    prioridade: event?.prioridade || '',
+  const { deleteEvent, addEvent, updateEvent } = useEvents();
+  const insets = useSafeAreaInsets();
+
+  const [formData, setFormData] = useState<EventFormData>(() => {
+    const defaultDate = new Date();
+    const initialDate = initialEventData?.data ? new Date(initialEventData.data) : defaultDate;
+    const initialTime = initialEventData?.hora || ''; // Get initial time string
+
+    // initialEventData uses names from src/types/event.ts (e.g., initialEventData.title, initialEventData.data, initialEventData.tipo)
+    return {
+      id: initialEventData?.id || Date.now().toString(), // Ensure ID for new events
+      title: initialEventData?.title || '',
+      tipo: initialEventData?.tipo || '',
+      data: initialDate,
+      hora: initialTime, // Initialize hora field
+      local: initialEventData?.local || '',
+      cliente: initialEventData?.cliente || '',
+      descricao: initialEventData?.descricao || '',
+      numeroProcesso: initialEventData?.numeroProcesso || '',
+      vara: initialEventData?.vara || '',
+      prioridade: initialEventData?.prioridade || '',
+      presencaObrigatoria: initialEventData?.presencaObrigatoria || false,
+      lembretes: initialEventData?.lembretes || undefined,
+      observacoes: initialEventData?.observacoes || '',
+      // Map other fields from initialEventData if needed
+      competencia: initialEventData?.competencia || '',
+      comarca: initialEventData?.comarca || '',
+      estado: initialEventData?.estado || '',
+      reu: initialEventData?.reu || '',
+      telefoneCliente: initialEventData?.telefoneCliente || '',
+      emailCliente: initialEventData?.emailCliente || '',
+      telefoneReu: initialEventData?.telefoneReu || '',
+      emailReu: initialEventData?.emailReu || '',
+      juiz: initialEventData?.juiz || '',
+      promotor: initialEventData?.promotor || '',
+      perito: initialEventData?.perito || '',
+      prepostoCliente: initialEventData?.prepostoCliente || '',
+      testemunhas: initialEventData?.testemunhas || '',
+      documentosNecessarios: initialEventData?.documentosNecessarios || '',
+      valor: initialEventData?.valor || '',
+      honorarios: initialEventData?.honorarios || '',
+      prazoDias: initialEventData?.prazoDias || '',
+      fase: initialEventData?.fase || '',
+      contatos: initialEventData?.contatos || [],
+    };
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Se não houver evento e não estiver em modo de edição, retorna para a tela anterior
-  React.useEffect(() => {
-    if (!event && !editMode) {
-      navigation.goBack();
-    }
-  }, [event, editMode]);
+  useEffect(() => {
+    navigation.setOptions({
+      title: isCreating ? 'Novo Compromisso' : (isEditMode ? 'Editar Compromisso' : 'Detalhes do Compromisso')
+    });
+  }, [navigation, isCreating, isEditMode]);
 
-  const getEventTypeIcon = () => {
-    switch (event?.tipo?.toLowerCase()) {
-      case 'audiencia':
-        return { name: 'gavel', color: theme.colors.primary };
-      case 'reuniao':
-        return { name: 'groups', color: '#03dac6' };
-      case 'prazo':
-        return { name: 'timer', color: '#ff0266' };
-      default:
-        return { name: 'event', color: '#018786' };
+  const getEventTypeDetails = useCallback(() => {
+    const eventType = formData.tipo?.toLowerCase();
+    switch (eventType) {
+      case 'audiencia': return { name: 'gavel', color: theme.colors.primary, label: 'Audiência' };
+      case 'reuniao': return { name: 'groups', color: theme.colors.secondary || '#03dac6', label: 'Reunião' };
+      case 'prazo': return { name: 'timer-outline', type: 'material-community', color: theme.colors.error || '#ff0266', label: 'Prazo' };
+      case 'despacho': return { name: 'receipt-long', type: 'material', color: theme.colors.info || '#018786', label: 'Despacho' };
+      default: return { name: 'calendar-blank-outline', type: 'material-community', color: theme.colors.textSecondary || componentColors.defaultTextSecondary, label: formData.tipo || 'Evento' };
     }
-  };
+  }, [formData.tipo, theme.colors]);
 
-  const getStatusBadge = () => {
-    if (!event?.data) {
-      return { label: 'Novo', color: theme.colors.primary };
-    }
-
+  const getStatusBadge = useCallback(() => {
+    const currentDate = formData.data;
+    if (!currentDate) return { label: 'Data Pendente', color: componentColors.defaultGrey };
     const now = new Date();
-    const eventDate = new Date(event.data);
-    
-    if (eventDate < now) {
-      return { label: 'Concluído', color: theme.colors.success };
-    }
-    if (eventDate.toDateString() === now.toDateString()) {
-      return { label: 'Hoje', color: theme.colors.warning };
-    }
+    const eventDate = new Date(currentDate);
+    now.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    if (eventDate < now) return { label: 'Realizado', color: theme.colors.success };
+    if (eventDate.getTime() === now.getTime()) return { label: 'Hoje', color: theme.colors.warning };
     return { label: 'Agendado', color: theme.colors.primary };
-  };
+  }, [formData.data, theme.colors]);
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    gradientHeader: {
-      paddingVertical: 24,
-      paddingHorizontal: 20,
-      borderBottomLeftRadius: 24,
-      borderBottomRightRadius: 24,
-      marginBottom: 24,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    badge: {
-      paddingVertical: 4,
-      paddingHorizontal: 12,
-      borderRadius: 16,
-      alignSelf: 'flex-start',
-    },
-    badgeText: {
-      color: 'white',
-      fontWeight: '500',
-      fontSize: 14,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: theme.colors.primary,
-      marginBottom: 12,
-    },
-    detailRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    titleContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    typeIcon: {
-      marginRight: 12,
-      backgroundColor: theme.colors.background,
-      padding: 8,
-      borderRadius: 8,
-    },
-    screenTitle: {
-      color: theme.colors.textPrimary,
-      fontSize: 24,
-      fontWeight: '600',
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    typeBadge: {
-      paddingVertical: 4,
-      paddingHorizontal: 12,
-      borderRadius: 16,
-    },
-    typeBadgeText: {
-      fontWeight: '600',
-      fontSize: 14,
-    },
-    detailSection: {
-      borderLeftWidth: 2,
-      borderLeftColor: getEventTypeIcon().color,
-      paddingLeft: 12,
-      marginLeft: 8,
-    },
-    iconContainer: {
-      backgroundColor: theme.colors.primary + '20',
-      borderRadius: 8,
-      padding: 8,
-      marginRight: 12,
-    },
-    actionButtons: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 24,
-      gap: 16,
-    },
-    mainCard: {
-      borderRadius: 16,
-      padding: 20,
-      marginHorizontal: 0,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 6,
-    },
-    formContainer: {
-      gap: 16,
-    },
-  });
+  // Define a union type for all possible field values in EventFormData
+  type EventFormFieldValue = EventFormData[keyof EventFormData];
+
+  const handleInputChange = useCallback((field: keyof EventFormData, value: EventFormFieldValue) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    const currentDate = selectedDate || formData.data;
+    setShowDatePicker(Platform.OS === 'ios');
+    if (currentDate) {
+        // Update both date and time
+        handleInputChange('data', currentDate);
+        handleInputChange('hora', moment(currentDate).format('HH:mm')); // Extract and format time
+    }
+  };
 
   const handleSave = async () => {
+    Keyboard.dismiss();
     try {
-      // Validações obrigatórias
-      if (!formData.cliente?.trim()) {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: 'O campo "Cliente" é obrigatório',
-        });
-        return;
-      }
-
-      if (!formData.tipo) {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: 'O campo "Tipo de Compromisso" é obrigatório',
-        });
-        return;
-      }
-
-      if (!formData.data) {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: 'A data do compromisso é obrigatória',
-        });
-        return;
-      }
-
-      // Construir o objeto de evento mantendo todos os campos existentes
-      const eventData: Event = {
-        ...formData, // Mantém todos os campos existentes
-        id: event?.id || formData.id || String(Date.now()),
-        title: formData.title || formData.cliente || formData.tipo,
-        tipo: formData.tipo,
-        data: formData.data instanceof Date ? formData.data : new Date(formData.data),
-        local: formData.local || '',
-        cliente: formData.cliente.trim(),
-        descricao: formData.descricao || formData.observacoes || '',
-        numeroProcesso: formData.numeroProcesso || '',
-        competencia: formData.competencia || '',
-        vara: formData.vara || '',
-        comarca: formData.comarca || '',
-        estado: formData.estado || '',
-        reu: formData.reu || '',
-        telefoneCliente: formData.telefoneCliente || '',
-        emailCliente: formData.emailCliente || '',
-        telefoneReu: formData.telefoneReu || '',
-        emailReu: formData.emailReu || '',
-        juiz: formData.juiz || '',
-        promotor: formData.promotor || '',
-        perito: formData.perito || '',
-        prepostoCliente: formData.prepostoCliente || '',
-        testemunhas: formData.testemunhas || '',
-        documentosNecessarios: formData.documentosNecessarios || '',
-        observacoes: formData.observacoes || formData.descricao || '',
-        valor: formData.valor || '',
-        honorarios: formData.honorarios || '',
-        prazoDias: formData.prazoDias || '',
-        fase: formData.fase || '',
-        prioridade: (formData.prioridade as "alta" | "media" | "baixa") || PRIORIDADES.MEDIA,
+      setIsSaving(true);
+      // formData already uses Date object for data, schema expects Date.
+      // Validate formData including the new hora field
+      await eventSchema.validate({ ...formData, id: formData.id || Date.now().toString() }, { abortEarly: false });
+      
+      const eventForContextAPI: ContextEventType = {
+        id: formData.id!,
+        title: formData.title!,
+        date: formatDate(formData.data), // Convert Date object to YYYY-MM-DD string
+        hora: formData.hora, // Include the hora string
+        type: formData.tipo, // EventCrudContext uses 'type'
+        cliente: formData.cliente,
+        local: formData.local,
+        description: formData.descricao, // EventCrudContext uses 'description'
+        numeroProcesso: formData.numeroProcesso,
+        vara: formData.vara,
+        prioridade: formData.prioridade,
+        presencaObrigatoria: formData.presencaObrigatoria,
+        lembretes: Array.isArray(formData.lembretes) ? formData.lembretes : undefined,
+        observacoes: formData.observacoes,
+        // Map other fields
+        competencia: formData.competencia,
+        comarca: formData.comarca,
+        estado: formData.estado,
+        reu: formData.reu,
+        telefoneCliente: formData.telefoneCliente,
+        emailCliente: formData.emailCliente,
+        telefoneReu: formData.telefoneReu,
+        emailReu: formData.emailReu,
+        juiz: formData.juiz,
+        promotor: formData.promotor,
+        perito: formData.perito,
+        prepostoCliente: formData.prepostoCliente,
+        testemunhas: formData.testemunhas,
+        documentosNecessarios: formData.documentosNecessarios,
+        valor: formData.valor,
+        honorarios: formData.honorarios,
+        prazoDias: formData.prazoDias,
+        fase: formData.fase,
+        contatos: formData.contatos,
       };
 
-      setIsSaving(true);
-
-      if (editMode && event?.id) {
-        // Atualizando evento existente
-        await updateEvent(eventData);
-        Toast.show({
-          type: 'success',
-          text1: 'Sucesso',
-          text2: 'Compromisso atualizado com sucesso',
-        });
+      if (isEditMode && eventForContextAPI.id) {
+        await updateEvent(eventForContextAPI);
+        Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Compromisso atualizado!' });
       } else {
-        // Criando novo evento
-        await addEvent(eventData);
-        Toast.show({
-          type: 'success',
-          text1: 'Sucesso',
-          text2: 'Compromisso criado com sucesso',
-        });
+        // For addEvent, context expects Omit<ContextEventType, 'id'>.
+        // Create a new object without id, or ensure addEvent can handle it if id is already generated client-side.
+        const { id, ...eventToAdd } = eventForContextAPI;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const unusedId = id; // To satisfy linter if id is not used further
+        await addEvent(eventToAdd as Omit<ContextEventType, 'id'>);
+        Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Compromisso criado!' });
       }
-
-      // Atualiza a lista de eventos e retorna
-      await refreshEvents();
       navigation.goBack();
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: error instanceof Error ? error.message : 'Erro ao salvar compromisso',
-      });
+    } catch (error: unknown) {
+      if (error instanceof yup.ValidationError) {
+        Alert.alert('Erro de Validação', error.errors.join('\n'));
+      } else {
+        Alert.alert('Erro', `Não foi possível salvar o compromisso: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = () => {
-    if (!event?.id) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'Não é possível excluir um evento que ainda não foi salvo',
-      });
-      return;
-    }
-
-    const eventId = event.id;
-    console.log('Iniciando exclusão do evento:', eventId);
-
+    if (!formData.id) return;
     Alert.alert(
-      'Confirmar exclusão',
+      'Confirmar Exclusão',
       'Deseja realmente excluir este compromisso?',
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
+            setIsSaving(true);
             try {
-              console.log('Tentando excluir evento:', eventId);
-              const result = await deleteEvent(eventId);
-              
-              if (result) {
-                Toast.show({
-                  type: 'success',
-                  text1: 'Sucesso',
-                  text2: 'Compromisso excluído com sucesso',
-                });
-                navigation.goBack();
-              } else {
-                Toast.show({
-                  type: 'error',
-                  text1: 'Erro',
-                  text2: 'Não foi possível excluir o compromisso. Evento não encontrado.',
-                });
-              }
-            } catch (error) {
-              console.error('Erro ao excluir evento:', error);
-              Toast.show({
-                type: 'error',
-                text1: 'Erro',
-                text2: error instanceof Error ? error.message : 'Erro ao excluir compromisso',
-              });
+              await deleteEvent(formData.id!);
+              Toast.show({ type: 'success', text1: 'Sucesso', text2: 'Compromisso excluído.' });
+              navigation.goBack();
+            } catch (error: unknown) {
+              Alert.alert('Erro', `Não foi possível excluir o compromisso: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+              setIsSaving(false);
             }
           },
         },
@@ -392,206 +298,326 @@ const EventDetailsScreen = ({ route }: EventDetailsScreenProps) => {
     );
   };
 
+  const DetailItem: React.FC<{icon: string; label: string; value?: string | number | boolean | string[] | null; theme: Theme; iconType?: string;}> =
+    ({ icon, label, value, theme: currentTheme, iconType = "material-community" }) => {
+        if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+            if (typeof value !== 'boolean' && !Array.isArray(value)) return null;
+            if (Array.isArray(value) && value.length === 0) return null;
+        }
+        let displayValue = '';
+        if (typeof value === 'boolean') {
+          displayValue = value ? 'Sim' : 'Não';
+        } else if (Array.isArray(value)) {
+          displayValue = value.join(', ');
+        } else {
+          displayValue = String(value);
+        }
+        if (displayValue.trim() === '') return null;
+
+        return (
+            <View style={styles.detailItemContainer}>
+                <Icon name={icon} type={iconType} size={20} color={currentTheme.colors.textSecondary} style={styles.detailItemIcon} />
+                <View style={styles.detailItemTextContainer}>
+                    <Text style={[styles.detailItemLabel, { color: currentTheme.colors.textSecondary }]}>{label}</Text>
+                    <Text style={[styles.detailItemValue, { color: currentTheme.colors.text }]} selectable={true}>{displayValue}</Text>
+                </View>
+            </View>
+        );
+    };
+
   const renderForm = () => (
-    <Card containerStyle={styles.mainCard}>
-      <View style={styles.formContainer}>
-        <Input
-          label="Tipo de Compromisso"
-          value={formData.tipo}
-          onChangeText={(text) => setFormData({ ...formData, tipo: text })}
-          placeholder="Ex: Audiência, Reunião, Prazo"
-        />
-
-        <Button
-          title={formData.data ? new Date(formData.data).toLocaleString('pt-BR') : 'Selecionar Data'}
-          onPress={() => setShowDatePicker(true)}
-          type="outline"
-          icon={{ name: 'calendar-today', color: theme.colors.primary }}
-        />
-
+    <Card containerStyle={[styles.formCard, { backgroundColor: theme.colors.card }]}>
+      <ScrollView style={styles.formScrollView} keyboardShouldPersistTaps="handled">
+         <RNEInput // Using RNEInput
+            label="Título do Compromisso *"
+            placeholder="Ex: Audiência Processo X"
+            value={formData.title || ''} // Changed to formData.title
+            onChangeText={(text) => handleInputChange('title', text)} // Changed to title
+            disabled={isSaving}
+          />
+         <RNEInput // Using RNEInput
+            label="Tipo de Compromisso *"
+            placeholder="Ex: Audiência, Reunião"
+            value={formData.tipo || ''} // Stays formData.tipo
+            onChangeText={(text) => handleInputChange('tipo', text)}
+            disabled={isSaving}
+         />
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} disabled={isSaving}>
+            <RNEInput // Using RNEInput
+                label="Data e Hora *"
+                value={formData.data ? `${formatDate(new Date(formData.data), 'DD/MM/YYYY')} ${formData.hora || ''}`.trim() : ''} // Display formatted date and time
+                placeholder="Selecione a data e hora"
+                editable={false}
+                rightIcon={<Icon name="calendar-today" color={theme.colors.textSecondary} />}
+            />
+        </TouchableOpacity>
         {showDatePicker && (
           <DateTimePicker
-            value={new Date(formData.data)}
+            value={formData.data ? new Date(formData.data) : new Date()} // Use formData.data directly
             mode="datetime"
-            display="default"
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(false);
-              if (selectedDate) {
-                setFormData({ ...formData, data: selectedDate });
-              }
-            }}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            minimumDate={new Date()} // Example: No past dates for new events
           />
         )}
-
-        <Input
+        <RNEInput // Using RNEInput
           label="Local"
-          value={formData.local}
-          onChangeText={(text) => setFormData({ ...formData, local: text })}
           placeholder="Local do compromisso"
+          value={formData.local || ''} // Changed to formData.local
+          onChangeText={(text) => handleInputChange('local', text)} // Changed to local
+          disabled={isSaving}
         />
-
-        <Input
-          label="Cliente"
-          value={formData.cliente}
-          onChangeText={(text) => setFormData({ ...formData, cliente: text })}
-          placeholder="Nome do cliente"
+        <RNEInput // Using RNEInput
+          label="Cliente *"
+          placeholder="Nome do cliente principal"
+          value={formData.cliente || ''}
+          onChangeText={(text) => handleInputChange('cliente', text)}
+          disabled={isSaving}
         />
-
-        <Input
-          label="Observações"
-          value={formData.observacoes}
-          onChangeText={(text) => setFormData({ ...formData, observacoes: text })}
-          placeholder="Observações adicionais"
-          multiline
-          numberOfLines={4}
+         <RNEInput // Using RNEInput
+            label="Descrição / Observações"
+            placeholder="Detalhes adicionais..."
+            value={formData.descricao || ''} // Changed to formData.descricao
+            onChangeText={(text) => handleInputChange('descricao', text)} // Changed to descricao
+            multiline
+            numberOfLines={4}
+            containerStyle={styles.multilineInputContainer}
+            inputStyle={styles.multilineInput}
+            disabled={isSaving}
         />
-
-        <View style={styles.actionButtons}>
+        <RNEInput label="Número do Processo" value={formData.numeroProcesso || ''} onChangeText={(text) => handleInputChange('numeroProcesso', text)} disabled={isSaving}/>
+        <RNEInput label="Vara/Tribunal" value={formData.vara || ''} onChangeText={(text) => handleInputChange('vara', text)} disabled={isSaving}/>
+        {/* Add other RNEInput fields for prioridade, presencaObrigatoria, etc. as needed */}
+        <View style={styles.formActionButtons}>
           <Button
             title="Cancelar"
             type="outline"
             onPress={() => navigation.goBack()}
+            disabled={isSaving}
+            buttonStyle={[styles.formButton, { borderColor: componentColors.defaultGrey }]}
+            titleStyle={{ color: theme.colors.text }}
+            containerStyle={styles.formButtonContainerLeft}
           />
           <Button
-            title="Salvar"
+            title={isEditMode ? "Salvar Alterações" : "Criar Compromisso"}
             onPress={handleSave}
             loading={isSaving}
             disabled={isSaving}
+            buttonStyle={[styles.formButton, { backgroundColor: theme.colors.primary }]}
+            containerStyle={styles.formButtonContainerRight}
+            icon={isCreating ? {name: 'check', color: componentColors.white} : undefined }
+            titleStyle={{color: componentColors.white}}
           />
         </View>
-      </View>
+      </ScrollView>
     </Card>
   );
 
-  // Se estiver em modo de edição ou criando novo evento, mostra o formulário
-  if (editMode || !event) {
-    return (
-      <ScrollView style={styles.container}>
+  const renderDisplayMode = () => (
+     <ScrollView style={styles.scrollView}>
         <LinearGradient
-          colors={[theme.colors.primary, '#6F18FF']}
-          style={styles.gradientHeader}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
+          colors={[theme.colors.primary, theme.colors.primary as string]} // Ensure second color is also a string
+          style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
+          start={{x: 0, y: 0}} end={{x: 1, y: 1}}
         >
-          <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <Icon 
-                name={editMode ? "edit" : "add"} 
-                size={28} 
-                color={theme.colors.textPrimary} 
-                style={styles.typeIcon} 
-              />
-              <Text h4 style={styles.screenTitle}>
-                {editMode ? 'Editar Compromisso' : 'Novo Compromisso'}
-              </Text>
+            <View style={styles.displayHeader}>
+                <View style={styles.headerTitleContainer}>
+                    <Icon {...getEventTypeDetails()} size={28} style={styles.headerTypeIcon}/>
+                    <Text style={[styles.headerScreenTitle, { color: componentColors.white}]}>
+                        {formData.title || "Detalhes do Compromisso"} {/* Changed to formData.title */}
+                    </Text>
+                </View>
+                <View style={[styles.headerBadge, { backgroundColor: getStatusBadge().color }]}>
+                    <Text style={[styles.headerBadgeText, { color: componentColors.white}]}>{getStatusBadge().label}</Text>
+                </View>
             </View>
-          </View>
         </LinearGradient>
-        {renderForm()}
-      </ScrollView>
-    );
-  }
-
-  return (
-    <ScrollView style={styles.container}>
-      <LinearGradient
-        colors={[theme.colors.primary, '#6F18FF']}
-        style={styles.gradientHeader}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-      >
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <Icon {...getEventTypeIcon()} size={28} style={styles.typeIcon} />
-            <Text h4 style={styles.screenTitle}>
-              {editMode ? 'Editar Compromisso' : 'Detalhes do Compromisso'}
-            </Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: getStatusBadge().color }]}>
-            <Text style={styles.badgeText}>{getStatusBadge().label}</Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      <Card containerStyle={styles.mainCard}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.sectionTitle}>Informações Principais</Text>
-          <View style={[styles.typeBadge, { backgroundColor: getEventTypeIcon().color + '20' }]}>
-            <Text style={[styles.typeBadgeText, { color: getEventTypeIcon().color }]}>
-              {event.tipo ? event.tipo.charAt(0).toUpperCase() + event.tipo.slice(1) : 'Evento'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ paddingHorizontal: 20 }}>
-          <View style={styles.detailSection}>
-            <View style={styles.detailRow}>
-              <Icon name="calendar-today" color={theme.colors.textSecondary} />
-              <Text style={{ marginLeft: 8, color: theme.colors.textPrimary }}>
-                {new Date(event.data).toLocaleDateString('pt-BR', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
-            </View>
-
-            {event.local && (
-              <View style={styles.detailRow}>
-                <Icon name="place" color={theme.colors.textSecondary} />
-                <Text style={{ marginLeft: 8, color: theme.colors.textPrimary }}>
-                  {event.local}
-                </Text>
-              </View>
+        <View style={styles.contentContainer}>
+            <Card containerStyle={[styles.detailCard, { backgroundColor: theme.colors.card }]}>
+                <Card.Title style={[styles.detailCardTitle, { color: theme.colors.text }]}>
+                    <Text>Informações Principais</Text>
+                </Card.Title>
+                <Card.Divider color={theme.colors.border} />
+                 <DetailItem icon="tag-outline" label="Tipo" value={getEventTypeDetails().label} theme={theme} />
+                 <DetailItem icon="calendar-month-outline" label="Data e Hora" value={formData.data ? formatDate(new Date(formData.data)) : 'N/A'} theme={theme} />
+                 <DetailItem icon="map-marker-outline" label="Local" value={formData.local} theme={theme} />
+                 <DetailItem icon="account-outline" label="Cliente" value={formData.cliente} theme={theme} />
+                 <DetailItem icon="text-long" label="Descrição/Obs." value={formData.descricao} theme={theme} />
+            </Card>
+            {(formData.numeroProcesso || formData.vara || formData.prioridade || formData.observacoes || formData.presencaObrigatoria !== undefined || (formData.lembretes && formData.lembretes.length > 0)) && (
+                <Card containerStyle={[styles.detailCard, { backgroundColor: theme.colors.card }]}>
+                    <Card.Title style={[styles.detailCardTitle, { color: theme.colors.text }]}><Text>Detalhes Adicionais</Text></Card.Title>
+                    <Card.Divider color={theme.colors.border}/>
+                    <DetailItem icon="pound-box-outline" label="Nº Processo" value={formData.numeroProcesso} theme={theme} />
+                    <DetailItem icon="gavel" label="Vara/Tribunal" value={formData.vara} theme={theme} />
+                    <DetailItem icon="priority-high" label="Prioridade" value={formData.prioridade} theme={theme} />
+                    <DetailItem icon="comment-text-outline" label="Observações" value={formData.observacoes} theme={theme} />
+                    <DetailItem icon={formData.presencaObrigatoria ? "account-check-outline" : "account-off-outline"} label="Presença Obrigatória" value={formData.presencaObrigatoria} theme={theme} />
+                    <DetailItem 
+                        icon={(formData.lembretes && formData.lembretes.length > 0) ? "bell-check-outline" : "bell-off-outline"} 
+                        label="Lembretes" 
+                        value={Array.isArray(formData.lembretes) ? formData.lembretes.join(', ') : undefined} 
+                        theme={theme} 
+                    />
+                </Card>
             )}
-          </View>
+            <View style={styles.viewActionButtons}>
+                <Button
+                    title="Excluir"
+                    type="outline"
+                    icon={<Icon name="delete-outline" type="material-community" color={theme.colors.error} />}
+                    buttonStyle={[styles.viewButton, { borderColor: theme.colors.error }]}
+                    titleStyle={{ color: theme.colors.error }}
+                    onPress={handleDelete}
+                    loading={isSaving}
+                    disabled={isSaving || isCreating} // Disable delete for new unsaved event
+                    containerStyle={styles.formButtonContainerLeft}
+                />
+                 <Button
+                    title="Editar"
+                    icon={<Icon name="pencil-outline" type="material-community" color={componentColors.white} />}
+                    buttonStyle={[styles.viewButton, { backgroundColor: theme.colors.primary }]}
+                    titleStyle={{ color: componentColors.white }}
+                    onPress={() => setIsEditMode(true)}
+                    disabled={isSaving}
+                    containerStyle={styles.formButtonContainerRight}
+                />
+            </View>
         </View>
-      </Card>
-
-      {event.cliente && (
-        <Card containerStyle={{ borderRadius: 12, marginTop: 16, padding: 16 }}>
-          <Text style={styles.sectionTitle}>Cliente</Text>
-          <View style={styles.detailRow}>
-            <Icon name="person" color={theme.colors.textSecondary} />
-            <Text style={{ marginLeft: 8, color: theme.colors.textPrimary }}>
-              {event.cliente}
-            </Text>
-          </View>
-        </Card>
-      )}
-
-      {event.observacoes && (
-        <Card containerStyle={{ borderRadius: 12, marginTop: 16, padding: 16 }}>
-          <Text style={styles.sectionTitle}>Observações</Text>
-          <Text style={{ color: theme.colors.textPrimary }}>
-            {event.observacoes}
-          </Text>
-        </Card>
-      )}
-
-      <View style={styles.actionButtons}>
-        <Button
-          title="Editar"
-          icon={{ name: 'edit', color: 'white' }}
-          buttonStyle={{ backgroundColor: theme.colors.primary, paddingHorizontal: 24 }}
-          onPress={() => navigation.navigate('EventDetails', { event, editMode: true })}
-          accessibilityLabel="Editar compromisso"
-          accessibilityRole="button"
-        />
-        <Button
-          title="Excluir"
-          icon={{ name: 'delete', color: 'white' }}
-          buttonStyle={{ backgroundColor: theme.colors.error, paddingHorizontal: 24 }}
-          onPress={handleDelete}
-          accessibilityLabel="Excluir compromisso"
-          accessibilityRole="button"
-        />
-      </View>
     </ScrollView>
   );
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['left', 'right', 'bottom']}>
+        <StatusBar
+            barStyle={theme.dark ? 'light-content' : 'dark-content'} // Use theme.dark directly
+            backgroundColor={'transparent'}
+            translucent={true}
+        />
+        {isEditMode || isCreating ? renderForm() : renderDisplayMode()}
+    </SafeAreaView>
+  );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+      padding: 16,
+  },
+  detailCard: {
+    borderRadius: 12,
+    borderWidth: 0,
+    marginBottom: 16,
+    padding: 16,
+  },
+  detailCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'left',
+  },
+  detailItemContainer: {
+      alignItems: 'flex-start',
+      flexDirection: 'row',
+      marginBottom: 12,
+  },
+  detailItemIcon: {
+      marginRight: 12,
+      marginTop: 2,
+  },
+  detailItemLabel: {
+      fontSize: 13,
+      marginBottom: 2,
+      opacity: 0.8,
+  },
+  detailItemTextContainer: {
+      flex: 1,
+  },
+  detailItemValue: {
+      fontSize: 16,
+      lineHeight: 22,
+  },
+  displayHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  formActionButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 24,
+  },
+  formButton: {},
+  formButtonContainerLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  formButtonContainerRight: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  formCard: {
+    borderRadius: 16,
+    elevation: 3,
+    margin: 16,
+    padding: 20,
+    shadowColor: componentColors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  formScrollView: {},
+  gradientHeader: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+  },
+  headerBadge: {
+    borderRadius: 16,
+    marginLeft: 'auto',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  headerBadgeText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  headerScreenTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  headerTitleContainer: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      marginRight: 10,
+  },
+  headerTypeIcon: {
+      marginRight: 10,
+  },
+  multilineInput: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  multilineInputContainer: {
+     height: 120,
+  },
+  scrollView: {
+      flex: 1,
+  },
+  viewActionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+   viewButton: {
+      borderRadius: 8,
+      paddingVertical: 10,
+  },
+});
 
 export default EventDetailsScreen;

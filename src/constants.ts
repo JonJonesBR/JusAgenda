@@ -91,3 +91,11 @@ export const PRIORIDADES = {
   MEDIA: 'media',
   BAIXA: 'baixa'
 } as const;
+
+export const SETTINGS_KEYS = {
+  NOTIFICATIONS_ENABLED: '@JusAgenda:notifications_enabled',
+  EMAIL_NOTIFICATIONS: '@JusAgenda:email_notifications',
+  DEFAULT_EMAIL: '@JusAgenda:default_email',
+  DEFAULT_REMINDER_TIME: '@JusAgenda:default_reminder_time',
+  THEME: '@JusAgenda:theme',
+} as const;

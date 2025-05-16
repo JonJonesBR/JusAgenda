@@ -10,50 +10,49 @@ import React from "react";
 import {
   NavigationContainer,
   DefaultTheme,
-  DarkTheme,
+  // DarkTheme, // Removido, pois não está sendo usado
   Theme,
 } from "@react-navigation/native";
 import BottomTabNavigator from "./BottomTabNavigator";
 import ExportScreen from "../screens/ExportScreen";
 import { Stack, navigationConfig } from "./navigationConfig";
-import { useTheme } from "../contexts/ThemeContext";
-/* import { StackNavigationOptions } from "@react-navigation/stack"; */
+import { NativeStackNavigationOptions } from "@react-navigation/native-stack"; // Changed to native-stack
 
 const AppNavigator: React.FC = () => {
-  const { isDarkMode, theme } = useTheme();
+  // const { isDarkMode, theme } = useTheme();
 
   const customLightTheme: Theme = {
     ...DefaultTheme,
     dark: false,
     colors: {
       ...DefaultTheme.colors,
-      primary: theme.colors.primary,
-      background: theme.colors.background,
-      card: (theme.colors as any).card || "#fff",
-      text: theme.colors.text,
-      border: theme.colors.border,
-      notification: (theme.colors as any).notification || "#6200ee",
+      primary: '#6200ee',
+      background: '#fff',
+      card: '#fff',
+      text: '#222',
+      border: '#e0e0e0',
+      notification: '#6200ee',
     },
   };
 
-  const customDarkTheme: Theme = {
-    ...DarkTheme,
-    dark: true,
-    colors: {
-      ...DarkTheme.colors,
-      primary: theme.colors.primary,
-      background: theme.colors.background,
-      card: (theme.colors as any).card || "#fff",
-      text: theme.colors.text,
-      border: theme.colors.border,
-      notification: (theme.colors as any).notification || "#6200ee",
-    },
-  };
+  // const customDarkTheme: Theme = { // Removido, pois não está sendo usado
+  //   ...DarkTheme,
+  //   dark: true,
+  //   colors: {
+  //     ...DarkTheme.colors,
+  //     primary: '#6200ee',
+  //     background: '#222',
+  //     card: '#222',
+  //     text: '#fff',
+  //     border: '#757575',
+  //     notification: '#6200ee',
+  //   },
+  // };
 
-  const stackOptions: any = {
+  const stackOptions: NativeStackNavigationOptions = {
     ...navigationConfig,
     headerStyle: {
-      backgroundColor: theme.colors.primary,
+      backgroundColor: '#6200ee',
     },
     headerTintColor: "#fff",
     headerTitleStyle: {
@@ -62,13 +61,13 @@ const AppNavigator: React.FC = () => {
       fontSize: 18,
     },
     contentStyle: {
-      backgroundColor: theme.colors.background,
+      backgroundColor: '#fff',
     },
   };
 
   return (
     <NavigationContainer
-      theme={isDarkMode ? customDarkTheme : customLightTheme}
+      theme={customLightTheme}
     >
       <Stack.Navigator screenOptions={stackOptions}>
         <Stack.Screen

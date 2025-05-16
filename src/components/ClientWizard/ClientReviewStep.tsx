@@ -6,34 +6,37 @@ import { Client } from '../../screens/ClientWizardScreen';
 import moment from 'moment';
 import * as Haptics from 'expo-haptics';
 
+const componentColors = {
+  black: '#000',
+  defaultTextGrey: '#86939e', // General fallback for grey text
+  defaultSurfaceColor: '#FFFFFF', // General fallback for surface/card backgrounds
+};
+
 interface ClientReviewStepProps {
   data: Partial<Client>;
-  onUpdate: (data: Partial<Client>) => void;
-  isEditMode?: boolean;
+  onEditStep: (stepIndex: number) => void;
 }
 
-/**
- * Quarto passo do wizard de cliente - Revisão final
- */
 const ClientReviewStep: React.FC<ClientReviewStepProps> = ({
   data,
-  onUpdate,
-  isEditMode = false,
+  onEditStep,
 }) => {
   const { theme } = useTheme();
-  
-  // Função para formatar dados vazios
-  const formatData = (value: string | undefined, placeholder: string = 'Não informado') => {
-    return value && value.trim() !== '' ? value : placeholder;
+
+  const formatData = (value: string | number | undefined | null, placeholder: string = 'Não informado') => {
+    if (value === null || value === undefined) return placeholder;
+    const stringValue = String(value);
+    return stringValue.trim() !== '' ? stringValue : placeholder;
   };
-  
-  // Função para retornar ao passo anterior para editar determinada seção
-  const handleEditSection = (step: number) => {
-    // Aqui implementaríamos a navegação para o passo específico
-    // Esta funcionalidade depende da estrutura de navegação do aplicativo
+
+  const handleEditSection = (stepIndex: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    onEditStep(stepIndex);
   };
-  
+
+  const textSecondaryColor = theme.colors.textSecondary || componentColors.defaultTextGrey;
+  const surfaceColor = theme.colors.background || componentColors.defaultSurfaceColor; // Use background as primary fallback for surface
+
   return (
     <ScrollView
       style={styles.container}
@@ -43,29 +46,28 @@ const ClientReviewStep: React.FC<ClientReviewStepProps> = ({
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
         Revisão das Informações
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.grey2 }]}>
+      <Text style={[styles.sectionDescription, { color: textSecondaryColor }]}>
         Verifique se todas as informações estão corretas antes de finalizar o cadastro.
       </Text>
-      
-      {/* Seção Informações Básicas */}
-      <Card containerStyle={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+
+      <Card containerStyle={[styles.card, { backgroundColor: surfaceColor, borderColor: theme.colors.border }]}>
         <View style={styles.cardHeader}>
-          <View>
+          <View style={styles.cardTitleContainer}>
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
               Informações Básicas
             </Text>
-            <Text style={[styles.cardSubtitle, { color: theme.colors.grey2 }]}>
+            <Text style={[styles.cardSubtitle, { color: textSecondaryColor }]}>
               Dados gerais do cliente
             </Text>
           </View>
           <Button
             type="clear"
-            onPress={() => handleEditSection(1)}
+            onPress={() => handleEditSection(0)}
             icon={
-              <Icon 
-                name="edit" 
-                type="material" 
-                size={20}
+              <Icon
+                name="edit"
+                type="material"
+                size={24}
                 color={theme.colors.primary}
               />
             }
@@ -73,30 +75,30 @@ const ClientReviewStep: React.FC<ClientReviewStepProps> = ({
             accessibilityLabel="Editar informações básicas"
           />
         </View>
-        
-        <Divider style={[styles.divider, { backgroundColor: theme.colors.grey5 }]} />
-        
+
+        <Divider style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+
         <View style={styles.dataRow}>
-          <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
+          <Text style={[styles.dataLabel, { color: textSecondaryColor }]}>
             Tipo
           </Text>
           <Text style={[styles.dataValue, { color: theme.colors.text }]}>
             {data.tipo === 'pessoaFisica' ? 'Pessoa Física' : 'Pessoa Jurídica'}
           </Text>
         </View>
-        
+
         <View style={styles.dataRow}>
-          <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
+          <Text style={[styles.dataLabel, { color: textSecondaryColor }]}>
             {data.tipo === 'pessoaJuridica' ? 'Razão Social' : 'Nome'}
           </Text>
           <Text style={[styles.dataValue, { color: theme.colors.text }]}>
             {formatData(data.nome)}
           </Text>
         </View>
-        
-        {data.tipo === 'pessoaJuridica' && data.nomeFantasia && (
+
+        {data.tipo === 'pessoaJuridica' && (
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
+            <Text style={[styles.dataLabel, { color: textSecondaryColor }]}>
               Nome Fantasia
             </Text>
             <Text style={[styles.dataValue, { color: theme.colors.text }]}>
@@ -104,308 +106,110 @@ const ClientReviewStep: React.FC<ClientReviewStepProps> = ({
             </Text>
           </View>
         )}
-        
+
         <View style={styles.dataRow}>
-          <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
+          <Text style={[styles.dataLabel, { color: textSecondaryColor }]}>
             Email
           </Text>
           <Text style={[styles.dataValue, { color: theme.colors.text }]}>
             {formatData(data.email)}
           </Text>
         </View>
-        
+
         <View style={styles.dataRow}>
-          <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
+          <Text style={[styles.dataLabel, { color: textSecondaryColor }]}>
             Telefone
           </Text>
           <Text style={[styles.dataValue, { color: theme.colors.text }]}>
             {formatData(data.telefone)}
           </Text>
         </View>
-        
-        {data.tipo === 'pessoaFisica' && data.dataNascimento && (
+
+        {data.tipo === 'pessoaFisica' && (
           <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
+            <Text style={[styles.dataLabel, { color: textSecondaryColor }]}>
               Data de Nascimento
             </Text>
             <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-              {formatData(moment(data.dataNascimento).format('DD/MM/YYYY'))}
+              {data.dataNascimento ? formatData(moment(data.dataNascimento, 'YYYY-MM-DD').format('DD/MM/YYYY')) : 'Não informado'}
             </Text>
           </View>
         )}
-        
-        {data.observacoes && (
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
+        <View style={styles.dataRow}>
+            <Text style={[styles.dataLabel, { color: textSecondaryColor }]}>
               Observações
             </Text>
             <Text style={[styles.dataValue, { color: theme.colors.text }]}>
               {formatData(data.observacoes)}
             </Text>
           </View>
-        )}
       </Card>
-      
-      {/* Seção Documentos */}
-      <Card containerStyle={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+
+      <Card containerStyle={[styles.card, { backgroundColor: surfaceColor, borderColor: theme.colors.border }]}>
         <View style={styles.cardHeader}>
-          <View>
+          <View style={styles.cardTitleContainer}>
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
               Documentos
             </Text>
-            <Text style={[styles.cardSubtitle, { color: theme.colors.grey2 }]}>
+            <Text style={[styles.cardSubtitle, { color: textSecondaryColor }]}>
               {data.tipo === 'pessoaFisica' ? 'Documentos pessoais' : 'Documentos da empresa'}
             </Text>
           </View>
           <Button
             type="clear"
-            onPress={() => handleEditSection(2)}
-            icon={
-              <Icon 
-                name="edit" 
-                type="material" 
-                size={20}
-                color={theme.colors.primary}
-              />
-            }
+            onPress={() => handleEditSection(1)}
+            icon={<Icon name="edit" type="material" size={24} color={theme.colors.primary}/>}
             buttonStyle={styles.editButton}
             accessibilityLabel="Editar documentos"
           />
         </View>
-        
-        <Divider style={[styles.divider, { backgroundColor: theme.colors.grey5 }]} />
-        
+        <Divider style={[styles.divider, { backgroundColor: theme.colors.border }]} />
         {data.tipo === 'pessoaFisica' ? (
-          // Campos para Pessoa Física
           <>
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                CPF
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.cpf)}
-              </Text>
-            </View>
-            
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                RG
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.rg)}
-              </Text>
-            </View>
-            
-            {data.orgaoEmissor && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Órgão Emissor
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.orgaoEmissor)}
-                </Text>
-              </View>
-            )}
-            
-            {data.profissao && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Profissão
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.profissao)}
-                </Text>
-              </View>
-            )}
-            
-            {data.estadoCivil && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Estado Civil
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.estadoCivil)}
-                </Text>
-              </View>
-            )}
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>CPF</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.cpf)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>RG</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.rg)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Órgão Emissor</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.orgaoEmissor)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Profissão</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.profissao)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Estado Civil</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.estadoCivil)}</Text></View>
           </>
         ) : (
-          // Campos para Pessoa Jurídica
           <>
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                CNPJ
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.cnpj)}
-              </Text>
-            </View>
-            
-            {data.inscricaoEstadual && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Inscrição Estadual
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.inscricaoEstadual)}
-                </Text>
-              </View>
-            )}
-            
-            {data.inscricaoMunicipal && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Inscrição Municipal
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.inscricaoMunicipal)}
-                </Text>
-              </View>
-            )}
-            
-            {data.ramoAtividade && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Ramo de Atividade
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.ramoAtividade)}
-                </Text>
-              </View>
-            )}
-            
-            {data.responsavelLegal && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Responsável Legal
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.responsavelLegal)}
-                </Text>
-              </View>
-            )}
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>CNPJ</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.cnpj)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Inscrição Estadual</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.inscricaoEstadual)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Inscrição Municipal</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.inscricaoMunicipal)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Ramo de Atividade</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.ramoAtividade)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Responsável Legal</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.responsavelLegal)}</Text></View>
           </>
         )}
-        
-        {data.documentosAdicionais && (
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-              Documentos Adicionais
-            </Text>
-            <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-              {formatData(data.documentosAdicionais)}
-            </Text>
-          </View>
-        )}
+        <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Documentos Adicionais</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.documentosAdicionais)}</Text></View>
       </Card>
-      
-      {/* Seção Endereço */}
-      <Card containerStyle={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+
+      <Card containerStyle={[styles.card, { backgroundColor: surfaceColor, borderColor: theme.colors.border }]}>
         <View style={styles.cardHeader}>
-          <View>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-              Endereço
-            </Text>
-            <Text style={[styles.cardSubtitle, { color: theme.colors.grey2 }]}>
-              {data.tipo === 'pessoaFisica' ? 'Endereço residencial' : 'Endereço comercial'}
-            </Text>
+          <View style={styles.cardTitleContainer}>
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Endereço</Text>
+            <Text style={[styles.cardSubtitle, { color: textSecondaryColor }]}>{data.tipo === 'pessoaFisica' ? 'Endereço residencial' : 'Endereço comercial'}</Text>
           </View>
-          <Button
-            type="clear"
-            onPress={() => handleEditSection(3)}
-            icon={
-              <Icon 
-                name="edit" 
-                type="material" 
-                size={20}
-                color={theme.colors.primary}
-              />
-            }
-            buttonStyle={styles.editButton}
-            accessibilityLabel="Editar endereço"
-          />
+          <Button type="clear" onPress={() => handleEditSection(2)} icon={<Icon name="edit" type="material" size={24} color={theme.colors.primary}/>} buttonStyle={styles.editButton} accessibilityLabel="Editar endereço"/>
         </View>
-        
-        <Divider style={[styles.divider, { backgroundColor: theme.colors.grey5 }]} />
-        
+        <Divider style={[styles.divider, { backgroundColor: theme.colors.border }]} />
         {data.endereco ? (
           <>
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                CEP
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.endereco.cep)}
-              </Text>
-            </View>
-            
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                Logradouro
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.endereco.logradouro)}
-              </Text>
-            </View>
-            
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                Número
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.endereco.numero)}
-              </Text>
-            </View>
-            
-            {data.endereco.complemento && (
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                  Complemento
-                </Text>
-                <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                  {formatData(data.endereco.complemento)}
-                </Text>
-              </View>
-            )}
-            
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                Bairro
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.endereco.bairro)}
-              </Text>
-            </View>
-            
-            <View style={styles.dataRow}>
-              <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-                Cidade/Estado
-              </Text>
-              <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-                {formatData(data.endereco.cidade)} - {formatData(data.endereco.estado)}
-              </Text>
-            </View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>CEP</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.endereco.cep)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Logradouro</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.endereco.logradouro)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Número</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.endereco.numero)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Complemento</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.endereco.complemento)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Bairro</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.endereco.bairro)}</Text></View>
+            <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Cidade/Estado</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.endereco.cidade)} - {formatData(data.endereco.estado)}</Text></View>
           </>
         ) : (
-          <Text style={[styles.emptyMessage, { color: theme.colors.grey3 }]}>
-            Nenhum endereço informado
-          </Text>
+          <Text style={[styles.emptyMessage, { color: textSecondaryColor }]}>Nenhum endereço informado</Text>
         )}
-        
-        {data.pontoReferencia && (
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, { color: theme.colors.grey2 }]}>
-              Ponto de Referência
-            </Text>
-            <Text style={[styles.dataValue, { color: theme.colors.text }]}>
-              {formatData(data.pontoReferencia)}
-            </Text>
-          </View>
-        )}
+         <View style={styles.dataRow}><Text style={[styles.dataLabel, { color: textSecondaryColor }]}>Ponto de Referência</Text><Text style={[styles.dataValue, { color: theme.colors.text }]}>{formatData(data.pontoReferencia)}</Text></View>
       </Card>
-      
+
       <View style={styles.confirmationContainer}>
-        <Text style={[styles.confirmationText, { color: theme.colors.grey2 }]}>
+        <Text style={[styles.confirmationText, { color: textSecondaryColor }]}>
           Confirme os dados acima antes de finalizar o cadastro. Você pode editar qualquer seção clicando no ícone de edição.
         </Text>
       </View>
@@ -414,75 +218,84 @@ const ClientReviewStep: React.FC<ClientReviewStepProps> = ({
 };
 
 const styles = StyleSheet.create({
+  card: {
+    borderRadius: 12,
+    elevation: 3,
+    marginBottom: 20,
+    padding: 16,
+    shadowColor: componentColors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  cardHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+  },
+  cardTitle: {
+    fontSize: 19,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  cardTitleContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  confirmationContainer: {
+    marginBottom: 24,
+    marginTop: 16,
+    paddingHorizontal: 16,
+  },
+  confirmationText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  card: {
-    borderRadius: 8,
-    marginBottom: 16,
-    padding: 16,
-    elevation: 2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  cardSubtitle: {
-    fontSize: 14,
-  },
-  editButton: {
-    padding: 0,
-  },
-  divider: {
-    marginVertical: 12,
-  },
-  dataRow: {
-    marginBottom: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 16,
   },
   dataLabel: {
-    fontSize: 14,
+    fontSize: 13,
     marginBottom: 4,
+  },
+  dataRow: {
+    marginBottom: 14,
   },
   dataValue: {
     fontSize: 16,
     fontWeight: '500',
   },
+  divider: {
+    marginVertical: 16,
+  },
+  editButton: {
+    padding: 4,
+  },
   emptyMessage: {
-    fontSize: 16,
+    fontSize: 15,
     fontStyle: 'italic',
+    paddingVertical: 20,
     textAlign: 'center',
-    padding: 16,
   },
-  confirmationContainer: {
-    marginTop: 8,
-    marginBottom: 24,
-    paddingHorizontal: 16,
+  sectionDescription: {
+    fontSize: 15,
+    marginBottom: 20,
+    paddingHorizontal: 8,
   },
-  confirmationText: {
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    paddingHorizontal: 8,
   },
 });
 

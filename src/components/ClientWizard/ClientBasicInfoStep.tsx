@@ -1,34 +1,39 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Input, Text, Button, CheckBox } from '@rneui/themed';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Client } from '../../screens/ClientWizardScreen';
 
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import moment from 'moment';
+
+const componentColors = {
+  transparent: 'transparent',
+  defaultTextGrey: '#86939e', // Fallback for grey2
+  defaultBorderGrey: '#D3D3D3', // Fallback for grey5 (light grey)
+};
 
 interface ClientBasicInfoStepProps {
   data: Partial<Client>;
   onUpdate: (data: Partial<Client>) => void;
-  isEditMode?: boolean;
 }
 
-/**
- * Primeiro passo do wizard de cliente - Informações básicas
- */
 const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
   data,
   onUpdate,
-  isEditMode = false,
 }) => {
   const { theme } = useTheme();
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Manipular mudança de data de nascimento
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+        setShowDatePicker(false);
+    }
     if (selectedDate) {
-      onUpdate({ dataNascimento: moment(selectedDate).format('YYYY-MM-DD') });
+      onUpdate({ ...data, dataNascimento: moment(selectedDate).format('YYYY-MM-DD') });
+    }
+    if (event.type === "dismissed" && Platform.OS === 'ios') {
+        setShowDatePicker(false);
     }
   };
 
@@ -41,7 +46,7 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
         Informações Básicas do Cliente
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.grey2 }]}>
+      <Text style={[styles.sectionDescription, { color: componentColors.defaultTextGrey }]}>
         Preencha os dados básicos do cliente para começar o cadastro.
       </Text>
 
@@ -53,10 +58,10 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
           <CheckBox
             title="Pessoa Física"
             checked={data.tipo === 'pessoaFisica'}
-            onPress={() => onUpdate({ tipo: 'pessoaFisica' })}
+            onPress={() => onUpdate({ ...data, tipo: 'pessoaFisica' })}
             containerStyle={[
               styles.radioButton,
-              { backgroundColor: 'transparent', borderWidth: 0 }
+              styles.transparentRadioButton
             ]}
             textStyle={{ color: theme.colors.text }}
             checkedColor={theme.colors.primary}
@@ -65,10 +70,10 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
           <CheckBox
             title="Pessoa Jurídica"
             checked={data.tipo === 'pessoaJuridica'}
-            onPress={() => onUpdate({ tipo: 'pessoaJuridica' })}
+            onPress={() => onUpdate({ ...data, tipo: 'pessoaJuridica' })}
             containerStyle={[
               styles.radioButton,
-              { backgroundColor: 'transparent', borderWidth: 0 }
+              styles.transparentRadioButton
             ]}
             textStyle={{ color: theme.colors.text }}
             checkedColor={theme.colors.primary}
@@ -84,7 +89,7 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
         <Input
           placeholder={data.tipo === 'pessoaJuridica' ? "Digite a razão social" : "Digite o nome completo"}
           value={data.nome || ''}
-          onChangeText={(value) => onUpdate({ nome: value })}
+          onChangeText={(value) => onUpdate({ ...data, nome: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           autoCapitalize="words"
@@ -101,7 +106,7 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
           <Input
             placeholder="Digite o nome fantasia"
             value={data.nomeFantasia || ''}
-            onChangeText={(value) => onUpdate({ nomeFantasia: value })}
+            onChangeText={(value) => onUpdate({ ...data, nomeFantasia: value })}
             containerStyle={styles.inputContainer}
             inputStyle={{ color: theme.colors.text }}
             autoCapitalize="words"
@@ -116,7 +121,7 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
         <Input
           placeholder="Digite o email"
           value={data.email || ''}
-          onChangeText={(value) => onUpdate({ email: value })}
+          onChangeText={(value) => onUpdate({ ...data, email: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           keyboardType="email-address"
@@ -131,7 +136,7 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
         <Input
           placeholder="Digite o telefone"
           value={data.telefone || ''}
-          onChangeText={(value) => onUpdate({ telefone: value })}
+          onChangeText={(value) => onUpdate({ ...data, telefone: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           keyboardType="phone-pad"
@@ -146,9 +151,9 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
             Data de Nascimento
           </Text>
           <Button
-            title={data.dataNascimento ? moment(data.dataNascimento).format('DD/MM/YYYY') : 'Selecionar data'}
+            title={data.dataNascimento ? moment(data.dataNascimento, "YYYY-MM-DD").format('DD/MM/YYYY') : 'Selecionar data'}
             type="outline"
-            buttonStyle={[styles.dateButton, { borderColor: theme.colors.grey5 }]}
+            buttonStyle={[styles.dateButton, { borderColor: componentColors.defaultBorderGrey }]}
             titleStyle={{ color: theme.colors.text }}
             onPress={() => setShowDatePicker(true)}
             accessibilityLabel="Selecionar data de nascimento"
@@ -167,7 +172,7 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
         <Input
           placeholder="Observações sobre o cliente"
           value={data.observacoes || ''}
-          onChangeText={(value) => onUpdate({ observacoes: value })}
+          onChangeText={(value) => onUpdate({ ...data, observacoes: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           multiline
@@ -177,12 +182,11 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
         />
       </View>
 
-      {/* Exibir o seletor de data quando solicitado */}
       {showDatePicker && (
         <DateTimePicker
-          value={data.dataNascimento ? moment(data.dataNascimento).toDate() : new Date()}
+          value={data.dataNascimento ? moment(data.dataNascimento, "YYYY-MM-DD").toDate() : new Date()}
           mode="date"
-          display="default"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleDateChange}
         />
       )}
@@ -197,41 +201,45 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  dateButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'flex-start',
+    paddingVertical: 10,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  inputContainer: {
+    paddingHorizontal: 0,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  radioButton: {
+    margin: 0,
+    marginLeft: 0,
+    marginRight: 20,
+    padding: 0,
+  },
+  radioGroup: {
+    flexDirection: 'row',
     marginBottom: 8,
   },
   sectionDescription: {
     fontSize: 14,
     marginBottom: 20,
   },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  inputContainer: {
-    paddingHorizontal: 0,
-  },
-  radioGroup: {
-    flexDirection: 'row',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 8,
   },
-  radioButton: {
-    padding: 0,
-    margin: 0,
-    marginLeft: 0,
-    marginRight: 20,
-  },
-  dateButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    justifyContent: 'flex-start',
-    paddingVertical: 10,
+  transparentRadioButton: {
+    backgroundColor: componentColors.transparent,
+    borderWidth: 0,
   },
 });
 

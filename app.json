@@ -1,100 +1,38 @@
 {
-  "expo": {
-    "name": "JusAgenda",
-    "slug": "jusagenda",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#6200ee"
-    },
-    "updates": {
-      "fallbackToCacheTimeout": 0
-    },
-    "assetBundlePatterns": ["**/*"],
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"]
-      }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#6200ee"
+    "expo": {
+      "name": "JusAgenda",
+      "slug": "JusAgenda",
+      "version": "1.0.0",
+      "orientation": "portrait",
+      "icon": "./assets/icon.png",
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
       },
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-        "android.permission.ACCESS_NOTIFICATION_POLICY",
-        "android.permission.INTERNET",
-        "android.permission.SCHEDULE_EXACT_ALARM"
-      ],
-      "package": "com.jonjonesbr.jusagenda"
-    },
-    "plugins": [
-      [
-        "expo-file-system",
-        {
-          "filePermission": "Permissão necessária para salvar arquivos."
-        }
-      ],
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "Permitir que o JusAgenda acesse suas fotos e documentos.",
-          "savePhotosPermission": "Permitir que o JusAgenda salve fotos e documentos no seu dispositivo."
-        }
-      ],
-      [
-        "expo-calendar",
-        {
-          "calendarPermission": "Permitir que o JusAgenda acesse seu calendário.",
-          "remindersPermission": "Permitir que o JusAgenda acesse seus lembretes e compromissos."
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#6200ee"
-        }
-      ],
-      "expo-router"
-    ],
-    "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro",
-      "output": "static",
-      "build": {
-        "babel": {
-          "include": ["@expo/vector-icons"]
-        }
-      }
-    },
-    "extra": {
-      "router": {
-        "origin": false
+      "updates": {
+        "fallbackToCacheTimeout": 0
       },
-      "eas": {
-        "projectId": "9fbfcc37-3525-4ca7-980b-addb8228620b"
+      "assetBundlePatterns": [
+        "**/*"
+      ],
+      "ios": {
+        "supportsTablet": true,
+        "bundleIdentifier": "com.jonjonesbr.jusagenda"
+      },
+      "android": {
+        "adaptiveIcon": {
+          "foregroundImage": "./assets/adaptive-icon.png",
+          "backgroundColor": "#FFFFFF"
+        },
+        "package": "com.jonjonesbr.jusagenda"
+      },
+      "web": {
+        "favicon": "./assets/favicon.png"
+      },
+      "androidStatusBar": {
+        "backgroundColor": "#6200EE",
+        "barStyle": "light-content"
       }
-    },
-    "owner": "jonjonesbr",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "newArchEnabled": true,
-    "developmentClient": {
-      "silentLaunch": true
     }
   }
-}

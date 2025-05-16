@@ -1,244 +1,368 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { View, StyleSheet, ScrollView, Alert } from "react-native";
-import { Text, Button, CheckBox, Icon, Card } from "@rneui/themed";
-import { useNavigation } from "@react-navigation/native";
-import { useEvents } from "../contexts/EventContext";
-import { COLORS, EVENT_TYPES } from "../utils/common";
-import { formatDateTime } from "../utils/dateUtils";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  Text,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
+import { Button, CheckBox, Card } from "@rneui/themed";
+import { useEvents } from "../contexts/EventCrudContext"; // Event import removed
+import { eventTypes } from "../constants";
+import { formatDate } from "../utils/dateUtils";
 import ExportService from "../services/ExportService";
 import * as Sharing from "expo-sharing";
-import * as MediaLibrary from "expo-media-library";
 import { useTheme } from "../contexts/ThemeContext";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from 'react-native-toast-message';
 
-const ExportScreen = () => {
-  const navigation = useNavigation();
+type ExportFormat = 'Excel' | 'PDF' | 'Word';
+
+const componentColors = {
+  white: '#FFFFFF',
+  transparent: 'transparent', // Added for checkbox
+};
+
+const ExportScreen: React.FC = () => {
   const { events } = useEvents();
   const { theme } = useTheme();
-  const [selectedEvents, setSelectedEvents] = useState([]);
-  const [selectedTypes, setSelectedTypes] = useState([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [isSharingAvailable, setIsSharingAvailable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Filtra os eventos conforme os tipos selecionados.
   const filteredEvents = useMemo(() => {
-    return events.filter(
-      (event) =>
-        selectedTypes.length === 0 || selectedTypes.includes(event.type)
-    );
+    if (selectedTypes.length === 0) {
+      return events;
+    }
+    const typeSet = new Set(selectedTypes);
+    return events.filter((event) => event.type && typeSet.has(event.type));
   }, [events, selectedTypes]);
 
-  // Alterna a seleção de um evento pelo seu id.
-  const toggleEventSelection = useCallback((eventId) => {
-    setSelectedEvents((current) =>
-      current.includes(eventId)
-        ? current.filter((id) => id !== eventId)
-        : [...current, eventId]
-    );
-  }, []);
-
-  // Alterna o filtro por tipo e limpa a seleção de eventos.
-  const toggleTypeFilter = useCallback((type) => {
-    setSelectedTypes((current) =>
-      current.includes(type)
-        ? current.filter((t) => t !== type)
-        : [...current, type]
-    );
-    setSelectedEvents([]); // Limpa a seleção ao mudar o filtro
-  }, []);
-
-  // Função que dispara a exportação conforme o formato escolhido.
-  const handleExport = async (format) => {
-    if (selectedEvents.length === 0) {
-      Alert.alert("Aviso", "Selecione pelo menos um compromisso para exportar");
-      return;
-    }
-    const eventsToExport = events.filter((event) =>
-      selectedEvents.includes(event.id)
-    );
-    try {
-      let exportResult = false;
-      switch (format) {
-        case "Excel":
-          exportResult = await ExportService.exportToExcel(eventsToExport);
-          break;
-        case "PDF":
-          exportResult = await ExportService.exportToPDF(eventsToExport);
-          break;
-        case "Word":
-          exportResult = await ExportService.exportToWord(eventsToExport);
-          break;
-        default:
-          break;
-      }
-      if (!exportResult || exportResult.success === false) return;
-      Alert.alert(
-        "Exportação Concluída",
-        "O que você deseja fazer?",
-        [
-          {
-            text: "Continuar Exportando",
-            onPress: () => {
-              setSelectedEvents([]);
-              setSelectedTypes([]);
-            },
-          },
-          { text: "Voltar ao Menu", onPress: () => navigation.goBack() },
-        ],
-        { cancelable: false }
-      );
-    } catch (error) {
-      Alert.alert(
-        "Erro na Exportação",
-        "Não foi possível completar a exportação. Tente novamente."
-      );
-    }
-  };
-
-  // Seleciona todos os eventos visíveis (filtrados)
-  const selectAll = useCallback(() => {
-    setSelectedEvents(filteredEvents.map((event) => event.id));
-  }, [filteredEvents]);
-
-  // Limpa a seleção dos eventos
-  const clearSelection = useCallback(() => {
-    setSelectedEvents([]);
-  }, []);
-
-  // Verifica permissões de compartilhamento e acesso à MediaLibrary
   useEffect(() => {
     (async () => {
       try {
-        const sharingAvailable = await Sharing.isAvailableAsync();
-        const { status } = await MediaLibrary.requestPermissionsAsync();
+        const available = await Sharing.isAvailableAsync();
+        setIsSharingAvailable(available);
+        if (!available) {
+            Alert.alert("Compartilhamento Indisponível", "Não será possível compartilhar arquivos exportados diretamente.");
+        }
       } catch (error) {
-        console.error("Erro ao verificar permissões:", error);
+        console.error("Erro ao verificar disponibilidade de compartilhamento:", error);
       }
     })();
   }, []);
 
+  const toggleEventSelection = useCallback((eventId: string) => {
+    setSelectedEventIds((currentIds) => {
+      const newIds = new Set(currentIds);
+      if (newIds.has(eventId)) {
+        newIds.delete(eventId);
+      } else {
+        newIds.add(eventId);
+      }
+      return Array.from(newIds);
+    });
+  }, []);
+
+  const toggleTypeFilter = useCallback((typeValue: string) => {
+    setSelectedTypes((currentTypes) => {
+      const newTypes = new Set(currentTypes);
+      if (newTypes.has(typeValue)) {
+        newTypes.delete(typeValue);
+      } else {
+        newTypes.add(typeValue);
+      }
+      return Array.from(newTypes);
+    });
+    setSelectedEventIds([]);
+  }, []);
+
+  const toggleSelectAllFiltered = useCallback(() => {
+      const allFilteredIds = filteredEvents.map((event) => event.id);
+      const allFilteredSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedEventIds.includes(id));
+
+      if (allFilteredSelected) {
+          const currentSelectedSet = new Set(selectedEventIds);
+          allFilteredIds.forEach(id => currentSelectedSet.delete(id));
+          setSelectedEventIds(Array.from(currentSelectedSet));
+      } else {
+          const currentSelectedSet = new Set(selectedEventIds);
+          allFilteredIds.forEach(id => currentSelectedSet.add(id));
+          setSelectedEventIds(Array.from(currentSelectedSet));
+      }
+  }, [filteredEvents, selectedEventIds]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedEventIds([]);
+  }, []);
+
+  const handleExport = async (format: ExportFormat) => {
+    if (selectedEventIds.length === 0) {
+      Alert.alert("Nenhum Evento", "Selecione pelo menos um compromisso para exportar.");
+      return;
+    }
+     if (!isSharingAvailable) {
+         Alert.alert("Compartilhamento Indisponível", "Não é possível exportar/compartilhar o arquivo.");
+         return;
+    }
+
+    const eventsToExport = events.filter((event) => selectedEventIds.includes(event.id));
+
+    setIsLoading(true);
+    try {
+      let result: { success: boolean; message?: string; error?: string; filePath?: string } = { success: false };
+
+      switch (format) {
+        case "Excel":
+          result = await ExportService.exportToExcel(eventsToExport);
+          break;
+        case "PDF":
+          result = await ExportService.exportToPDF(eventsToExport);
+          break;
+        case "Word":
+           result = await ExportService.exportToWord(eventsToExport);
+           break;
+      }
+
+      if (result.success) {
+        if (result.filePath && isSharingAvailable) {
+            await Sharing.shareAsync(result.filePath, {
+                mimeType: format === 'Excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : (format === 'PDF' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+                dialogTitle: `Compartilhar ${format}`,
+            });
+            Toast.show({type: 'success', text1: 'Exportado e Pronto para Compartilhar!'});
+        } else {
+             Alert.alert("Exportação Concluída", result.message || `Arquivo ${format} gerado com sucesso.` );
+        }
+        setSelectedEventIds([]);
+      } else {
+        Alert.alert("Erro na Exportação", result.error || "Não foi possível gerar o arquivo.");
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : `Não foi possível completar a exportação para ${format}.`;
+      console.error(`Erro ao exportar para ${format}:`, error);
+      Alert.alert("Erro Inesperado", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const allFilteredSelected = useMemo(() => {
+      const allFilteredIds = filteredEvents.map((event) => event.id);
+      return allFilteredIds.length > 0 && allFilteredIds.every(id => selectedEventIds.includes(id));
+  }, [filteredEvents, selectedEventIds]);
+
+  const exportButtonColors = {
+    Excel: theme.colors.success || '#217346',
+    PDF: theme.colors.error || '#FF0000',
+    Word: theme.colors.info || '#2B579A',
+  };
+
   return (
-    <View style={styles.container}>
-      <Text h4 style={styles.title}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text style={[styles.screenTitle, { color: theme.colors.text }]}>
         Exportar Compromissos
       </Text>
-      {/* Filtro de Tipos */}
-      <Card containerStyle={styles.filterCard}>
-        <Text style={styles.filterTitle}>Filtrar por tipo:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.filterContainer}>
-            {Object.entries(EVENT_TYPES).map(([key, value]) => (
-              <Button
-                key={value}
-                title={key.charAt(0) + key.slice(1).toLowerCase()}
-                icon={{
-                  name:
-                    value === "audiencia"
-                      ? "gavel"
-                      : value === "reuniao"
-                      ? "groups"
-                      : value === "prazo"
-                      ? "timer"
-                      : "event",
-                  size: 20,
-                  color: selectedTypes.includes(value)
-                    ? "white"
-                    : theme.colors.primary,
-                }}
-                type={selectedTypes.includes(value) ? "solid" : "outline"}
-                buttonStyle={[
-                  styles.filterButton,
-                  selectedTypes.includes(value) && styles.filterButtonActive,
-                ]}
-                onPress={() => toggleTypeFilter(value)}
-              />
-            ))}
-          </View>
+
+      <Card containerStyle={[styles.filterCard, { backgroundColor: theme.colors.card }]}>
+        <Text style={[styles.filterTitle, { color: theme.colors.textSecondary }]}>Filtrar por tipo:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+          {Object.entries(eventTypes || {}).map(([key, value]) => {
+             const typeValue = String(value);
+             const isSelected = selectedTypes.includes(typeValue);
+             return (
+                <Button
+                    key={String(typeValue)}
+                    title={key}
+                    icon={{ name: 'tag-outline', type: 'material-community', size: 18, color: isSelected ? componentColors.white : theme.colors.primary }}
+                    type={isSelected ? "solid" : "outline"}
+                    buttonStyle={[ styles.filterButton, isSelected ? { backgroundColor: theme.colors.primary } : { borderColor: theme.colors.primary } ]}
+                    titleStyle={[styles.filterButtonTitle, {color: isSelected ? componentColors.white : theme.colors.primary}]}
+                    onPress={() => toggleTypeFilter(typeValue)}
+                    disabled={isLoading}
+                />
+             );
+          })}
         </ScrollView>
       </Card>
-      {/* Botões de Seleção */}
-      <View style={styles.selectionButtons}>
-        <Button title="Selecionar Todos" type="clear" onPress={selectAll} />
-        <Button title="Limpar Seleção" type="clear" onPress={clearSelection} />
+
+      <View style={styles.selectionActions}>
+        <Button
+            title={allFilteredSelected ? "Desmarcar Todos" : "Selecionar Todos"}
+            type="clear"
+            onPress={toggleSelectAllFiltered}
+            titleStyle={{ color: theme.colors.primary }}
+            disabled={isLoading || filteredEvents.length === 0}
+         />
+        <Button
+            title="Limpar Seleção"
+            type="clear"
+            onPress={clearSelection}
+            titleStyle={{ color: theme.colors.primary }}
+            disabled={isLoading || selectedEventIds.length === 0}
+         />
       </View>
-      {/* Lista dos Eventos com CheckBox */}
+
       <ScrollView style={styles.eventsList}>
-        {filteredEvents.map((event) => (
-          <CheckBox
-            key={event.id}
-            checked={selectedEvents.includes(event.id)}
-            onPress={() => toggleEventSelection(event.id)}
-            title={
-              <View style={styles.eventItem}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.eventInfo}>
-                  {formatDateTime(event.date)}
-                </Text>
-                <Text style={styles.eventType}>
-                  {event.type
-                    ? event.type.charAt(0).toUpperCase() + event.type.slice(1)
-                    : ""}
-                </Text>
-              </View>
-            }
-            containerStyle={styles.checkboxContainer}
+        {filteredEvents.length > 0 ? (
+          filteredEvents.map((event) => (
+            <TouchableOpacity key={event.id} onPress={() => toggleEventSelection(event.id)} disabled={isLoading}>
+                 <Card containerStyle={[styles.eventItemCard, { backgroundColor: theme.colors.card, borderColor: selectedEventIds.includes(event.id) ? theme.colors.primary : theme.colors.border }]}>
+                    <View style={styles.eventItemRow}>
+                         <CheckBox
+                            checked={selectedEventIds.includes(event.id)}
+                            onPress={() => toggleEventSelection(event.id)}
+                            containerStyle={styles.checkbox}
+                            checkedColor={theme.colors.primary}
+                            uncheckedColor={theme.colors.textSecondary}
+                            disabled={isLoading}
+                        />
+                        <View style={styles.eventItemText}>
+                            <Text style={[styles.eventItemTitle, { color: theme.colors.text }]}>{event.title || "Sem Título"}</Text>
+                            <Text style={[styles.eventItemInfo, { color: theme.colors.textSecondary }]}>
+                                {formatDate(event.date)} - {event.type ? (event.type.charAt(0).toUpperCase() + event.type.slice(1)) : "Geral"}
+                            </Text>
+                        </View>
+                    </View>
+                </Card>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={[styles.noEventsText, { color: theme.colors.textSecondary }]}>
+            Nenhum compromisso encontrado {selectedTypes.length > 0 ? 'para os tipos selecionados' : ''}.
+          </Text>
+        )}
+      </ScrollView>
+
+      <View style={[styles.exportButtonContainer, { borderTopColor: theme.colors.border, backgroundColor: theme.colors.background }]}>
+        {(['Excel', 'PDF', 'Word'] as ExportFormat[]).map((format) => (
+          <Button
+            key={format}
+            title={format}
+            icon={{ name: format === 'Excel' ? 'file-excel-outline' : (format === 'PDF' ? 'file-pdf-box' : 'file-word-outline'), type: "material-community", color: componentColors.white }}
+            buttonStyle={[styles.exportButton, { backgroundColor: exportButtonColors[format] }]}
+            titleStyle={[styles.exportButtonTitle, {color: componentColors.white}]}
+            onPress={() => handleExport(format)}
+            disabled={isLoading || selectedEventIds.length === 0}
+            loading={isLoading && format === 'Excel'}
+            containerStyle={styles.exportButtonWrapper}
           />
         ))}
-      </ScrollView>
-      {/* Botões de Exportação */}
-      <View style={styles.exportButtons}>
-        <Button
-          title="Excel"
-          icon={{ name: "table", type: "font-awesome", color: "white" }}
-          buttonStyle={[styles.exportButton, { backgroundColor: "#217346" }]}
-          onPress={() => handleExport("Excel")}
-        />
-        <Button
-          title="PDF"
-          icon={{ name: "file-pdf-o", type: "font-awesome", color: "white" }}
-          buttonStyle={[styles.exportButton, { backgroundColor: "#FF0000" }]}
-          onPress={() => handleExport("PDF")}
-        />
-        <Button
-          title="Word"
-          icon={{ name: "file-word-o", type: "font-awesome", color: "white" }}
-          buttonStyle={[styles.exportButton, { backgroundColor: "#2B579A" }]}
-          onPress={() => handleExport("Word")}
-        />
       </View>
-    </View>
+       {isLoading && <ActivityIndicator style={styles.loadingIndicator} size="small" color={theme.colors.primary} />}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, padding: 10 },
-  title: { textAlign: "center", marginVertical: 20, color: COLORS.textPrimary },
-  filterCard: { margin: 10, borderRadius: 8 },
-  filterTitle: { fontSize: 16, marginBottom: 10, color: COLORS.textSecondary },
-  filterContainer: { flexDirection: "row", gap: 10 },
-  filterButton: { paddingHorizontal: 15, borderRadius: 20 },
-  filterButtonActive: { backgroundColor: COLORS.primary },
-  selectionButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    marginVertical: 10,
-  },
-  eventsList: { flex: 1 },
-  checkboxContainer: {
-    backgroundColor: "white",
+  checkbox: {
+    backgroundColor: componentColors.transparent, // Use constant
     borderWidth: 0,
-    marginVertical: 5,
+    margin: 0,
+    marginRight: 10,
+    padding: 0,
   },
-  eventItem: { marginLeft: 10 },
-  eventTitle: { fontSize: 16, color: COLORS.textPrimary },
-  eventInfo: { fontSize: 14, color: COLORS.textSecondary },
-  eventType: { fontSize: 12, color: COLORS.primary },
-  exportButtons: {
+  container: {
+    flex: 1,
+  },
+  eventItemCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginVertical: 5,
+    padding: 10,
+  },
+  eventItemInfo: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  eventItemRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  eventItemText: {
+    flex: 1,
+  },
+  eventItemTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  eventsList: {
+    flex: 1,
+  },
+  exportButton: {
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  exportButtonContainer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    elevation: 4,
     flexDirection: "row",
     justifyContent: "space-around",
-    padding: 20,
-    backgroundColor: "white",
-    elevation: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  exportButton: { paddingHorizontal: 20, borderRadius: 8 },
+  exportButtonTitle: {
+    fontSize: 14,
+  },
+  exportButtonWrapper: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  filterButton: {
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filterButtonTitle: {
+    fontSize: 13,
+  },
+  filterCard: {
+    borderRadius: 12,
+    marginBottom: 16,
+    marginHorizontal: 16,
+    marginTop: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+  },
+  filterScroll: {
+      paddingLeft: 8,
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 12,
+    marginLeft: 8,
+  },
+  loadingIndicator: {
+    alignSelf: 'center',
+    bottom: 80,
+    position: 'absolute',
+  },
+  noEventsText: {
+    fontSize: 16,
+    marginVertical: 40,
+    paddingHorizontal: 20,
+    textAlign: "center",
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginHorizontal: 16,
+    marginVertical: 16,
+    textAlign: 'center',
+  },
+  selectionActions: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 10,
+    paddingHorizontal: 16,
+  },
 });
 
-export default ExportScreen;
+export default React.memo(ExportScreen);

@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Input, Text, Button } from '@rneui/themed';
+import { Input, Text } from '@rneui/themed';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Event } from '../../types/event';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import moment from 'moment';
 import { Picker } from '@react-native-picker/picker';
+import CustomDateTimePicker from '../../components/CustomDateTimePicker';
 
 interface BasicInfoStepProps {
   data: Partial<Event>;
   onUpdate: (data: Partial<Event>) => void;
-  isEditMode?: boolean;
 }
 
 /**
@@ -19,10 +17,8 @@ interface BasicInfoStepProps {
 const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
   data,
   onUpdate,
-  isEditMode = false,
 }) => {
   const { theme } = useTheme();
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Lista de tipos de eventos disponíveis
   const eventTypes = [
@@ -34,12 +30,13 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
     { label: 'Outro', value: 'outro' },
   ];
 
-  // Manipular mudança de data
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      onUpdate({ data: moment(selectedDate).format('YYYY-MM-DD') });
-    }
+  // Função para simplificar a atualização de campos
+  const handleFieldUpdate = (updates: Partial<Event>) => {
+    onUpdate({ ...data, ...updates });
+  };
+
+  const handleDateChange = (date: Date) => {
+    onUpdate({ ...data, data: date });
   };
 
   return (
@@ -51,7 +48,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
         Informações Básicas
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.grey1 || '#999' }]}>
+      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || '#999' }]}>
         Preencha os dados básicos do evento para prosseguir.
       </Text>
 
@@ -59,8 +56,8 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
         <Text style={[styles.label, { color: theme.colors.text }]}>Título *</Text>
         <Input
           placeholder="Digite o título do evento"
-          value={data.titulo || ''}
-          onChangeText={(value) => onUpdate({ titulo: value, title: value })} // Atualize ambos para compatibilidade
+          value={data.title || ''}
+          onChangeText={(value) => handleFieldUpdate({ title: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           autoCapitalize="sentences"
@@ -71,36 +68,28 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
 
       <View style={styles.formGroup}>
         <Text style={[styles.label, { color: theme.colors.text }]}>Tipo *</Text>
-        <View style={[styles.pickerContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.grey5 || '#e0e0e0' }]}>
+        <View style={[styles.pickerContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.border || '#e0e0e0' }]}>
           <Picker
             selectedValue={data.tipo || ''}
-            onValueChange={(value) => onUpdate({ tipo: value })}
+            onValueChange={(value) => handleFieldUpdate({ tipo: value })}
             style={{ color: theme.colors.text }}
             dropdownIconColor={theme.colors.text}
             accessibilityLabel="Tipo de evento"
           >
-            {eventTypes.map((type) => (
-              <Picker.Item key={type.value} label={type.label} value={type.value} />
+            {eventTypes.map((typeOption) => (
+              <Picker.Item key={typeOption.value} label={typeOption.label} value={typeOption.value} />
             ))}
           </Picker>
         </View>
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Data *</Text>
-        <Button
-          title={data.data ? moment(data.data).format('DD/MM/YYYY') : 'Selecionar data'}
-          type="outline"
-          buttonStyle={[styles.dateButton, { borderColor: theme.colors.grey5 || '#e0e0e0' }]}
-          titleStyle={{ color: theme.colors.text }}
-          onPress={() => setShowDatePicker(true)}
-          accessibilityLabel="Selecionar data do evento"
-          icon={{
-            name: 'calendar',
-            type: 'material-community',
-            color: theme.colors.text,
-          }}
-          iconPosition="left"
+        <Text style={[styles.label, { color: theme.colors.text }]}>Data e Hora *</Text>
+        <CustomDateTimePicker
+          label="Data e Hora"
+          value={data.data ? new Date(data.data) : new Date()}
+          onChange={handleDateChange}
+          mode="datetime"
         />
       </View>
 
@@ -109,7 +98,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
         <Input
           placeholder="Descreva o evento"
           value={data.descricao || ''}
-          onChangeText={(value) => onUpdate({ descricao: value })}
+          onChangeText={(value) => handleFieldUpdate({ descricao: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           multiline
@@ -124,64 +113,49 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
         <Input
           placeholder="Local do evento"
           value={data.local || ''}
-          onChangeText={(value) => onUpdate({ local: value })}
+          onChangeText={(value) => handleFieldUpdate({ local: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           accessibilityLabel="Local do evento"
         />
       </View>
-
-      {/* Exibir o seletor de data quando solicitado */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={data.data ? moment(data.data).toDate() : new Date()}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
     </ScrollView>
   );
 };
 
+// Estilos ajustados para consistência
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-    fontWeight: '500',
+    marginBottom: 20,
   },
   inputContainer: {
     paddingHorizontal: 0,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderRadius: 8,
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
     marginBottom: 8,
   },
-  dateButton: {
-    borderWidth: 1,
+  pickerContainer: {
     borderRadius: 8,
-    justifyContent: 'flex-start',
-    paddingVertical: 10,
+    borderWidth: 1,
   },
+  sectionDescription: {
+    fontSize: 15,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  }
 });
 
 export default BasicInfoStep;

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native'; // Removido ActivityIndicator
 import { Input, Text, Button } from '@rneui/themed';
-import { useTheme } from '../../contexts/ThemeContext';
-import { Client } from '../../screens/ClientWizardScreen';
-import { TextInputMask } from 'react-native-masked-text';
+import { useTheme } from '../../contexts/ThemeContext'; // Removida extensão .tsx
+import { Client } from '../../screens/ClientWizardScreen'; // Removida extensão
+import MaskInput from 'react-native-mask-input';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 
 interface ClientAddressStepProps {
   data: Partial<Client>;
   onUpdate: (data: Partial<Client>) => void;
-  isEditMode?: boolean;
+  // isEditMode?: boolean; // Removido, pois não está sendo usado
 }
 
 /**
@@ -19,15 +19,36 @@ interface ClientAddressStepProps {
 const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
   data,
   onUpdate,
-  isEditMode = false,
+  // isEditMode = false, // Removido, pois não está sendo usado
 }) => {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
-  
+
   // Inicializar os dados de endereço se não existirem
+  // IMPORTANTE: Essa lógica de inicialização aqui pode causar re-renders inesperados
+  // se onUpdate disparar um re-render do componente pai que passa 'data' de volta.
+  // Seria melhor garantir que 'data.endereco' seja inicializado no componente pai
+  // antes de passar para ClientAddressStep, ou usar um useEffect com dependência em 'data'
+  // para inicializar apenas uma vez se 'data.endereco' for undefined.
+  // Por agora, vou manter como está, mas é um ponto de atenção.
   if (!data.endereco) {
-    onUpdate({
-      endereco: {
+    // Para evitar loop, só chamar onUpdate se realmente precisar inicializar
+    // E talvez seja melhor fazer isso no componente pai ou com useEffect
+    // useEffect(() => {
+    //   if (!data.endereco) {
+    //     onUpdate({
+    //       endereco: { /* ... valores padrão ... */ }
+    //     });
+    //   }
+    // }, [data.endereco, onUpdate]);
+    // Contudo, como o componente é para um passo de wizard, a inicialização
+    // pode ser feita no momento da transição para este passo no componente que gerencia o wizard.
+
+    // Se for manter aqui, e 'onUpdate' pode recriar 'data', precisa de uma condição mais robusta
+    // ou inicializar 'data.endereco' no estado local e só chamar onUpdate ao sair do passo.
+    // No entanto, a props 'data' sugere que o estado é gerenciado externamente.
+    // Vou assumir que o onUpdate aqui é para persistir a inicialização no estado pai.
+    const initialAddress = {
         logradouro: '',
         numero: '',
         complemento: '',
@@ -35,14 +56,19 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         cidade: '',
         estado: '',
         cep: '',
-      }
-    });
+      };
+    if (JSON.stringify(data.endereco) !== JSON.stringify(initialAddress)) { // Evitar chamadas desnecessárias
+        onUpdate({
+          ...data, // Preservar outros campos de data
+          endereco: initialAddress
+        });
+    }
   }
 
   // Buscar endereço pelo CEP
   const buscarCep = async () => {
-    const cep = data.endereco?.cep?.replace(/\D/g, '');
-    
+    const cep = data.endereco?.cep?.replace(/\D/g, ''); // Garante que data.endereco exista
+
     if (!cep || cep.length !== 8) {
       Toast.show({
         type: 'error',
@@ -52,13 +78,13 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
-    
+
     try {
       setLoading(true);
       const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      const endereco = await response.json();
-      
-      if (endereco.erro) {
+      const enderecoData = await response.json(); // Renomeado para evitar conflito de nome
+
+      if (enderecoData.erro) {
         Toast.show({
           type: 'error',
           text1: 'CEP não encontrado',
@@ -67,15 +93,17 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       } else {
         onUpdate({
+          ...data, // Preservar outros campos de data
           endereco: {
-            ...data.endereco,
-            logradouro: endereco.logradouro,
-            bairro: endereco.bairro,
-            cidade: endereco.localidade,
-            estado: endereco.uf,
+            ...(data.endereco || {}), // Garante que data.endereco exista
+            logradouro: enderecoData.logradouro,
+            bairro: enderecoData.bairro,
+            cidade: enderecoData.localidade,
+            estado: enderecoData.uf,
+            cep: data.endereco?.cep || '', // Mantém o CEP digitado
           }
         });
-        
+
         Toast.show({
           type: 'success',
           text1: 'CEP encontrado',
@@ -84,6 +112,7 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
     } catch (error) {
+      console.error("Erro ao buscar CEP:", error); // Adicionar log do erro
       Toast.show({
         type: 'error',
         text1: 'Erro ao buscar CEP',
@@ -96,15 +125,27 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
   };
 
   // Atualizar campo específico do endereço
-  const updateAddressField = (field: string, value: string) => {
+  const updateAddressField = (field: keyof NonNullable<Client['endereco']>, value: string) => {
     onUpdate({
+      ...data, // Preservar outros campos de data
       endereco: {
-        ...data.endereco,
+        ...(data.endereco || {}), // Garante que data.endereco exista
         [field]: value
       }
     });
   };
-  
+
+  // Adicionado para garantir que data.endereco exista para renderização
+  const currentAddress = data.endereco || {
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    cep: '',
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -114,8 +155,8 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
         Endereço
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.grey2 }]}>
-        {data.tipo === 'pessoaFisica' 
+      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || '#86939e' }]}>
+        {data.tipo === 'pessoaFisica'
           ? 'Informe o endereço residencial do cliente.'
           : 'Informe o endereço da empresa.'}
       </Text>
@@ -125,17 +166,17 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         <View style={styles.cepContainer}>
           <Input
             placeholder="00000-000"
-            value={data.endereco?.cep || ''}
+            value={currentAddress.cep}
             onChangeText={(value) => updateAddressField('cep', value)}
             containerStyle={styles.cepInput}
             inputStyle={{ color: theme.colors.text }}
             keyboardType="numeric"
-            accessibilityLabel="CEP"
-            returnKeyType="search"
-            InputComponent={(props) => (
-              <TextInputMask
+              accessibilityLabel="CEP"
+              returnKeyType="search"
+              InputComponent={(props) => (
+              <MaskInput
                 {...props}
-                type={'zip-code'}
+                mask={'[0-9]{5}-[0-9]{3}'}
               />
             )}
           />
@@ -154,7 +195,7 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         <Text style={[styles.label, { color: theme.colors.text }]}>Logradouro</Text>
         <Input
           placeholder="Rua, Avenida, etc."
-          value={data.endereco?.logradouro || ''}
+          value={currentAddress.logradouro}
           onChangeText={(value) => updateAddressField('logradouro', value)}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
@@ -169,7 +210,7 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
           <Text style={[styles.label, { color: theme.colors.text }]}>Número</Text>
           <Input
             placeholder="Nº"
-            value={data.endereco?.numero || ''}
+            value={currentAddress.numero}
             onChangeText={(value) => updateAddressField('numero', value)}
             containerStyle={styles.inputContainer}
             inputStyle={{ color: theme.colors.text }}
@@ -183,7 +224,7 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
           <Text style={[styles.label, { color: theme.colors.text }]}>Complemento</Text>
           <Input
             placeholder="Apto, Bloco, etc."
-            value={data.endereco?.complemento || ''}
+            value={currentAddress.complemento}
             onChangeText={(value) => updateAddressField('complemento', value)}
             containerStyle={styles.inputContainer}
             inputStyle={{ color: theme.colors.text }}
@@ -197,7 +238,7 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         <Text style={[styles.label, { color: theme.colors.text }]}>Bairro</Text>
         <Input
           placeholder="Bairro"
-          value={data.endereco?.bairro || ''}
+          value={currentAddress.bairro}
           onChangeText={(value) => updateAddressField('bairro', value)}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
@@ -211,7 +252,7 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         <Text style={[styles.label, { color: theme.colors.text }]}>Cidade</Text>
         <Input
           placeholder="Cidade"
-          value={data.endereco?.cidade || ''}
+          value={currentAddress.cidade}
           onChangeText={(value) => updateAddressField('cidade', value)}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
@@ -225,7 +266,7 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         <Text style={[styles.label, { color: theme.colors.text }]}>Estado</Text>
         <Input
           placeholder="UF"
-          value={data.endereco?.estado || ''}
+          value={currentAddress.estado}
           onChangeText={(value) => updateAddressField('estado', value)}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
@@ -236,12 +277,15 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
         />
       </View>
 
+      {/* O campo pontoReferencia não está definido no tipo Endereco dentro de Client,
+          mas sim diretamente em Client. A lógica abaixo está correta em relação a isso.
+      */}
       <View style={styles.formGroup}>
         <Text style={[styles.label, { color: theme.colors.text }]}>Ponto de Referência</Text>
         <Input
           placeholder="Ponto de referência (opcional)"
           value={data.pontoReferencia || ''}
-          onChangeText={(value) => onUpdate({ pontoReferencia: value })}
+          onChangeText={(value) => onUpdate({ ...data, pontoReferencia: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           multiline
@@ -254,56 +298,58 @@ const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
   );
 };
 
+// Estilos permanecem os mesmos
 const styles = StyleSheet.create({
+  cepButton: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    // Removido marginRight: 10, pois pode ser melhor controlado pelo container ou espaçamento do Input
+  },
+  cepContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  cepInput: {
+    flex: 3,
+    paddingHorizontal: 0, // Redundante com containerStyle de Input, mas não prejudica
+  },
   container: {
     flex: 1,
   },
   contentContainer: {
     paddingBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  formGroup: {
+    marginBottom: 16,
+  },
+  inputContainer: {
+    paddingHorizontal: 0,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
     marginBottom: 8,
+  },
+  largeInput: {
+    flex: 2, // Ajustado para dar mais espaço
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    // gap: 10, // Alternativa moderna para marginRight/marginLeft se suportado
   },
   sectionDescription: {
     fontSize: 14,
     marginBottom: 20,
   },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 8,
-    fontWeight: '500',
-  },
-  inputContainer: {
-    paddingHorizontal: 0,
-  },
-  cepContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cepInput: {
-    flex: 3,
-    paddingHorizontal: 0,
-  },
-  cepButton: {
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    marginRight: 10,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   smallInput: {
-    flex: 1,
-    marginRight: 10,
-  },
-  largeInput: {
-    flex: 2,
+    flex: 1, // Ajustado para permitir que largeInput tenha mais espaço
+    marginRight: 8, // Ajustado para um espaçamento menor
   },
 });
 

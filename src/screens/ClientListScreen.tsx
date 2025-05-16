@@ -4,20 +4,21 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
+  Text,
+  RefreshControl,
+  Alert,
+  ScrollView,
 } from 'react-native';
-import { Text, Button, SearchBar, Icon, FAB } from '@rneui/themed';
+import { Button, SearchBar, Icon, FAB } from '@rneui/themed';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useTheme } from '../contexts/ThemeContext';
-import * as Haptics from 'expo-haptics';
+import { useNavigation, useFocusEffect, NavigationProp } from '@react-navigation/native';
+import { useTheme, Theme } from '../contexts/ThemeContext';
 import Toast from 'react-native-toast-message';
 import { Client } from './ClientWizardScreen';
-import { SwipeListView } from 'react-native-swipe-list-view';
+import { SwipeListView, RowMap } from 'react-native-swipe-list-view';
 import LoadingSkeleton from '../components/LoadingSkeleton';
-import EnhancedRefreshControl from '../components/EnhancedRefreshControl';
+import * as Haptics from 'expo-haptics';
 
-// Definição do tipo de navegação
 type ClientStackParamList = {
   ClientList: undefined;
   ClientWizard: {
@@ -27,487 +28,282 @@ type ClientStackParamList = {
   };
 };
 
-type ClientScreenNavigationProp = NativeStackNavigationProp<ClientStackParamList>;
+type ClientScreenNavigationProp = NavigationProp<ClientStackParamList>;
 
-// Dados de exemplo para testes
 const MOCK_CLIENTS: Client[] = [
-  {
-    id: '1',
-    nome: 'João da Silva',
-    email: 'joao.silva@email.com',
-    telefone: '(11) 98765-4321',
-    cpf: '123.456.789-00',
-    tipo: 'pessoaFisica',
-    endereco: {
-      logradouro: 'Rua das Flores',
-      numero: '123',
-      bairro: 'Jardim Primavera',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      cep: '01234-567',
-    },
-  },
-  {
-    id: '2',
-    nome: 'Maria Oliveira',
-    email: 'maria.oliveira@email.com',
-    telefone: '(11) 98765-1234',
-    cpf: '987.654.321-00',
-    tipo: 'pessoaFisica',
-    endereco: {
-      logradouro: 'Av. Paulista',
-      numero: '1000',
-      bairro: 'Bela Vista',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      cep: '01310-100',
-    },
-  },
-  {
-    id: '3',
-    nome: 'Empresa ABC Ltda',
-    email: 'contato@empresaabc.com',
-    telefone: '(11) 3456-7890',
-    cnpj: '12.345.678/0001-90',
-    tipo: 'pessoaJuridica',
-    endereco: {
-      logradouro: 'Av. Brigadeiro Faria Lima',
-      numero: '3900',
-      bairro: 'Itaim Bibi',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      cep: '04538-132',
-    },
-  },
+    { id: '1', nome: 'João da Silva', email: 'joao.silva@email.com', telefone: '(11) 98765-4321', cpf: '123.456.789-00', tipo: 'pessoaFisica', endereco: { logradouro: 'Rua das Flores', numero: '123', bairro: 'Jardim Primavera', cidade: 'São Paulo', estado: 'SP', cep: '01234-567' } },
+    { id: '2', nome: 'Maria Oliveira', email: 'maria.oliveira@email.com', telefone: '(11) 98765-1234', cpf: '987.654.321-00', tipo: 'pessoaFisica', endereco: { logradouro: 'Av. Paulista', numero: '1000', bairro: 'Bela Vista', cidade: 'São Paulo', estado: 'SP', cep: '01310-100' } },
+    { id: '3', nome: 'Empresa ABC Ltda', email: 'contato@empresaabc.com', telefone: '(11) 3456-7890', cnpj: '12.345.678/0001-90', tipo: 'pessoaJuridica', endereco: { logradouro: 'Av. Brigadeiro Faria Lima', numero: '3900', bairro: 'Itaim Bibi', cidade: 'São Paulo', estado: 'SP', cep: '04538-132' } },
 ];
 
-/**
- * Tela de listagem de clientes
- */
+const componentColors = {
+  white: '#FFFFFF',
+  shadowBlack: '#000',
+  defaultPlaceholderText: '#A9A9A9',
+  defaultSurface: '#FFFFFF',
+};
+
 const ClientListScreen: React.FC = () => {
   const navigation = useNavigation<ClientScreenNavigationProp>();
-  const { theme } = useTheme();
+  const { theme } = useTheme(); // isDarkMode removed
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
-  // Carregar clientes
-  const loadClients = useCallback(async () => {
+  const loadClients = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
-      // Aqui você implementaria a lógica para buscar os clientes
-      // do banco de dados ou da API
-      
-      // Por enquanto, usamos dados de exemplo
-      setTimeout(() => {
-        setClients(MOCK_CLIENTS);
-        setFilteredClients(MOCK_CLIENTS);
-        setLoading(false);
-        setRefreshing(false);
-        setLastRefreshed(new Date());
-      }, 1000); // Simulação de carregamento por 1 segundo
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      setClients(MOCK_CLIENTS);
+      setFilteredClients(MOCK_CLIENTS);
+      setSearch('');
+      Toast.show({
+          type: 'success',
+          text1: isRefresh ? 'Lista atualizada!' : 'Clientes carregados',
+          visibilityTime: 1500,
+      });
     } catch (error) {
       console.error('Erro ao carregar clientes:', error);
       Toast.show({
         type: 'error',
         text1: 'Erro ao carregar clientes',
-        text2: 'Tente novamente mais tarde',
+        text2: 'Não foi possível buscar os dados.',
       });
+    } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // Carregar dados quando a tela receber foco
   useFocusEffect(
     useCallback(() => {
-      loadClients();
-    }, [loadClients])
+      if (clients.length === 0) {
+          loadClients();
+      }
+    }, [loadClients, clients.length])
   );
 
-  // Função para filtrar clientes
   const updateSearch = (searchText: string) => {
     setSearch(searchText);
-    
     if (searchText.trim() === '') {
       setFilteredClients(clients);
-      return;
-    }
-    
-    const searchLower = searchText.toLowerCase();
-    const filtered = clients.filter((client) => {
-      return (
+    } else {
+      const searchLower = searchText.toLowerCase();
+      const filtered = clients.filter(client =>
         client.nome.toLowerCase().includes(searchLower) ||
         (client.email && client.email.toLowerCase().includes(searchLower)) ||
         (client.telefone && client.telefone.includes(searchText)) ||
-        (client.cpf && client.cpf.includes(searchText)) ||
-        (client.cnpj && client.cnpj.includes(searchText))
+        (client.cpf && client.cpf.replace(/[^\d]/g, '').includes(searchText.replace(/[^\d]/g, ''))) ||
+        (client.cnpj && client.cnpj.replace(/[^\d]/g, '').includes(searchText.replace(/[^\d]/g, '')))
       );
-    });
-    
-    setFilteredClients(filtered);
+      setFilteredClients(filtered);
+    }
   };
 
-  // Função para atualizar a lista por pull-to-refresh
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    loadClients();
-  };
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    loadClients(true);
+  }, [loadClients]);
 
-  // Função para navegar para o wizard de criação de cliente
   const handleAddClient = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    navigation.navigate('ClientWizard', {});
+    navigation.navigate('ClientWizard', { isEditMode: false });
   };
 
-  // Função para editar um cliente
-  const handleEditClient = (client: Client) => {
+  const handleEditClient = (client: Client, rowMap: RowMap<Client>, rowKey: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    rowMap[rowKey]?.closeRow();
     navigation.navigate('ClientWizard', { client, isEditMode: true });
   };
 
-  // Função para visualizar detalhes do cliente
   const handleViewClient = (client: Client) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    navigation.navigate('ClientWizard', { client, isEditMode: true, readOnly: true });
+    navigation.navigate('ClientWizard', { client, readOnly: true });
   };
 
-  // Função para excluir um cliente
-  const handleDeleteClient = (clientId: string) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-    
-    // Aqui você implementaria a lógica para excluir o cliente
-    // do banco de dados ou da API
-    
-    // Por enquanto, apenas atualizamos o estado local
-    const updatedClients = clients.filter(client => client.id !== clientId);
-    setClients(updatedClients);
-    setFilteredClients(updatedClients);
-    
-    Toast.show({
-      type: 'success',
-      text1: 'Cliente excluído',
-      text2: 'O cliente foi excluído com sucesso',
-    });
+  const handleDeleteClient = (client: Client, rowMap: RowMap<Client>, rowKey: string) => {
+    rowMap[rowKey]?.closeRow();
+    Alert.alert(
+        "Confirmar Exclusão",
+        `Tem certeza que deseja excluir o cliente "${client.nome}"? Esta ação não pode ser desfeita.`,
+        [
+            { text: "Cancelar", style: "cancel", onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}) },
+            {
+                text: "Excluir",
+                style: "destructive",
+                onPress: async () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const updatedClients = clients.filter(c => c.id !== client.id);
+                    setClients(updatedClients);
+                    setFilteredClients(prevFiltered => prevFiltered.filter(c => c.id !== client.id));
+                    Toast.show({
+                        type: 'success',
+                        text1: 'Cliente excluído',
+                    });
+                },
+            },
+        ],
+        { cancelable: true }
+    );
   };
 
-  // Renderizar item da lista de clientes
+  const InfoDetailRow: React.FC<{icon: string; text?: string | null; theme: Theme; numberOfLines?: number}> =
+    ({icon, text, theme: currentTheme, numberOfLines}) => text ? (
+        <View style={styles.infoRow}>
+            <Icon name={icon} type="material-community" size={15} color={currentTheme.colors.textSecondary} style={styles.infoIcon}/>
+            <Text style={[styles.clientDetail, {color: currentTheme.colors.textSecondary}]} numberOfLines={numberOfLines || 1} ellipsizeMode="tail">{text}</Text>
+        </View>
+    ) : null;
+
   const renderItem = ({ item }: { item: Client }) => (
     <TouchableOpacity
-      style={[styles.itemContainer, { backgroundColor: theme.colors.surface }]}
+      style={[styles.itemContainer, { backgroundColor: theme.colors.background || componentColors.defaultSurface, shadowColor: componentColors.shadowBlack }]}
       onPress={() => handleViewClient(item)}
       activeOpacity={0.7}
       accessibilityLabel={`Cliente ${item.nome}`}
+      accessibilityHint="Toque para ver detalhes"
     >
-      <View style={styles.clientInfo}>
-        <View style={styles.nameContainer}>
-          <Text style={[styles.clientName, { color: theme.colors.text }]}>
-            {item.nome}
-          </Text>
-          <View 
-            style={[
-              styles.clientType, 
-              { 
-                backgroundColor: item.tipo === 'pessoaFisica' 
-                  ? theme.colors.primary 
-                  : theme.colors.secondary 
-              }
-            ]}
-          >
-            <Text style={styles.clientTypeText}>
-              {item.tipo === 'pessoaFisica' ? 'PF' : 'PJ'}
-            </Text>
-          </View>
+        <View style={styles.clientInfo}>
+            <View style={styles.nameContainer}>
+                <Text style={[styles.clientName, { color: theme.colors.text }]}>{item.nome}</Text>
+                <View style={[ styles.clientTypeBadge, { backgroundColor: item.tipo === 'pessoaFisica' ? theme.colors.primary : theme.colors.secondary }]}>
+                    <Text style={styles.clientTypeText}>{item.tipo === 'pessoaFisica' ? 'PF' : 'PJ'}</Text>
+                </View>
+            </View>
+             {(item.email || item.telefone || item.cpf || item.cnpj || item.endereco) && (
+                <View style={styles.detailsContainer}>
+                    {item.email && <InfoDetailRow icon="email-outline" text={item.email} theme={theme} />}
+                    {item.telefone && <InfoDetailRow icon="phone-outline" text={item.telefone} theme={theme} />}
+                    {(item.cpf || item.cnpj) && <InfoDetailRow icon={item.tipo === 'pessoaFisica' ? 'account' : 'domain'} text={item.tipo === 'pessoaFisica' ? item.cpf : item.cnpj} theme={theme} />}
+                    {item.endereco && <InfoDetailRow icon="map-marker-outline" text={`${item.endereco.cidade || 'Cidade Desconhecida'}/${item.endereco.estado || 'UF'}`} theme={theme} numberOfLines={1}/>}
+                </View>
+            )}
         </View>
-        
-        {item.email && (
-          <View style={styles.infoRow}>
-            <Icon
-              name="email"
-              type="material"
-              size={14}
-              color={theme.colors.grey3}
-              style={styles.infoIcon}
-            />
-            <Text style={[styles.clientDetail, { color: theme.colors.grey2 }]}>
-              {item.email}
-            </Text>
-          </View>
-        )}
-        
-        {item.telefone && (
-          <View style={styles.infoRow}>
-            <Icon
-              name="phone"
-              type="material"
-              size={14}
-              color={theme.colors.grey3}
-              style={styles.infoIcon}
-            />
-            <Text style={[styles.clientDetail, { color: theme.colors.grey2 }]}>
-              {item.telefone}
-            </Text>
-          </View>
-        )}
-        
-        {(item.cpf || item.cnpj) && (
-          <View style={styles.infoRow}>
-            <Icon
-              name={item.tipo === 'pessoaFisica' ? 'badge' : 'business'}
-              type="material"
-              size={14}
-              color={theme.colors.grey3}
-              style={styles.infoIcon}
-            />
-            <Text style={[styles.clientDetail, { color: theme.colors.grey2 }]}>
-              {item.tipo === 'pessoaFisica' ? item.cpf : item.cnpj}
-            </Text>
-          </View>
-        )}
-        
-        {item.endereco && (
-          <View style={styles.infoRow}>
-            <Icon
-              name="location-on"
-              type="material"
-              size={14}
-              color={theme.colors.grey3}
-              style={styles.infoIcon}
-            />
-            <Text style={[styles.clientDetail, { color: theme.colors.grey2 }]} numberOfLines={1}>
-              {`${item.endereco.cidade}/${item.endereco.estado}`}
-            </Text>
-          </View>
-        )}
-      </View>
     </TouchableOpacity>
   );
 
-  // Renderizar os botões de ação quando o item é deslizado
-  const renderHiddenItem = ({ item }: { item: Client }) => (
-    <View style={[styles.rowBack, { backgroundColor: theme.colors.background }]}>
-      <TouchableOpacity
-        style={[styles.backRightBtn, styles.backRightBtnLeft, { backgroundColor: theme.colors.warning }]}
-        onPress={() => handleEditClient(item)}
-        accessibilityLabel={`Editar cliente ${item.nome}`}
-      >
-        <Icon name="edit" type="material" color="#fff" size={20} />
-        <Text style={styles.backTextWhite}>Editar</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.backRightBtn, styles.backRightBtnRight, { backgroundColor: theme.colors.error }]}
-        onPress={() => handleDeleteClient(item.id)}
-        accessibilityLabel={`Excluir cliente ${item.nome}`}
-      >
-        <Icon name="delete" type="material" color="#fff" size={20} />
-        <Text style={styles.backTextWhite}>Excluir</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // Renderização condicional para o estado de carregamento
-  if (loading) {
+  const renderHiddenItem = (data: { item: Client }, rowMap: RowMap<Client>) => {
+    const { item } = data;
+    const rowKey = item.id;
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <StatusBar 
-          barStyle={theme.dark ? 'light-content' : 'dark-content'} 
-          backgroundColor={theme.colors.background} 
-        />
-        <SearchBar
-          placeholder="Buscar cliente..."
-          onChangeText={updateSearch}
-          value={search}
-          containerStyle={[styles.searchBarContainer, { backgroundColor: theme.colors.background }]}
-          inputContainerStyle={{ backgroundColor: theme.colors.surface }}
-          inputStyle={{ color: theme.colors.text }}
-          searchIcon={{ color: theme.colors.grey3 }}
-          clearIcon={{ color: theme.colors.grey3 }}
-          disabled
-        />
-        <LoadingSkeleton 
-          type="event-list" 
-          itemCount={6} 
-          style={{ paddingHorizontal: 16 }}
-        />
-      </SafeAreaView>
+        <View style={[styles.rowBack, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.backLeftPlaceholder} />
+            <View style={styles.backRightActions}>
+                <TouchableOpacity
+                    style={[styles.backRightBtn, { backgroundColor: theme.colors.warning }]}
+                    onPress={() => handleEditClient(item, rowMap, rowKey)}
+                    accessibilityLabel={`Editar cliente ${item.nome}`}
+                >
+                    <Icon name="pencil-outline" type="material-community" color={componentColors.white} size={24} />
+                    <Text style={styles.backTextWhite}>Editar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.backRightBtn, { backgroundColor: theme.colors.error }]}
+                    onPress={() => handleDeleteClient(item, rowMap, rowKey)}
+                    accessibilityLabel={`Excluir cliente ${item.nome}`}
+                >
+                    <Icon name="delete-outline" type="material-community" color={componentColors.white} size={24} />
+                    <Text style={styles.backTextWhite}>Excluir</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
     );
-  }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar 
-        barStyle={theme.dark ? 'light-content' : 'dark-content'} 
-        backgroundColor={theme.colors.background} 
+      <StatusBar
+        barStyle={'dark-content'} // Defaulting barStyle as isDarkMode is not directly available
+        backgroundColor={theme.colors.background}
       />
-      
       <SearchBar
-        placeholder="Buscar cliente..."
+        placeholder="Buscar por nome, email, doc..."
         onChangeText={updateSearch}
         value={search}
         containerStyle={[styles.searchBarContainer, { backgroundColor: theme.colors.background }]}
-        inputContainerStyle={{ backgroundColor: theme.colors.surface }}
+        inputContainerStyle={[styles.searchBarInputContainer, { backgroundColor: theme.colors.background || componentColors.defaultSurface }]}
         inputStyle={{ color: theme.colors.text }}
-        searchIcon={{ color: theme.colors.grey3 }}
-        clearIcon={{ color: theme.colors.grey3 }}
+        placeholderTextColor={theme.colors.textSecondary || componentColors.defaultPlaceholderText}
+        searchIcon={{ color: theme.colors.textSecondary }}
+        clearIcon={{ color: theme.colors.textSecondary }}
+        round
       />
-      
-      {filteredClients.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon 
-            name="people" 
-            type="material" 
-            size={60} 
-            color={theme.colors.grey5} 
-          />
-          <Text style={[styles.emptyText, { color: theme.colors.grey3 }]}>
-            {search.trim() !== '' 
-              ? 'Nenhum cliente encontrado'
-              : 'Nenhum cliente cadastrado'}
+      {loading ? (
+        <LoadingSkeleton
+          width="100%" // Provide a default width
+          height={100}  // Provide a default height for a list item skeleton
+          style={styles.loadingSkeletonStyle}
+        />
+      ) : filteredClients.length === 0 ? (
+        <ScrollView
+            contentContainerStyle={styles.emptyContainer}
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={[theme.colors.primary]}
+                    tintColor={theme.colors.primary}
+                />
+            }
+        >
+          <Icon name="account-search-outline" type="material-community" size={64} color={theme.colors.textSecondary}/>
+          <Text style={[styles.emptyText, { color: theme.colors.text }]}>
+            {search.trim() !== '' ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
           </Text>
-          <Text style={[styles.emptySubtext, { color: theme.colors.grey3 }]}>
-            {search.trim() !== '' 
-              ? 'Tente uma busca diferente'
-              : 'Clique no botão "+" para adicionar um cliente'}
+          <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+            {search.trim() !== '' ? 'Verifique os termos da busca ou tente novamente.' : 'Toque no botão + para adicionar seu primeiro cliente.'}
           </Text>
           {search.trim() !== '' && (
-            <Button
-              title="Limpar busca"
-              onPress={() => setSearch('')}
-              type="clear"
-              buttonStyle={styles.clearButton}
-              titleStyle={{ color: theme.colors.primary }}
-            />
+            <Button title="Limpar Busca" onPress={() => updateSearch('')} type="clear" titleStyle={{ color: theme.colors.primary }} />
           )}
-        </View>
+        </ScrollView>
       ) : (
         <SwipeListView
           data={filteredClients}
           renderItem={renderItem}
           renderHiddenItem={renderHiddenItem}
-          keyExtractor={(item) => item.id}
-          rightOpenValue={-150}
+          keyExtractor={(item) => item.id.toString()} // Ensure key is a string
+          rightOpenValue={-160}
           disableRightSwipe
+          closeOnRowPress={true}
+          closeOnScroll={true}
+          closeOnRowBeginSwipe={true}
           refreshControl={
-            <EnhancedRefreshControl
+            <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              lastRefreshed={lastRefreshed}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
-              showLastUpdated={true}
             />
           }
           contentContainerStyle={styles.listContent}
+          style={styles.listStyle}
         />
       )}
-      
       <FAB
-        icon={{ name: 'add', color: 'white' }}
+        icon={{ name: 'add', color: componentColors.white }}
         color={theme.colors.primary}
         placement="right"
         onPress={handleAddClient}
-        style={styles.fab}
+        style={styles.fabStyle}
         accessibilityLabel="Adicionar novo cliente"
+        visible={!loading}
+        size="large"
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  backLeftPlaceholder: {
     flex: 1,
   },
-  searchBarContainer: {
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
-    paddingHorizontal: 10,
-    marginBottom: 8,
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 80, // Espaço adicional no final da lista para não obstruir o FAB
-  },
-  itemContainer: {
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 8,
-    elevation: 2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  clientInfo: {
-    flex: 1,
-  },
-  nameContainer: {
+  backRightActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  clientName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  clientType: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  clientTypeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  infoIcon: {
-    marginRight: 4,
-  },
-  clientDetail: {
-    fontSize: 14,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  clearButton: {
-    marginTop: 16,
-  },
-  fab: {
-    marginBottom: 16,
-    marginRight: 16,
-  },
-  rowBack: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingLeft: 15,
-    marginBottom: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
   },
   backRightBtn: {
     alignItems: 'center',
@@ -515,18 +311,118 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'absolute',
     top: 0,
-    width: 75,
-  },
-  backRightBtnLeft: {
-    right: 75,
-  },
-  backRightBtnRight: {
-    right: 0,
+    width: 80,
   },
   backTextWhite: {
-    color: '#fff',
-    fontSize: 12,
+    color: componentColors.white,
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  clientDetail: {
+    flex: 1,
+    fontSize: 14,
+  },
+  clientInfo: {
+    flex: 1,
+  },
+  clientName: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  clientTypeBadge: {
+    borderRadius: 6,
+    marginLeft: 'auto',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  clientTypeText: {
+    color: componentColors.white,
+    fontSize: 11,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  container: {
+    flex: 1,
+  },
+  detailsContainer: {
     marginTop: 4,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: 60,
+    paddingHorizontal: 30,
+  },
+  emptySubtext: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  fabStyle: {},
+  infoIcon: {
+    marginRight: 6,
+  },
+  infoRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: 5,
+  },
+  itemContainer: {
+    borderRadius: 12,
+    elevation: 2,
+    marginBottom: 12,
+    padding: 16,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2.22,
+  },
+  listContent: {
+    paddingBottom: 90,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  listStyle: {
+    flex: 1,
+  },
+  loadingSkeletonStyle: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  nameContainer: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  rowBack: {
+    alignItems: 'center',
+    borderRadius: 12,
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  searchBarContainer: {
+    borderBottomWidth: 0,
+    borderTopWidth: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  searchBarInputContainer: {
+    borderRadius: 20,
+    height: 40,
   },
 });
 

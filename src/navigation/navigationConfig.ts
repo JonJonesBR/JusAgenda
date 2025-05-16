@@ -1,13 +1,14 @@
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator, BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator, NativeStackNavigationOptions } from "@react-navigation/native-stack";
+import { ParamListBase } from '@react-navigation/native'; // Import ParamListBase
 
 // Criação dos navegadores
-export const Tab = createBottomTabNavigator();
-export const Stack = createNativeStackNavigator();
+export const Tab = createBottomTabNavigator<ParamListBase>(); // Typed
+export const Stack = createNativeStackNavigator<ParamListBase>(); // Typed
 
 // Configuração unificada de navegação padrão
 // Estas configurações serão sobrescritas pelas configurações que usam o theme context
-export const navigationConfig = {
+export const navigationConfig: NativeStackNavigationOptions = { // Typed
   headerStyle: {
     backgroundColor: "#6200ee",
   },
@@ -23,7 +24,7 @@ export const navigationConfig = {
 };
 
 // Configurações específicas para tabs
-export const tabConfig = {
+export const tabConfig: { screenOptions: BottomTabNavigationOptions } = { // Typed
   screenOptions: {
     tabBarActiveTintColor: "#6200ee",
     tabBarInactiveTintColor: "#757575",

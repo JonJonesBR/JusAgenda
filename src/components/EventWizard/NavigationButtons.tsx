@@ -42,12 +42,12 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
       <Button
         title={isLastStep ? (isEditMode ? "Salvar" : "Criar") : "Próximo"}
         buttonStyle={[styles.button, { backgroundColor: theme.colors.primary }]}
-        titleStyle={{ color: 'white' }}
+        titleStyle={styles.buttonTextWhite}
         onPress={onNext}
         icon={{
           name: isLastStep ? 'check' : 'arrow-forward',
           type: 'material',
-          color: 'white',
+          color: componentColors.white,
         }}
         iconPosition="right"
       />
@@ -55,18 +55,26 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   );
 };
 
+const componentColors = {
+  white: 'white',
+  borderColorLight: '#ccc',
+};
+
 const styles = StyleSheet.create({
+  button: {
+    minWidth: 130,
+    paddingHorizontal: 20,
+  },
+  buttonTextWhite: {
+    color: componentColors.white,
+  },
   container: {
+    borderTopColor: componentColors.borderColorLight,
+    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
     paddingVertical: 15,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#ccc',
-  },
-  button: {
-    paddingHorizontal: 20,
-    minWidth: 130,
   },
 });
 

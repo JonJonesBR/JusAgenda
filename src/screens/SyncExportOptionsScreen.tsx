@@ -1,107 +1,146 @@
 import React from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
-import { Text, Icon, Card } from "@rneui/themed"; // Import Card
-import { useNavigation } from "@react-navigation/native";
+import {
+    // View, // Removido View
+    StyleSheet,
+    TouchableOpacity,
+    Text, // Importado de react-native
+    ScrollView, // Adicionado para caso de telas pequenas
+    // Platform, // Removed Platform as it's not directly used here
+} from "react-native";
+import { Icon } from "@rneui/themed"; // Apenas Icon é usado do RNE
+import { useNavigation, NavigationProp } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
+import { SafeAreaView } from "react-native-safe-area-context"; // Para safe area
 
-const SyncExportOptionsScreen = () => {
-  const navigation = useNavigation();
+// Tipagem para o navegador que contém estas telas
+// (Pode ser uma Stack ou Tab Navigator)
+type AppNavigatorParamList = {
+  SyncExportOptions: undefined;
+  EmailSync: undefined;
+  Export: undefined;
+  Feedback: undefined;
+  // Adicionar outras telas
+};
+
+type ScreenNavigationProp = NavigationProp<AppNavigatorParamList>;
+
+const SyncExportOptionsScreen: React.FC = () => {
+  const navigation = useNavigation<ScreenNavigationProp>();
   const { theme } = useTheme();
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      // justifyContent: 'center', // Remove center alignment to place title at top
-      alignItems: "center",
-      padding: 20,
-      paddingTop: 40, // Add padding top
-      backgroundColor: theme.colors.background,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: "bold",
-      color: theme.colors.text,
-      marginBottom: 30, // Add margin below title
-      textAlign: "center",
-    },
-    optionButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: theme.colors.card,
-      paddingVertical: 25, // Increase padding
-      paddingHorizontal: 25, // Increase padding
-      borderRadius: 15, // Increase border radius
-      marginBottom: 25, // Increase margin
-      width: "95%", // Adjust width
-      elevation: 4, // Increase elevation
-      shadowColor: theme.colors.shadow,
-      shadowOffset: { width: 0, height: 2 }, // Adjust shadow
-      shadowOpacity: 0.15, // Adjust shadow
-      shadowRadius: 5, // Adjust shadow
-      borderColor: theme.colors.border,
-      borderWidth: StyleSheet.hairlineWidth, // Use hairline width
-    },
-    optionIcon: {
-      marginRight: 20, // Increase margin
-    },
-    optionText: {
-      fontSize: 18, // Keep font size
-      fontWeight: "600", // Adjust font weight
-      color: theme.colors.text,
-      flex: 1, // Allow text to wrap and fill available space
-    },
-  });
+  // Constantes de design do tema
+  const ds = {
+    spacing: theme.spacing,
+    typography: theme.typography,
+    radii: theme.radii,
+    shadows: theme.shadows,
+  };
+
+  // Função auxiliar para criar botões de opção
+  const OptionButton: React.FC<{label: string; iconName: string; iconType?: string; screenName: keyof AppNavigatorParamList; accessibilityHint: string}> =
+    ({ label, iconName, iconType = "material", screenName, accessibilityHint }) => (
+        <TouchableOpacity
+            style={[
+                styles.optionButtonBase,
+                {
+                    backgroundColor: theme.colors.card,
+                    borderRadius: ds.radii.xl, // Maior raio
+                    marginBottom: ds.spacing.xl, // Maior margem
+                    paddingVertical: ds.spacing.lg, // Ajustar padding
+                    paddingHorizontal: ds.spacing.lg,
+                    borderColor: theme.colors.border,
+                },
+                ds.shadows.medium // Aplicar sombra
+            ]}
+            onPress={() => navigation.navigate(screenName)}
+            activeOpacity={0.7}
+            accessibilityLabel={label}
+            accessibilityHint={accessibilityHint}
+            accessibilityRole="button"
+        >
+            <Icon
+                name={iconName}
+                type={iconType}
+                size={28}
+                color={theme.colors.primary}
+                containerStyle={{ marginRight: ds.spacing.lg }} // Maior margem
+            />
+            <Text style={[styles.optionTextBase, { color: theme.colors.text, fontSize: ds.typography.fontSize.lg, fontFamily: ds.typography.fontFamily.medium }]}>
+                {label}
+            </Text>
+            <Icon // Ícone de chevron indicando navegação
+                name="chevron-right"
+                type="material-community"
+                size={24}
+                color={theme.colors.textSecondary} // Replaced grey3
+            />
+      </TouchableOpacity>
+  );
+
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Gerenciar Dados</Text>
-      {/* Add screen title */}
-      <TouchableOpacity
-        style={styles.optionButton}
-        onPress={() => navigation.navigate("EmailSync")}
-        activeOpacity={0.7} // Add feedback on press
-      >
-        <Icon
-          name="sync"
-          type="material"
-          size={28}
-          color={theme.colors.primary}
-          style={styles.optionIcon}
-        />
-        <Text style={styles.optionText}>Sincronizar Compromissos</Text>
-      </TouchableOpacity>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['left', 'right', 'bottom']}>
+        {/* Header pode ser da Stack ou um customizado aqui */}
+        {/* <Header title="Gerenciar Dados" /> */}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={[styles.titleBase, { color: theme.colors.text, fontSize: ds.typography.fontSize.xl * 1.2, fontFamily: ds.typography.fontFamily.bold, marginBottom: ds.spacing.xxl }]}>
+            Gerenciar Dados
+        </Text>
 
-      <TouchableOpacity
-        style={styles.optionButton}
-        onPress={() => navigation.navigate("Export")}
-        activeOpacity={0.7} // Add feedback on press
-      >
-        <Icon
-          name="file-download"
-          type="material"
-          size={28}
-          color={theme.colors.primary}
-          style={styles.optionIcon}
+        <OptionButton
+            label="Sincronizar Compromissos"
+            iconName="sync"
+            screenName="EmailSync"
+            accessibilityHint="Navegar para a tela de sincronização por email"
         />
-        <Text style={styles.optionText}>Exportar Compromissos</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.optionButton}
-        onPress={() => navigation.navigate("Feedback")}
-        activeOpacity={0.7}
-        accessibilityLabel="Enviar Feedback"
-      >
-        <Icon
-          name="feedback"
-          type="material"
-          size={28}
-          color={theme.colors.primary}
-          style={styles.optionIcon}
+
+        <OptionButton
+            label="Exportar Compromissos"
+            iconName="file-download"
+            screenName="Export"
+            accessibilityHint="Navegar para a tela de exportação de dados"
         />
-        <Text style={styles.optionText}>Enviar Feedback</Text>
-      </TouchableOpacity>
-    </View>
+
+        <OptionButton
+            label="Enviar Feedback"
+            iconName="feedback"
+            screenName="Feedback"
+            accessibilityHint="Navegar para a tela de envio de feedback"
+        />
+
+      </ScrollView>
+    </SafeAreaView>
   );
 };
+
+// Estilos base (sem dependência direta de theme/ds)
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  optionButtonBase: {
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    width: "100%", // Ocupar largura total (considerando padding do container)
+    // backgroundColor, borderRadius, marginBottom, padding*, shadow*, borderColor são dinâmicos
+  },
+  optionTextBase: {
+    flex: 1,
+    fontWeight: "600", // Ocupa espaço disponível entre os ícones
+    // fontSize, color, fontFamily são dinâmicos
+  },
+  scrollContent: {
+    alignItems: "center",
+    flexGrow: 1, // Para centralizar verticalmente se o conteúdo for pequeno
+    padding: 20, // Padding geral
+    paddingTop: 30, // Mais espaço no topo
+  },
+  titleBase: {
+    fontWeight: "bold",
+    textAlign: "center",
+    // fontSize, color, marginBottom, fontFamily são dinâmicos
+  },
+});
 
 export default SyncExportOptionsScreen;

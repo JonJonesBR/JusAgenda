@@ -6,349 +6,415 @@ import {
   Alert,
   TextInput,
   TouchableOpacity,
+  Text,
+  ActivityIndicator,
 } from "react-native";
-import { Text, Button, CheckBox, Card, Icon } from "@rneui/themed";
-import { useNavigation } from "@react-navigation/native";
-import { useEvents } from "../contexts/EventContext";
+import { Button, CheckBox, Card, Icon } from "@rneui/themed";
+import { useEvents } from "../contexts/EventCrudContext"; // Event import removed
 import EmailService from "../services/EmailService";
-import { COLORS } from "../utils/common";
-import { formatDateTime } from "../utils/dateUtils";
+import { formatDate } from "../utils/dateUtils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from "../contexts/ThemeContext"; // Theme type removed from here as it's not used directly
+import InputDialog from "../components/ui/InputDialog";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from 'react-native-toast-message'; // Assuming this will be installed
 
 const EMAIL_STORAGE_KEY = "@jusagenda_email";
 
+const componentColors = { // Defined for fallback
+    white: '#FFFFFF',
+    defaultPlaceholder: '#A9A9A9',
+    defaultDisabledText: '#C0C0C0',
+    transparent: 'transparent',
+};
+
 const EmailSyncScreen = () => {
-  const navigation = useNavigation();
   const { events } = useEvents();
+  const { theme } = useTheme();
   const [email, setEmail] = useState("");
-  const [selectedEvents, setSelectedEvents] = useState([]);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [isEmailAvailable, setIsEmailAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [alertConfigEventId, setAlertConfigEventId] = useState<string | null>(null);
+  const [isAlertConfigDialogVisible, setIsAlertConfigDialogVisible] = useState(false);
 
-  // Busca o email salvo quando a tela é carregada
   useEffect(() => {
-    (async () => {
-      const savedEmail = await AsyncStorage.getItem(EMAIL_STORAGE_KEY);
-      if (savedEmail) {
-        setEmail(savedEmail);
-      }
-
-      const available = await EmailService.isAvailable();
-      setIsEmailAvailable(available);
-      if (!available) {
-        Alert.alert(
-          "Aviso",
-          "Não foi possível encontrar um aplicativo de email configurado no seu dispositivo. Algumas funcionalidades podem estar limitadas."
-        );
-      }
-    })();
+    const initialize = async () => {
+        setIsLoading(true);
+        try {
+            const savedEmail = await AsyncStorage.getItem(EMAIL_STORAGE_KEY);
+            if (savedEmail) {
+                setEmail(savedEmail);
+            }
+            const available = await EmailService.isAvailable();
+            setIsEmailAvailable(available);
+            if (!available) {
+                Alert.alert(
+                "Aviso de Email",
+                "Não foi possível detectar um aplicativo de email configurado. A sincronização e os alertas por email podem não funcionar."
+                );
+            }
+        } catch (error) {
+             console.error("Erro na inicialização da tela de Email:", error);
+             Alert.alert("Erro", "Não foi possível carregar as configurações de email.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    initialize();
   }, []);
 
-  // Salva o email quando ele muda
-  const handleEmailChange = (text) => {
+  const handleEmailChange = useCallback(async (text: string) => {
     setEmail(text);
-    AsyncStorage.setItem(EMAIL_STORAGE_KEY, text);
+    try {
+        await AsyncStorage.setItem(EMAIL_STORAGE_KEY, text);
+    } catch (error) {
+        console.error("Erro ao salvar email no AsyncStorage:", error);
+    }
+  }, []);
+
+  const validateEmail = (emailToValidate: string): boolean => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(emailToValidate).toLowerCase());
   };
 
-  // Alterna a seleção de um evento
-  const toggleEventSelection = (eventId) => {
-    setSelectedEvents((current) => {
-      return current.includes(eventId)
-        ? current.filter((id) => id !== eventId)
-        : [...current, eventId];
+  const toggleEventSelection = useCallback((eventId: string) => {
+    setSelectedEvents((currentSelectedIds) => {
+      const newSelectedIds = new Set(currentSelectedIds);
+      if (newSelectedIds.has(eventId)) {
+        newSelectedIds.delete(eventId);
+      } else {
+        newSelectedIds.add(eventId);
+      }
+      return Array.from(newSelectedIds);
     });
-  };
+  }, []);
 
-  // Seleciona todos os eventos
-  const selectAllEvents = () => {
+  const selectAllEvents = useCallback(() => {
     if (selectedEvents.length === events.length) {
       setSelectedEvents([]);
     } else {
       setSelectedEvents(events.map((event) => event.id));
     }
-  };
+  }, [events, selectedEvents.length]);
 
-  // Envia os eventos selecionados por email
   const handleSyncEvents = async () => {
     if (!validateEmail(email)) {
-      Alert.alert("Erro", "Por favor, insira um email válido.");
+      Alert.alert("Email Inválido", "Por favor, insira um endereço de email válido para continuar.");
       return;
     }
-
     if (selectedEvents.length === 0) {
-      Alert.alert(
-        "Aviso",
-        "Selecione pelo menos um compromisso para sincronizar."
-      );
+      Alert.alert("Nenhum Evento Selecionado", "Selecione pelo menos um compromisso para sincronizar.");
       return;
+    }
+    if (!isEmailAvailable) {
+         Alert.alert("Email Indisponível", "Não é possível sincronizar pois nenhum app de email foi detectado.");
+         return;
     }
 
     setIsLoading(true);
     try {
-      const eventsToSync = events.filter((event) =>
-        selectedEvents.includes(event.id)
-      );
+      const eventsToSync = events.filter((event) => selectedEvents.includes(event.id));
       const result = await EmailService.syncEventsViaEmail(eventsToSync, email);
 
       if (result.success) {
-        Alert.alert(
-          "Sincronização Bem-Sucedida",
-          "Os compromissos foram enviados para o seu email com sucesso!"
-        );
+        Toast.show({
+            type: 'success',
+            text1: "Eventos Enviados",
+            text2: result.message || "Os compromissos selecionados foram enviados para o seu email.",
+        });
         setSelectedEvents([]);
       } else {
-        Alert.alert(
-          "Erro na Sincronização",
-          "Não foi possível enviar o email. Por favor, tente novamente."
-        );
+        Alert.alert("Erro na Sincronização", result.error || "Não foi possível enviar o email. Verifique sua conexão e o app de email.");
       }
-    } catch (error) {
-      Alert.alert(
-        "Erro",
-        error.message || "Ocorreu um erro ao sincronizar os compromissos."
-      );
+    } catch (error: unknown) {
+      console.error("Erro em handleSyncEvents:", error);
+      const message = error instanceof Error ? error.message : "Ocorreu um erro desconhecido ao sincronizar.";
+      Alert.alert("Erro Inesperado", message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Configura alertas de email para um evento
-  const configureEmailAlert = async (eventId) => {
-    if (!validateEmail(email)) {
-      Alert.alert("Erro", "Por favor, insira um email válido.");
+  const openAlertConfigDialog = (eventId: string) => {
+     if (!validateEmail(email)) {
+      Alert.alert("Email Inválido", "Insira um email válido antes de configurar alertas.");
+      return;
+    }
+     if (!isEmailAvailable) {
+         Alert.alert("Email Indisponível", "Não é possível configurar alertas pois nenhum app de email foi detectado.");
+         return;
+    }
+    setAlertConfigEventId(eventId);
+    setIsAlertConfigDialogVisible(true);
+  };
+
+  const handleConfigureAlertSubmit = async (minutesInput: string) => {
+    setIsAlertConfigDialogVisible(false);
+    const minutesBefore = parseInt(minutesInput, 10);
+
+    if (!alertConfigEventId || isNaN(minutesBefore) || minutesBefore <= 0) {
+      Alert.alert("Valor Inválido", "Por favor, insira um número de minutos válido (maior que zero).");
+      setAlertConfigEventId(null);
       return;
     }
 
-    const event = events.find((e) => e.id === eventId);
-    if (!event) return;
+    const eventToAlert = events.find((e) => e.id === alertConfigEventId);
+    setAlertConfigEventId(null);
 
-    Alert.prompt(
-      "Configurar Alerta por Email",
-      "Quantos minutos antes do compromisso você deseja receber o alerta?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Configurar",
-          onPress: async (minutesBefore) => {
-            if (isNaN(minutesBefore) || minutesBefore <= 0) {
-              Alert.alert(
-                "Erro",
-                "Por favor, insira um número válido maior que zero."
-              );
-              return;
-            }
+    if (!eventToAlert) {
+        Alert.alert("Erro", "Compromisso não encontrado.");
+        return;
+    }
 
-            try {
-              setIsLoading(true);
-              const result = await EmailService.configureEmailAlert(
-                event,
-                email,
-                parseInt(minutesBefore, 10)
-              );
-
-              if (result.success) {
-                Alert.alert("Sucesso", result.message);
-              } else {
-                Alert.alert(
-                  "Erro",
-                  result.error || "Não foi possível configurar o alerta."
-                );
-              }
-            } catch (error) {
-              Alert.alert(
-                "Erro",
-                error.message || "Ocorreu um erro ao configurar o alerta."
-              );
-            } finally {
-              setIsLoading(false);
-            }
-          },
-        },
-      ],
-      "plain-text",
-      "30"
-    );
-  };
-
-  // Valida o formato do email
-  const validateEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
+    setIsLoading(true);
+    try {
+      const result = await EmailService.configureEmailAlert(eventToAlert, email, minutesBefore);
+      if (result.success) {
+        Toast.show({ type: 'success', text1: "Alerta Configurado", text2: result.message });
+      } else {
+        Alert.alert("Erro ao Configurar", result.error || "Não foi possível configurar o alerta de email.");
+      }
+    } catch (error: unknown) {
+      console.error("Erro em configureEmailAlert:", error);
+      const message = error instanceof Error ? error.message : "Ocorreu um erro desconhecido ao configurar o alerta.";
+      Alert.alert("Erro Inesperado", message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <Card containerStyle={styles.emailCard}>
-        <Text style={styles.title}>Sincronização com Email</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Card containerStyle={[styles.emailCard, { backgroundColor: theme.colors.card }]}>
+        <Text style={[styles.cardTitle, { color: theme.colors.primary }]}>Sincronização com Email</Text>
+        <Text style={[styles.cardSubtitle, { color: theme.colors.textSecondary }]}>
+          Insira seu email para sincronizar e receber alertas.
+        </Text>
         <TextInput
-          style={styles.emailInput}
-          placeholder="Digite seu email"
+          style={[styles.emailInput, { borderColor: theme.colors.border, color: theme.colors.text, backgroundColor: theme.colors.background }]}
+          placeholder="Seu email"
+          placeholderTextColor={theme.colors.textSecondary || componentColors.defaultPlaceholder}
           value={email}
           onChangeText={handleEmailChange}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
+          editable={!isLoading}
         />
+         {!isEmailAvailable && (
+             <Text style={[styles.warningText, {color: theme.colors.warning}]}>App de email não detectado.</Text>
+         )}
       </Card>
 
       <View style={styles.selectionHeader}>
-        <Text style={styles.sectionTitle}>Selecione os Compromissos</Text>
-        <Button
-          title={
-            selectedEvents.length === events.length
-              ? "Desmarcar Todos"
-              : "Selecionar Todos"
-          }
-          type="clear"
-          onPress={selectAllEvents}
-        />
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Selecione os Compromissos</Text>
+        {events.length > 0 && (
+             <Button
+                title={ selectedEvents.length === events.length ? "Desmarcar Todos" : "Selecionar Todos" }
+                type="clear"
+                onPress={selectAllEvents}
+                titleStyle={[styles.selectAllButtonTitle, { color: theme.colors.primary }]}
+                disabled={isLoading}
+             />
+        )}
       </View>
 
       <ScrollView style={styles.eventsList}>
-        {events.length > 0 ? (
+        {isLoading && events.length === 0 ? (
+             <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loadingIndicator}/>
+        ) : events.length > 0 ? (
           events.map((event) => (
-            <Card key={event.id} containerStyle={styles.eventCard}>
+            <Card key={event.id} containerStyle={[styles.eventCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
               <View style={styles.eventHeader}>
                 <CheckBox
                   checked={selectedEvents.includes(event.id)}
                   onPress={() => toggleEventSelection(event.id)}
                   containerStyle={styles.checkbox}
+                  checkedColor={theme.colors.primary}
+                  uncheckedColor={theme.colors.textSecondary}
+                  size={24}
+                  disabled={isLoading}
                 />
-                <Text style={styles.eventTitle}>{event.title}</Text>
+                <Text style={[styles.eventTitle, { color: theme.colors.text }]}>{event.title || "Sem Título"}</Text>
               </View>
-              <Text style={styles.eventDate}>{formatDateTime(event.date)}</Text>
-              <View style={styles.eventActions}>
+              <Text style={[styles.eventDate, { color: theme.colors.textSecondary }]}>
+                {formatDate(event.date)}
+              </Text>
+              <View style={[styles.eventActions, { borderTopColor: theme.colors.border }]}>
                 <TouchableOpacity
                   style={styles.alertButton}
-                  onPress={() => configureEmailAlert(event.id)}
-                  disabled={!isEmailAvailable}
+                  onPress={() => openAlertConfigDialog(event.id)}
+                  disabled={!isEmailAvailable || isLoading}
+                  accessibilityLabel={`Configurar alerta por email para ${event.title}`}
                 >
                   <Icon
-                    name="email"
+                    name="email-alert-outline"
+                    type="material-community"
                     size={20}
-                    color={isEmailAvailable ? COLORS.primary : "#aaa"}
+                    color={isEmailAvailable ? theme.colors.primary : (theme.colors.textSecondary || componentColors.defaultDisabledText)}
                   />
-                  <Text
-                    style={{
-                      color: isEmailAvailable ? COLORS.primary : "#aaa",
-                      marginLeft: 5,
-                    }}
-                  >
-                    Configurar Alerta
+                  <Text style={[styles.alertButtonText, { color: isEmailAvailable ? theme.colors.primary : (theme.colors.textSecondary || componentColors.defaultDisabledText) }]}>
+                    Alerta Email
                   </Text>
                 </TouchableOpacity>
               </View>
             </Card>
           ))
         ) : (
-          <Text style={styles.noEventsText}>
-            Nenhum compromisso encontrado.
+          <Text style={[styles.noEventsText, { color: theme.colors.textSecondary }]}>
+            Nenhum compromisso encontrado para sincronizar.
           </Text>
         )}
       </ScrollView>
 
       <Button
-        title="Sincronizar Compromissos"
+        title="Sincronizar Selecionados por Email"
         containerStyle={styles.syncButtonContainer}
-        buttonStyle={styles.syncButton}
+        buttonStyle={[styles.syncButton, { backgroundColor: theme.colors.primary }]}
         disabled={!isEmailAvailable || isLoading || selectedEvents.length === 0}
         loading={isLoading}
         onPress={handleSyncEvents}
-        icon={{ name: "sync", color: "white", type: "material" }}
+        icon={{ name: "send-outline", type:"material-community", color: componentColors.white }}
+        titleStyle={{color: componentColors.white}}
       />
-    </View>
+
+      <InputDialog
+        visible={isAlertConfigDialogVisible}
+        title="Minutos de Antecedência"
+        message="Digite quantos minutos antes do compromisso deseja receber o alerta por email."
+        placeholder="Ex: 30"
+        keyboardType="number-pad"
+        defaultValue="30"
+        submitText="Configurar Alerta"
+        onSubmit={handleConfigureAlertSubmit}
+        onCancel={() => {
+            setIsAlertConfigDialogVisible(false);
+            setAlertConfigEventId(null);
+        }}
+      />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+  alertButton: {
+    alignItems: "center",
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  emailCard: {
-    margin: 10,
-    borderRadius: 10,
-    elevation: 3,
+  alertButtonText: {
+      fontSize: 14,
+      fontWeight: '500',
+      marginLeft: 6,
   },
-  title: {
+  cardSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: "left",
+  },
+   cardTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center",
-    color: COLORS.primary,
+    marginBottom: 4,
+    textAlign: "left",
+  },
+  checkbox: {
+    backgroundColor: componentColors.transparent, // Added for clarity and consistency
+    borderWidth: 0,
+    margin: 0,
+    marginRight: 8,
+    padding: 0,
+  },
+  container: {
+    flex: 1,
+  },
+  emailCard: {
+    borderRadius: 12,
+    elevation: 3,
+    margin: 15, // Corrected order
+    padding: 16, // Added padding based on original error
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
   },
   emailInput: {
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 5,
+    fontSize: 16,
+    padding: 12,
   },
-  selectionHeader: {
+  eventActions: {
+    borderTopWidth: StyleSheet.hairlineWidth, // Corrected order
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    marginTop: 5,
+    justifyContent: "flex-end",
+    marginTop: 8,
+    paddingTop: 8,
   },
-  sectionTitle: {
+  eventCard: {
+    borderRadius: 8,
+    elevation: 1,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  eventDate: {
+    fontSize: 14,
+    marginBottom: 8,
+    marginLeft: 32,
+  },
+  eventHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginBottom: 4,
+  },
+  eventTitle: {
+    flex: 1,
     fontSize: 16,
     fontWeight: "bold",
-    color: COLORS.textPrimary,
   },
   eventsList: {
     flex: 1,
   },
-  eventCard: {
-    borderRadius: 8,
-    padding: 10,
-    marginVertical: 5,
-    marginHorizontal: 10,
-  },
-  eventHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  checkbox: {
-    padding: 0,
-    margin: 0,
-    marginRight: 5,
-    backgroundColor: "transparent",
-    borderWidth: 0,
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    flex: 1,
-    color: COLORS.textPrimary,
-  },
-  eventDate: {
-    fontSize: 14,
-    marginVertical: 5,
-    color: COLORS.textSecondary,
-  },
-  eventActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: 10,
-  },
-  alertButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 5,
+  loadingIndicator: {
+    marginTop: 50,
   },
   noEventsText: {
-    textAlign: "center",
-    margin: 30,
     fontSize: 16,
-    color: COLORS.textSecondary,
+    marginVertical: 40,
+    paddingHorizontal: 20,
+    textAlign: "center",
   },
-  syncButtonContainer: {
-    margin: 15,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  selectAllButtonTitle: {
+    fontSize: 14,
+  },
+  selectionHeader: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   syncButton: {
-    backgroundColor: COLORS.primary,
     borderRadius: 10,
-    padding: 15,
+    paddingVertical: 14,
+  },
+  syncButtonContainer: {
+    margin: 16,
+  },
+  warningText: {
+      fontSize: 13,
+      marginTop: 8,
+      textAlign: 'center',
   },
 });
 

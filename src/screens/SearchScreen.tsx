@@ -1,522 +1,368 @@
-import React, { useState, useCallback, useEffect, useMemo, memo } from "react";
+import React, { useState, useCallback, useEffect, memo } from "react"; // Removed useMemo
 import {
   View,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Alert,
-  FlatList,
+  //Alert, // Comment this line
   RefreshControl,
+  Text,
+  ScrollView,
 } from "react-native";
-import { SearchBar, Button, Text, Card, Icon } from "@rneui/themed";
+import { SearchBar, Button, Card, Icon, Skeleton as RNESkeleton } from "@rneui/themed";
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import * as Haptics from "expo-haptics";
-import Toast from "react-native-toast-message";
-import SkeletonLoader from "../components/SkeletonLoader";
-import { useNavigation, useIsFocused } from "@react-navigation/native";
-import { useEvents } from "../contexts/EventContext";
+import { useNavigation, useIsFocused, NavigationProp } from "@react-navigation/native";
+import { useEvents, Event } from "../contexts/EventCrudContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { formatDate } from "../utils/dateUtils";
+import { eventTypes } from "../constants";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const EVENT_FILTERS = [
-  { id: "audiencia", label: "Audiência", icon: "gavel" },
-  { id: "reuniao", label: "Reunião", icon: "groups" },
-  { id: "prazo", label: "Prazo", icon: "timer" },
-  { id: "outros", label: "Outros", icon: "event" },
-];
+type RootStackParamList = {
+  Search: undefined;
+  EventView: { eventId: string };
+  EventDetails: { event?: Partial<Event>; editMode?: boolean; readOnly?: boolean };
+};
+type SearchNavigationProp = NavigationProp<RootStackParamList, 'Search'>;
 
-const SearchScreen = () => {
-  const navigation = useNavigation();
-  const { events, refreshEvents, loading, deleteEvent } = useEvents();
-  const [refreshing, setRefreshing] = useState(false);
-  const [deletedEvent, setDeletedEvent] = useState(null);
+const EVENT_FILTERS = Object.entries(eventTypes || {}).map(([key, value]) => ({
+    id: value.id, // Use the unique id property from the nested object
+    label: key,
+    icon: value.id === 'hearing' ? 'gavel' : (value.id === 'meeting' ? 'groups' : (value.id === 'deadline' ? 'timer-outline' : 'calendar-blank-outline'))
+}));
+
+const componentColors = {
+  white: '#FFFFFF',
+  defaultPlaceholderText: '#A9A9A9',
+  defaultSurface: '#FFFFFF',
+};
+
+const SearchScreen: React.FC = () => {
+  const navigation = useNavigation<SearchNavigationProp>();
+  const eventData = useEvents();
+  const events = eventData?.events || [];
+  // const refreshEvents = eventData?.refreshEvents; // Not in context
+  // const loadingContext = eventData?.loading ?? false; // Not in context
+  //const deleteEvent = eventData.deleteEvent;
+  const { theme } = useTheme();
   const isFocused = useIsFocused();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilters, setSelectedFilters] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<Event[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (isFocused) refreshEvents();
-  }, [isFocused, refreshEvents]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refreshEvents();
-    setRefreshing(false);
-  }, [refreshEvents]);
-
-  // Função para desfazer a exclusão
-  const undoDelete = useCallback(async () => {
-    if (deletedEvent) {
-      try {
-        // Aqui você precisaria implementar uma função para restaurar o evento
-        // Como alternativa, podemos adicionar o evento novamente
-        // await addEvent(deletedEvent);
-        await refreshEvents();
-        setDeletedEvent(null);
-        Toast.show({
-          type: "success",
-          text1: "Exclusão desfeita",
-          text2: "O compromisso foi restaurado com sucesso",
-          position: "bottom",
-        });
-      } catch (error) {
-        Toast.show({
-          type: "error",
-          text1: "Erro",
-          text2: "Não foi possível restaurar o compromisso",
-          position: "bottom",
-        });
-      }
-    }
-  }, [deletedEvent, refreshEvents]);
-
-  const filters = useMemo(() => EVENT_FILTERS, []);
-
-  const toggleFilter = useCallback((filterId) => {
-    setSelectedFilters((prevFilters) =>
-      prevFilters.includes(filterId)
-        ? prevFilters.filter((id) => id !== filterId)
-        : [...prevFilters, filterId]
-    );
-  }, []);
-
-  const searchEvents = useCallback((term, selectedFilters, eventsToSearch) => {
+  const searchEventsInternal = useCallback((term: string, filters: string[], eventsToSearch: Event[]): Event[] => {
     const termLower = term.toLowerCase().trim();
-    let filtered = eventsToSearch;
+    const filterSet = new Set(filters.map(f => f.toLowerCase()));
+    let localFiltered = eventsToSearch;
 
     if (termLower) {
-      filtered = filtered.filter(
-        (event) =>
-          event.title?.toLowerCase().includes(termLower) ||
-          event.cliente?.toLowerCase().includes(termLower) ||
-          event.descricao?.toLowerCase().includes(termLower) ||
-          event.local?.toLowerCase().includes(termLower)
+      localFiltered = localFiltered.filter(event =>
+        (event.title?.toLowerCase().includes(termLower)) ||
+        (event.cliente?.toLowerCase().includes(termLower)) ||
+        (event.description?.toLowerCase().includes(termLower)) ||
+        (event.local?.toLowerCase().includes(termLower)) ||
+        (event.numeroProcesso?.includes(termLower))
       );
     }
 
-    if (selectedFilters.length > 0) {
-      filtered = filtered.filter((event) =>
-        selectedFilters.includes(event.tipo?.toLowerCase())
-      );
+    if (filterSet.size > 0) {
+      localFiltered = localFiltered.filter(event => event.type && filterSet.has(event.type.toLowerCase()));
     }
 
-    return filtered.sort((a, b) => new Date(a.data) - new Date(b.data));
-  }, []);
-
-  useEffect(() => {
-    if (searchTerm || selectedFilters.length > 0) {
-      const results = searchEvents(searchTerm, selectedFilters, events);
-      setSearchResults(results);
-    } else {
-      setSearchResults([]);
-    }
-  }, [events, searchEvents, searchTerm, selectedFilters]);
-
-  const handleSearchInput = useCallback((text) => {
-    setSearchTerm(text);
-  }, []);
-
-  const handleSearch = useCallback(() => {
-    const results = searchEvents(searchTerm, selectedFilters, events);
-    setSearchResults(results);
-  }, [searchTerm, selectedFilters, events, searchEvents]);
-
-  const formatDate = useCallback((dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
+    return localFiltered.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateA - dateB;
     });
   }, []);
 
-  const confirmDelete = useCallback(
-    (event) => {
-      Alert.alert(
-        "Confirmar Exclusão",
-        "Tem certeza que deseja excluir este compromisso?",
-        [
-          { text: "Não", style: "cancel" },
-          {
-            text: "Excluir",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                // Fornece feedback tátil ao excluir
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Success
-                );
+  const loadAndSearchEvents = useCallback(async (showMainLoadingSpinner = false) => {
+    if(showMainLoadingSpinner) setRefreshing(true); // Use refreshing for the main search/load activity
+    const results = searchEventsInternal(searchTerm, selectedFilters, events);
+    setSearchResults(results);
+    if(showMainLoadingSpinner) setRefreshing(false);
+  }, [searchTerm, selectedFilters, events, searchEventsInternal]);
 
-                // Armazena o evento antes de excluí-lo para possível restauração
-                setDeletedEvent(event);
+  useEffect(() => {
+    if (isFocused) {
+      loadAndSearchEvents(false);
+    }
+  }, [isFocused, loadAndSearchEvents, events]);
 
-                await deleteEvent(event.id);
-                await refreshEvents();
-                handleSearch(); // Atualiza os resultados da busca
+  useEffect(() => {
+      const results = searchEventsInternal(searchTerm, selectedFilters, events);
+      setSearchResults(results);
+  }, [events, searchTerm, selectedFilters, searchEventsInternal]);
 
-                // Mostra toast com opção de desfazer
-                Toast.show({
-                  type: "info",
-                  text1: "Compromisso excluído",
-                  text2: "Toque para desfazer",
-                  position: "bottom",
-                  visibilityTime: 4000,
-                  autoHide: true,
-                  onPress: undoDelete,
-                });
-              } catch (error) {
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Error
-                );
-                Toast.show({
-                  type: "error",
-                  text1: "Erro",
-                  text2:
-                    "Não foi possível excluir o compromisso. Tente novamente.",
-                  position: "bottom",
-                });
-              }
-            },
-          },
-        ],
-        { cancelable: true }
-      );
-    },
-    [deleteEvent, refreshEvents, undoDelete, handleSearch]
-  );
 
-  const handleEventPress = useCallback(
-    (event) => {
-      // Fornece feedback tátil ao pressionar
-      Haptics.selectionAsync();
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // if (refreshEvents) { // refreshEvents removed
+    //     try {
+    //         await refreshEvents();
+    //     } catch {
+    //         Toast.show({ type: 'error', text1: 'Erro ao atualizar'});
+    //     }
+    // } else {
+    await loadAndSearchEvents(false); // Directly call loadAndSearchEvents
+    // }
+    setRefreshing(false);
+  }, [loadAndSearchEvents]); // Removed refreshEvents from dependencies
 
-      Alert.alert(
-        "Opções",
-        "O que você deseja fazer?",
-        [
-          {
-            text: "Visualizar",
-            onPress: () =>
-              navigation.navigate("EventDetails", {
-                event: {
-                  id: event.id,
-                  title: event.title,
-                  date:
-                    event.data instanceof Date
-                      ? event.data.toISOString()
-                      : event.data,
-                  type: event.tipo,
-                  client: event.cliente,
-                  location: event.local,
-                  description: event.descricao,
-                },
-                editMode: true,
-              }),
-          },
-          {
-            text: "Editar",
-            onPress: () =>
-              navigation.navigate("EventDetails", {
-                event: {
-                  ...event,
-                  data:
-                    event.data instanceof Date
-                      ? event.data.toISOString()
-                      : event.data,
-                  date:
-                    event.date instanceof Date
-                      ? event.date.toISOString()
-                      : event.date,
-                },
-                editMode: true, // Ensure edit mode
-              }),
-          },
-          {
-            text: "Excluir",
-            style: "destructive",
-            onPress: () => confirmDelete(event),
-          },
-          { text: "Cancelar", style: "cancel" },
-        ],
-        { cancelable: true }
-      );
-    },
-    [navigation, confirmDelete]
-  );
+  const toggleFilter = useCallback((filterId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setSelectedFilters((prevFilters) => {
+        const newFilters = new Set(prevFilters);
+        if (newFilters.has(filterId)) {
+            newFilters.delete(filterId);
+        } else {
+            newFilters.add(filterId);
+        }
+        return Array.from(newFilters);
+    });
+  }, []);
 
-  const getFilterIcon = useCallback(
-    (filterId) => {
-      const filterObj = filters.find((f) => f.id === filterId) || {
-        icon: "event",
-      };
-      return filterObj.icon;
-    },
-    [filters]
-  );
 
-  // Exibe o skeleton loader durante o carregamento inicial
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text h4 style={styles.title}>
-            Buscar Compromissos
-          </Text>
-          <Text style={styles.subtitle}>
-            Pesquise por título, cliente, descrição ou local
-          </Text>
-        </View>
-        <Card containerStyle={styles.searchCard}>
-          <SkeletonLoader type="list" height={50} />
-          <View style={{ height: 20 }} />
-          <SkeletonLoader type="list" height={40} />
+
+  const handleEventPress = useCallback((event: Event) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      navigation.navigate("EventView", { eventId: event.id });
+    }, [navigation]);
+  const getFilterIcon = useCallback((filterId: string): string => {
+      const filterObj = EVENT_FILTERS.find((f) => f.id === filterId);
+      return filterObj?.icon || 'calendar-blank-outline';
+  }, []);
+
+   const renderResultItem = ({ item, drag, isActive }: RenderItemParams<Event>) => (
+      <TouchableOpacity
+        activeOpacity={1}
+        onLongPress={drag}
+        disabled={isActive}
+        onPress={() => handleEventPress(item)}
+        // Removed onLongPress here as drag will handle the long press
+        delayLongPress={500} // Keep delay for the remaining onPress if needed, although might not be necessary with onLongPress for drag
+      >
+        <Card containerStyle={[styles.resultCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+          <View style={styles.resultHeader}>
+            <Icon
+              name={getFilterIcon(item.type?.toLowerCase() || '')}
+              type="material-community"
+              color={theme.colors.primary}
+              size={24}
+              containerStyle={[styles.resultIconContainer, { backgroundColor: theme.colors.primary + '20'}]}
+            />
+            <View style={styles.resultInfo}>
+              <Text style={[styles.resultTitleStyle, { color: theme.colors.text }]} numberOfLines={1}>{item.title || "Sem Título"}</Text>
+              <Text style={[styles.resultDate, { color: theme.colors.textSecondary }]}>
+                {item.date ? formatDate(new Date(item.date)) : 'Sem data'}
+              </Text>
+            </View>
+          </View>
+          {item.local && (
+            <View style={styles.resultDetailRow}>
+              <Icon name="map-marker-outline" type="material-community" size={16} color={theme.colors.textSecondary} />
+              <Text style={[styles.resultDetailText, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.local}</Text>
+            </View>
+          )}
+          {item.cliente && (
+            <View style={styles.resultDetailRow}>
+              <Icon name="account-outline" type="material-community" size={16} color={theme.colors.textSecondary} />
+              <Text style={[styles.resultDetailText, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.cliente}</Text>
+            </View>
+          )}
         </Card>
-        <View style={styles.resultsContainer}>
-          <SkeletonLoader type="list" count={3} />
-        </View>
-      </View>
+      </TouchableOpacity>
     );
-  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text h4 style={styles.title}>
-          Buscar Compromissos
-        </Text>
-        <Text style={styles.subtitle}>
-          Pesquise por título, cliente, descrição ou local
-        </Text>
-      </View>
-      <Card containerStyle={styles.searchCard}>
-        <SearchBar
-          placeholder="Digite sua busca..."
-          onChangeText={(text) => {
-            handleSearchInput(text);
-            if (!text && selectedFilters.length === 0) setSearchResults([]);
-          }}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+       <SearchBar
+          placeholder="Buscar por título, cliente, local..."
+          onChangeText={setSearchTerm}
           value={searchTerm}
           platform="default"
-          containerStyle={styles.searchBarContainer}
-          inputContainerStyle={styles.searchBarInput}
+          containerStyle={[styles.searchBarContainer, { backgroundColor: theme.colors.background }]}
+          inputContainerStyle={[styles.searchBarInput, { backgroundColor: theme.colors.background || componentColors.defaultSurface }]}
+          inputStyle={styles.searchInputStyle}
+          placeholderTextColor={theme.colors.textSecondary || componentColors.defaultPlaceholderText}
+          searchIcon={{ color: theme.colors.textSecondary }}
+          clearIcon={{ color: theme.colors.textSecondary }}
           round
+          showLoading={false} // loadingContext removed
         />
-        <Text style={styles.filterTitle}>Filtrar por tipo:</Text>
-        <View style={styles.filterContainer}>
-          {filters.map((filter) => (
-            <Button
-              key={filter.id}
-              title={filter.label}
-              icon={{
-                name: filter.icon,
-                size: 20,
-                color: selectedFilters.includes(filter.id)
-                  ? "white"
-                  : "#6200ee",
-              }}
-              type={selectedFilters.includes(filter.id) ? "solid" : "outline"}
-              buttonStyle={[
-                styles.filterButton,
-                selectedFilters.includes(filter.id) &&
-                  styles.filterButtonActive,
-              ]}
-              titleStyle={[
-                styles.filterButtonText,
-                selectedFilters.includes(filter.id) &&
-                  styles.filterButtonTextActive,
-              ]}
-              onPress={() => {
-                toggleFilter(filter.id);
-                handleSearch();
-              }}
-            />
-          ))}
+
+        <View style={[styles.filtersScrollViewContainer, {borderBottomColor: theme.colors.border}]}>
+             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
+                 {EVENT_FILTERS.map((filter) => {
+                    const isSelected = selectedFilters.includes(filter.id);
+                    return (
+                        <Button
+                            key={filter.id}
+                            icon={{ name: filter.icon, type: 'material-community', size: 20, color: isSelected ? componentColors.white : theme.colors.primary }}
+                            type={isSelected ? "solid" : "outline"}
+                            buttonStyle={[ styles.filterChipButton, isSelected ? { backgroundColor: theme.colors.primary } : { borderColor: theme.colors.primary } ]}
+                            onPress={() => toggleFilter(filter.id)}
+                            accessibilityLabel={`Filtrar por ${filter.label}`}
+                        />
+                    );
+                 })}
+             </ScrollView>
         </View>
-        <Button
-          title="Buscar"
-          icon={{ name: "search", size: 20, color: "white" }}
-          buttonStyle={styles.searchButton}
-          onPress={handleSearch}
-          disabled={!searchTerm && selectedFilters.length === 0}
-        />
-      </Card>
-      {searchResults.length > 0 ? (
-        <View style={styles.resultsContainer}>
-          <Text style={styles.resultsTitle}>
-            {searchResults.length}{" "}
-            {searchResults.length === 1
-              ? "resultado encontrado"
-              : "resultados encontrados"}
-          </Text>
-          <FlatList
+
+      <View style={styles.resultsListContainer}>
+        {refreshing && searchResults.length === 0 ? ( // Changed to refreshing from loadingContext
+            <ScrollView style={styles.skeletonContainer}>
+                 <RNESkeleton height={80} style={styles.skeletonItem}/>
+                 <RNESkeleton height={80} style={styles.skeletonItem}/>
+                 <RNESkeleton height={80} style={styles.skeletonItem}/>
+            </ScrollView>
+        ) : searchResults.length > 0 ? (
+          <DraggableFlatList<Event>
             data={searchResults}
-            keyExtractor={(item) => item.id}
+            renderItem={renderResultItem}
+            keyExtractor={(item, index) => item.id ? item.id.toString() : `${item.title || 'event'}-${index}`}
+            contentContainerStyle={styles.listContent}
+            onDragEnd={({ data }) => { /* TODO: Update searchResults state with the new order */ setSearchResults(data); console.log('New search results order:', data); }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={["#6200ee"]}
-                tintColor="#6200ee"
+                colors={[theme.colors.primary]}
+                tintColor={theme.colors.primary}
               />
             }
-            renderItem={({ item: event }) => (
-              <Card key={event.id} containerStyle={styles.resultCard}>
-                <TouchableOpacity onPress={() => handleEventPress(event)}>
-                  <View style={styles.resultHeader}>
-                    <Icon
-                      name={getFilterIcon(event.type?.toLowerCase())}
-                      color="#6200ee"
-                      size={24}
-                      style={styles.resultIcon}
-                    />
-                    <View style={styles.resultInfo}>
-                      <Text style={styles.resultTitle}>{event.title}</Text>
-                      <Text style={styles.resultDate}>
-                        {formatDate(event.date)}
-                      </Text>
-                    </View>
-                  </View>
-                  {event.location && (
-                    <View style={styles.resultDetail}>
-                      <Icon name="location-on" size={16} color="#757575" />
-                      <Text style={styles.resultDetailText}>
-                        {event.location}
-                      </Text>
-                    </View>
-                  )}
-                  {event.client && (
-                    <View style={styles.resultDetail}>
-                      <Icon name="person" size={16} color="#757575" />
-                      <Text style={styles.resultDetailText}>
-                        {event.client}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </Card>
-            )}
             initialNumToRender={10}
-            maxToRenderPerBatch={5}
-            windowSize={5}
+            maxToRenderPerBatch={10}
+            windowSize={11}
             removeClippedSubviews={true}
           />
-        </View>
-      ) : searchTerm || selectedFilters.length > 0 ? (
-        <Card containerStyle={styles.noResultsCard}>
-          <Icon name="search-off" size={48} color="#757575" />
-          <Text style={styles.noResultsText}>
-            Nenhum compromisso encontrado
-          </Text>
-        </Card>
-      ) : (
-        <Card containerStyle={styles.tipsCard}>
-          <Card.Title>
-            <View style={styles.cardTitleContainer}>
-              <Icon name="lightbulb" color="#6200ee" size={24} />
-              <Text style={styles.cardTitle}>Dicas de Busca</Text>
+        ) : (searchTerm || selectedFilters.length > 0) ? (
+            <View style={styles.centeredMessageContainer}>
+                <Icon name="text-search" type="material-community" size={48} color={theme.colors.textSecondary} />
+                <Text style={[styles.centeredMessageText, { color: theme.colors.textSecondary }]}>
+                    Nenhum compromisso encontrado para sua busca.
+                </Text>
+                 <Button title="Limpar Busca/Filtros" onPress={() => { setSearchTerm(''); setSelectedFilters([]); }} type="clear" titleStyle={{ color: theme.colors.primary }} />
             </View>
-          </Card.Title>
-          <Card.Divider />
-          <View style={styles.tipItem}>
-            <Icon name="info" color="#6200ee" size={20} />
-            <Text style={styles.tipText}>
-              Use palavras-chave específicas para encontrar compromissos com
-              facilidade.
-            </Text>
-          </View>
-          <View style={styles.tipItem}>
-            <Icon name="filter-list" color="#6200ee" size={20} />
-            <Text style={styles.tipText}>
-              Combine filtros para refinar sua busca.
-            </Text>
-          </View>
-        </Card>
-      )}
-    </View>
+        ) : (
+            <View style={styles.centeredMessageContainer}>
+                 <Icon name="lightbulb-on-outline" type="material-community" size={48} color={theme.colors.textSecondary} />
+                 <Text style={[styles.centeredMessageText, { color: theme.colors.textSecondary }]}>
+                    Digite termos na barra de busca ou use os filtros rápidos para encontrar seus compromissos.
+                 </Text>
+            </View>
+        )}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  header: {
-    padding: 20,
-    backgroundColor: "#6200ee",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+  centeredMessageContainer: {
+      alignItems: 'center',
+      flex: 1,
+      justifyContent: 'center',
+      padding: 30,
   },
-  title: { color: "#fff", marginBottom: 5 },
-  subtitle: { color: "#fff", opacity: 0.8, fontSize: 16 },
-  searchCard: {
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: -20,
-    elevation: 4,
-    padding: 15,
+   centeredMessageText: {
+      fontSize: 16,
+      lineHeight: 23,
+      marginTop: 16,
+      textAlign: 'center',
   },
-  searchBarContainer: {
-    backgroundColor: "transparent",
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
-    padding: 0,
+  container: {
+    flex: 1,
   },
-  searchBarInput: { backgroundColor: "#f5f5f5" },
-  filterTitle: {
+  filterChipButton: {
+      borderRadius: 20,
+      borderWidth: 1.5,
+      marginRight: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+  },
+  filtersContent: {
+      alignItems: 'center',
+  },
+  filtersScrollViewContainer: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+  },
+  listContent: {
+      paddingBottom: 20,
+      paddingHorizontal: 16,
+      paddingTop: 8,
+  },
+  resultCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    elevation: 1,
+    marginBottom: 12,
+    padding: 12,
+    shadowOffset: { width: 0, height: 1},
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  resultDate: {
+    fontSize: 13,
+  },
+  resultDetailRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      marginLeft: 42,
+      marginTop: 6,
+  },
+  resultDetailText: {
+      flex: 1,
+      fontSize: 14,
+      marginLeft: 6,
+  },
+  resultHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginBottom: 6,
+  },
+  resultIconContainer: {
+      borderRadius: 20,
+      marginRight: 10,
+      padding: 8,
+  },
+  resultInfo: {
+    flex: 1,
+  },
+  resultTitleStyle: {
     fontSize: 16,
     fontWeight: "bold",
-    marginTop: 15,
+    marginBottom: 2,
+  },
+  resultsListContainer: {
+      flex: 1,
+  },
+  searchBarContainer: {
+    borderBottomWidth: 0,
+    borderTopWidth: 0,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingVertical: 4,
+  },
+  searchBarInput: {
+    borderRadius: 10,
+    height: 44,
+  },
+  searchInputStyle: {
+    fontSize: 16,
+  },
+  skeletonContainer: {
+    paddingHorizontal: 16,
+  },
+  skeletonItem: {
+    borderRadius: 12,
     marginBottom: 10,
-    color: "#000",
   },
-  filterContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 15,
-  },
-  filterButton: {
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    backgroundColor: "transparent",
-    borderColor: "#6200ee",
-    marginBottom: 8,
-  },
-  filterButtonActive: { backgroundColor: "#6200ee" },
-  filterButtonText: { color: "#6200ee", fontSize: 14 },
-  filterButtonTextActive: { color: "white" },
-  searchButton: { backgroundColor: "#6200ee", borderRadius: 10, height: 50 },
-  resultsContainer: { padding: 16 },
-  resultsTitle: { fontSize: 16, color: "#757575", marginBottom: 8 },
-  resultCard: { borderRadius: 10, marginBottom: 8, padding: 12 },
-  resultHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  resultIcon: {
-    backgroundColor: "rgba(98, 0, 238, 0.1)",
-    padding: 8,
-    borderRadius: 20,
-  },
-  resultInfo: { marginLeft: 12, flex: 1 },
-  resultTitle: { fontSize: 16, fontWeight: "bold", color: "#000" },
-  resultDate: { fontSize: 14, color: "#757575" },
-  resultDetail: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  resultDetailText: { marginLeft: 8, fontSize: 14, color: "#000" },
-  noResultsCard: {
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 24,
-    alignItems: "center",
-  },
-  noResultsText: { marginTop: 16, fontSize: 16, color: "#757575" },
-  tipsCard: {
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 20,
-    elevation: 4,
-  },
-  cardTitleContainer: { flexDirection: "row", alignItems: "center" },
-  cardTitle: { fontSize: 18, marginLeft: 8, color: "#6200ee" },
-  tipItem: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  tipText: { marginLeft: 12, fontSize: 14, color: "#000", flex: 1 },
 });
 
 export default memo(SearchScreen);

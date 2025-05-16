@@ -1,7 +1,8 @@
-import React from "react";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, TouchableOpacity, StyleSheet, Platform } from "react-native"; // Added TouchableOpacity back
 import { Text } from "@rneui/themed";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { formatDate } from "../utils/dateUtils"; // Import formatDate
 
 interface CustomDateTimePickerProps {
   label: string;
@@ -16,29 +17,56 @@ const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   onChange,
   mode,
 }) => {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowPicker(Platform.OS === "ios"); // Keep picker open on iOS after selection
+    if (event.type === "set" && selectedDate) {
+      onChange(selectedDate);
+    }
+  };
+
+  const showDatepicker = () => {
+    setShowPicker(true);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <TouchableOpacity
-        style={styles.pickerContainer}
-        onPress={() => {}}
-        activeOpacity={0.7}
-      >
+      {/* Display the selected date/time */}
+      <View style={styles.pickerContainer}>
+        <Text>{mode === 'date' ? formatDate(value, 'DD/MM/YYYY') : formatDate(value, 'HH:mm')}</Text>
+      </View>
+      {/* Render the DateTimePicker directly */}
+      {showPicker && (
         <DateTimePicker
           value={value}
           mode={mode}
           is24Hour={true}
-          display="default"
-          onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
-            if (event.type === "set" && selectedDate) {
-              onChange(selectedDate);
-            }
-          }}
+          display="spinner"
+          onChange={handleDateChange}
           style={styles.picker}
         />
-      </TouchableOpacity>
+      )}
+      {/* Add a button or touchable area to show the picker */}
+      {!showPicker && (
+        <TouchableOpacity onPress={showDatepicker} style={styles.showPickerButton}>
+           <Text style={styles.showPickerButtonText}>Selecionar {mode === 'date' ? 'Data' : 'Hora'}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
+};
+
+const componentColors = {
+  labelColor: "#86939e",
+  pickerBackground: "#f5f5f5",
+  shadowBlack: "#000", // For shadowColor, can be moved to theme/constants later
+};
+
+const colors = {
+  primary: '#007bff', // Example primary color
+  white: '#fff', // Example white color
 };
 
 const styles = StyleSheet.create({
@@ -47,7 +75,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   label: {
-    color: "#86939e",
+    color: componentColors.labelColor,
     fontSize: 14,
     fontWeight: "bold",
     marginBottom: 6,
@@ -59,13 +87,14 @@ const styles = StyleSheet.create({
   },
   pickerContainer: {
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: componentColors.pickerBackground,
     borderRadius: 12,
     elevation: 3,
     justifyContent: "center",
+    marginBottom: 10,
     minHeight: 55,
     padding: 10,
-    shadowColor: "#000",
+    shadowColor: componentColors.shadowBlack,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -73,6 +102,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  showPickerButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary, // Use color constant
+    borderRadius: 5,
+    padding: 10,
+  },
+  showPickerButtonText: {
+    color: colors.white, // Use color constant
+    fontSize: 16,
+  }
 });
 
 export default CustomDateTimePicker;

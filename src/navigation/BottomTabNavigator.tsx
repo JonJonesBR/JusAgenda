@@ -1,23 +1,23 @@
 import React, { useMemo } from "react";
 import { Icon } from "@rneui/themed";
 import HomeStack from "./stacks/HomeStack";
-import CalendarStack from "./stacks/CalendarStack";
+import UnifiedCalendarScreenWithProvider from "../screens/UnifiedCalendarScreen";
 import SearchStack from "./stacks/SearchStack";
 import SyncStack from "./stacks/SyncStack";
 import ClientsStack from "./stacks/ClientsStack";
 import { Tab } from "./navigationConfig";
-import { useTheme } from "../contexts/ThemeContext";
 import { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
 import { RouteProp } from "@react-navigation/native";
 
-const BottomTabNavigator: React.FC = () => {
-  const { theme } = useTheme();
+// Memoização do componente para evitar renderizações desnecessárias
+const BottomTabNavigator: React.FC = React.memo(() => {
+  // const { theme } = useTheme();
 
   const tabConfig = useMemo(
     () => ({
       screenOptions: {
         headerStyle: {
-          backgroundColor: theme.colors.primary,
+          backgroundColor: '#6200ee',
         },
         headerTintColor: "#fff",
         headerTitleStyle: {
@@ -25,13 +25,13 @@ const BottomTabNavigator: React.FC = () => {
           color: "#fff",
           fontSize: 18,
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary || "#757575",
+        tabBarActiveTintColor: '#6200ee',
+        tabBarInactiveTintColor: '#757575',
         tabBarStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: '#fff',
           paddingBottom: 5,
           height: 60,
-          borderTopColor: theme.colors.border,
+          borderTopColor: '#e0e0e0',
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -39,7 +39,7 @@ const BottomTabNavigator: React.FC = () => {
         },
       } as BottomTabNavigationOptions,
     }),
-    [theme]
+    []
   );
 
   const getTabIcon = (routeName: string): string => {
@@ -92,7 +92,7 @@ const BottomTabNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="Calendar"
-        component={CalendarStack}
+        component={UnifiedCalendarScreenWithProvider}
         options={{ title: "Agenda" }}
       />
       <Tab.Screen
@@ -112,6 +112,8 @@ const BottomTabNavigator: React.FC = () => {
       />
     </Tab.Navigator>
   );
-};
+});
+
+BottomTabNavigator.displayName = 'BottomTabNavigator';
 
 export default BottomTabNavigator;

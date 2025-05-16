@@ -1,0 +1,92 @@
+🔹 1. htmx
+Purpose: Add AJAX, CSS transitions, WebSockets, and more using HTML attributes.
+
+Use case: Progressive enhancement, server-driven UI without heavy frontend frameworks.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://unpkg.com/htmx.org@1.9.2"></script>
+🔹 2. NanoJS
+Purpose: Super small DOM manipulation library (~100 lines).
+
+Use case: jQuery-like syntax for small apps.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://unpkg.com/nano-js/dist/nano.min.js"></script>
+🔹 3. Cash
+Purpose: jQuery-compatible API in ~10KB.
+
+Use case: DOM manipulation, event handling, AJAX, etc.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cash/8.1.0/cash.min.js"></script>
+🔹 4. Mithril.js
+Purpose: Minimalistic framework for building single-page applications (SPA).
+
+Use case: Fast virtual DOM, routing, and XHR — all under 10KB.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://unpkg.com/mithril/mithril.js"></script>
+🔹 5. Vanilla LazyLoad
+Purpose: Lazy-load images and iframes.
+
+Use case: Improve page performance with zero dependencies.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@17.8.3/dist/lazyload.min.js"></script>
+🔹 6. Micromodal
+Purpose: Accessible modal dialogs with no dependencies.
+
+Use case: Lightweight alternative to Bootstrap modals.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://unpkg.com/micromodal/dist/micromodal.min.js"></script>
+🔹 7. Toastify JS
+Purpose: Toast notifications.
+
+Use case: Simple, stylable notification system.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+🔹 8. SortableJS
+Purpose: Drag-and-drop reorderable lists.
+
+Use case: Use in dashboards, to-do lists, or CMS interfaces.
+
+CDN:
+
+html
+Copiar
+Editar
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+🔹 9. Pico.css (Optional)
+Purpose: Minimal CSS framework (if UI needed).
+
+Use case: Use with vanilla JS to quickly prototype UIs.

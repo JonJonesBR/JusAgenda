@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Input, Text, Button, Icon, ListItem } from '@rneui/themed';
 import { useTheme } from '../../contexts/ThemeContext';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { Event } from '../../types/event';
 
 interface Contact {
@@ -14,122 +15,131 @@ interface Contact {
 interface ContactsStepProps {
   data: Partial<Event>;
   onUpdate: (data: Partial<Event>) => void;
-  isEditMode?: boolean;
 }
 
-/**
- * Terceiro passo do wizard - Gestão de contatos relacionados ao evento
- */
 const ContactsStep: React.FC<ContactsStepProps> = ({
   data,
   onUpdate,
-  isEditMode = false,
 }) => {
   const { theme } = useTheme();
   const [newContact, setNewContact] = useState<Partial<Contact>>({});
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contact[]>(data.contatos || []);
 
-  // Adicionar ou atualizar um contato
-  const handleAddContact = () => {
-    if (!newContact.nome) return;
+  useEffect(() => {
+    setContacts(data.contatos || []);
+  }, [data.contatos]);
 
-    if (editing) {
-      // Atualizar contato existente
-      const updatedContacts = contacts.map(contact => 
-        contact.id === editing ? { ...newContact, id: editing } : contact
-      );
-      setContacts(updatedContacts);
-      onUpdate({ contatos: updatedContacts });
-      setEditing(null);
-    } else {
-      // Adicionar novo contato
-      const contact = {
-        ...newContact,
-        id: Date.now().toString(),
-      };
-      const updatedContacts = [...contacts, contact];
-      setContacts(updatedContacts);
-      onUpdate({ contatos: updatedContacts });
+  const handleSaveContact = () => {
+    if (!newContact.nome || newContact.nome.trim() === '') {
+      Alert.alert("Nome Necessário", "Por favor, insira o nome do contato.");
+      return;
     }
-    // Limpar formulário
-    setNewContact({});
-  };
 
-  // Editar um contato existente
-  const handleEditContact = (contact: Contact) => {
-    setNewContact(contact);
-    setEditing(contact.id);
-  };
-
-  // Remover um contato
-  const handleRemoveContact = (id: string) => {
-    const updatedContacts = contacts.filter(contact => contact.id !== id);
+    let updatedContacts;
+    if (editingContactId) {
+      updatedContacts = contacts.map(contact =>
+        contact.id === editingContactId ? { ...contact, ...newContact, id: editingContactId } : contact
+      );
+    } else {
+      const contactToAdd: Contact = {
+        id: newContact.id || Date.now().toString(),
+        nome: newContact.nome,
+        telefone: newContact.telefone,
+        email: newContact.email,
+      };
+      updatedContacts = [...contacts, contactToAdd];
+    }
     setContacts(updatedContacts);
-    onUpdate({ contatos: updatedContacts });
-    
-    // Se estiver editando o contato que foi removido, cancelar a edição
-    if (editing === id) {
-      setEditing(null);
+    onUpdate({ ...data, contatos: updatedContacts });
+    setNewContact({});
+    setEditingContactId(null);
+  };
+
+  const handleEditContact = (contactToEdit: Contact) => {
+    setNewContact({ ...contactToEdit });
+    setEditingContactId(contactToEdit.id);
+  };
+
+  const handleRemoveContact = (idToRemove: string) => {
+    const updatedContacts = contacts.filter(contact => contact.id !== idToRemove);
+    setContacts(updatedContacts);
+    onUpdate({ ...data, contatos: updatedContacts });
+
+    if (editingContactId === idToRemove) {
+      setEditingContactId(null);
       setNewContact({});
     }
   };
 
-  // Renderizar um item de contato
-  const renderContactItem = ({ item }: { item: Contact }) => (
-    <ListItem
-      containerStyle={[
-        styles.contactItem, 
-        { 
-          backgroundColor: theme.colors.background,
-          borderColor: theme.colors.grey5 || '#e0e0e0',
-        }
-      ]}
-      bottomDivider
+  const handleCancelEdit = () => {
+    setEditingContactId(null);
+    setNewContact({});
+  };
+
+  const renderContactItem = ({ item, drag, isActive }: RenderItemParams<Contact>) => (
+    <TouchableOpacity
+      activeOpacity={1}
+      onLongPress={drag}
+      disabled={isActive}
     >
-      <Icon
-        name="person"
-        type="material"
-        color={theme.colors.primary}
-      />
-      <ListItem.Content>
-        <ListItem.Title style={{ color: theme.colors.text }}>{item.nome}</ListItem.Title>
-        {item.telefone && (
-          <ListItem.Subtitle style={{ color: theme.colors.grey1 || '#999' }}>
-            Tel: {item.telefone}
-          </ListItem.Subtitle>
-        )}
-        {item.email && (
-          <ListItem.Subtitle style={{ color: theme.colors.grey1 || '#999' }}>
-            Email: {item.email}
-          </ListItem.Subtitle>
-        )}
-      </ListItem.Content>
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          onPress={() => handleEditContact(item)}
-          style={styles.actionButton}
-        >
-          <Icon
-            name="edit"
-            type="material"
-            size={20}
-            color={theme.colors.primary}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleRemoveContact(item.id)}
-          style={styles.actionButton}
-        >
-          <Icon
-            name="delete"
-            type="material"
-            size={20}
-            color={theme.colors.error}
-          />
-        </TouchableOpacity>
-      </View>
-    </ListItem>
+      <ListItem
+        containerStyle={[
+          styles.contactItem,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor: theme.colors.border || '#e0e0e0',
+          }
+        ]}
+        bottomDivider
+      >
+        <Icon
+          name="person-outline"
+          type="material"
+          color={theme.colors.primary}
+          size={28}
+        />
+        <ListItem.Content>
+          <ListItem.Title style={[styles.contactName, { color: theme.colors.text }]}>{item.nome}</ListItem.Title>
+          {item.telefone && (
+            <ListItem.Subtitle style={[styles.contactDetail, { color: theme.colors.textSecondary || '#999' }]}>
+              <Text>Tel: </Text>{item.telefone}
+            </ListItem.Subtitle>
+          )}
+          {item.email && (
+            <ListItem.Subtitle style={[styles.contactDetail, { color: theme.colors.textSecondary || '#999' }]}>
+              <Text>Email: </Text>{item.email}
+            </ListItem.Subtitle>
+          )}
+        </ListItem.Content>
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            onPress={() => handleEditContact(item)}
+            style={styles.actionButton}
+            accessibilityLabel={`Editar contato ${item.nome}`}
+          >
+            <Icon
+              name="edit"
+              type="material"
+              size={22}
+              color={theme.colors.primary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleRemoveContact(item.id)}
+            style={styles.actionButton}
+            accessibilityLabel={`Remover contato ${item.nome}`}
+          >
+            <Icon
+              name="delete-outline"
+              type="material"
+              size={22}
+              color={theme.colors.error}
+            />
+          </TouchableOpacity>
+        </View>
+      </ListItem>
+    </TouchableOpacity>
   );
 
   return (
@@ -137,96 +147,101 @@ const ContactsStep: React.FC<ContactsStepProps> = ({
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
         Contatos Relacionados
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.grey1 || '#999' }]}>
+      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || '#999' }]}>
         Adicione contatos relacionados a este evento (clientes, testemunhas, etc).
       </Text>
 
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>
-          {editing ? 'Editar Contato' : 'Adicionar Contato'}
+      <View style={[styles.formCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+        <Text style={[styles.label, styles.formTitle, { color: theme.colors.text }]}>
+          {editingContactId ? 'Editar Contato' : 'Adicionar Novo Contato'}
         </Text>
-        
+
         <Input
-          placeholder="Nome do contato"
+          placeholder="Nome do contato *"
           value={newContact.nome || ''}
           onChangeText={(value) => setNewContact({ ...newContact, nome: value })}
-          containerStyle={styles.inputContainer}
+          containerStyle={styles.inputGroup}
           inputStyle={{ color: theme.colors.text }}
           accessibilityLabel="Nome do contato"
           returnKeyType="next"
         />
-        
+
         <Input
           placeholder="Telefone"
           value={newContact.telefone || ''}
           onChangeText={(value) => setNewContact({ ...newContact, telefone: value })}
-          containerStyle={styles.inputContainer}
+          containerStyle={styles.inputGroup}
           inputStyle={{ color: theme.colors.text }}
           keyboardType="phone-pad"
           accessibilityLabel="Telefone do contato"
           returnKeyType="next"
         />
-        
+
         <Input
           placeholder="Email"
           value={newContact.email || ''}
           onChangeText={(value) => setNewContact({ ...newContact, email: value })}
-          containerStyle={styles.inputContainer}
+          containerStyle={styles.inputGroup}
           inputStyle={{ color: theme.colors.text }}
           keyboardType="email-address"
           autoCapitalize="none"
           accessibilityLabel="Email do contato"
           returnKeyType="done"
+          onSubmitEditing={handleSaveContact}
         />
-        
-        <View style={styles.buttonContainer}>
-          {editing && (
+
+        <View style={styles.formActionsContainer}>
+          {editingContactId && (
             <Button
               title="Cancelar"
               type="outline"
-              buttonStyle={[styles.actionBtn, { borderColor: theme.colors.grey5 || '#e0e0e0' }]}
+              buttonStyle={[styles.formButton, { borderColor: theme.colors.border || '#e0e0e0' }]}
               titleStyle={{ color: theme.colors.text }}
-              onPress={() => {
-                setEditing(null);
-                setNewContact({});
-              }}
+              onPress={handleCancelEdit}
               accessibilityLabel="Cancelar edição do contato"
-              containerStyle={{ flex: 1, marginRight: 8 }}
+              containerStyle={styles.cancelButtonContainer}
             />
           )}
-          
+
           <Button
-            title={editing ? "Atualizar" : "Adicionar"}
-            buttonStyle={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
-            titleStyle={{ color: 'white' }}
-            onPress={handleAddContact}
-            disabled={!newContact.nome}
-            accessibilityLabel={editing ? "Atualizar contato" : "Adicionar contato"}
-            containerStyle={{ flex: 1, marginLeft: editing ? 8 : 0 }}
+            title={editingContactId ? "Atualizar Contato" : "Adicionar Contato"}
+            buttonStyle={[styles.formButton, { backgroundColor: theme.colors.primary }]}
+            titleStyle={{ color: theme.colors.onPrimary }}
+            onPress={handleSaveContact}
+            disabled={!newContact.nome || newContact.nome.trim() === ''}
+            accessibilityLabel={editingContactId ? "Atualizar contato" : "Adicionar contato"}
+            containerStyle={[styles.saveButtonContainer, editingContactId && styles.saveButtonEditingContainer]}
+            icon={editingContactId ? undefined : <Icon name="add" color={theme.colors.onPrimary} />}
           />
         </View>
       </View>
 
-      <View style={styles.contactsList}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>
-          Contatos ({contacts.length})
+      <View style={styles.contactsListSection}>
+        <Text style={[styles.label, styles.contactsListTitle, { color: theme.colors.text }]}>
+          Contatos Adicionados ({contacts.length})
         </Text>
-        
+
         {contacts.length > 0 ? (
-          <FlatList
+          <DraggableFlatList<Contact>
             data={contacts}
             renderItem={renderContactItem}
             keyExtractor={(item) => item.id}
+            onDragEnd={({ data }) => { setContacts(data); onUpdate({ ...data, contatos: data }); console.log('New contacts order:', data); }}
             scrollEnabled={false}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
         ) : (
-          <Text style={[styles.emptyText, { color: theme.colors.grey1 || '#999' }]}>
-            Nenhum contato adicionado
-          </Text>
+          <View style={styles.emptyListContainer}>
+            <Icon name="people-outline" type="material" size={48} color={theme.colors.textSecondary || '#999'} />
+            <Text style={[styles.emptyListText, { color: theme.colors.textSecondary || '#999' }]}>
+              Nenhum contato adicionado ainda.
+            </Text>
+          </View>
         )}
       </View>
     </ScrollView>
@@ -234,60 +249,97 @@ const ContactsStep: React.FC<ContactsStepProps> = ({
 };
 
 const styles = StyleSheet.create({
+  actionButton: {
+    marginLeft: 8,
+    padding: 8,
+  },
+  actionButtonsContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  cancelButtonContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  contactDetail: {
+  },
+  contactItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  contactName: {
+    fontWeight: 'bold',
+  },
+  contactsListSection: {
+  },
+  contactsListTitle: {
+    marginBottom: 12,
+    marginTop: 24,
+  },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  emptyListContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyListText: {
+    fontSize: 16,
+    fontStyle: 'italic',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  formActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  formButton: {
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  formCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 24,
+    padding: 16,
+  },
+  formTitle: {
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+    paddingHorizontal: 0,
+  },
+  label: {
+    fontSize: 18,
+    fontWeight: '600',
+    // marginBottom: 8,
+  },
+  saveButtonContainer: {
+    flex: 1,
+  },
+  saveButtonEditingContainer: {
+    marginLeft: 8,
+  },
+  sectionDescription: {
+    fontSize: 15,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 8,
   },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  formGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  inputContainer: {
-    paddingHorizontal: 0,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  actionBtn: {
-    borderRadius: 8,
-    paddingVertical: 10,
-  },
-  contactsList: {
-    marginTop: 16,
-  },
-  contactItem: {
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    padding: 8,
-    marginLeft: 5,
-  },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 20,
-    fontStyle: 'italic',
+  separator: {
+    height: 10,
   },
 });
 

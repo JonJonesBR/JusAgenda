@@ -5,23 +5,24 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Event } from '../../types/event';
 import { Picker } from '@react-native-picker/picker';
 
+const componentColors = {
+  transparent: 'transparent',
+  defaultTextGrey: '#999999',
+  defaultSurface: '#FFFFFF',
+  defaultBorderGrey: '#E0E0E0',
+};
+
 interface ProcessDetailsStepProps {
   data: Partial<Event>;
   onUpdate: (data: Partial<Event>) => void;
-  isEditMode?: boolean;
 }
 
-/**
- * Segundo passo do wizard - Detalhes processuais
- */
 const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
   data,
   onUpdate,
-  isEditMode = false,
 }) => {
   const { theme } = useTheme();
 
-  // Lista de prioridades
   const priorities = [
     { label: 'Selecione a prioridade', value: '' },
     { label: 'Baixa', value: 'baixa' },
@@ -30,17 +31,22 @@ const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
     { label: 'Urgente', value: 'urgente' },
   ];
 
+  const handleFieldUpdate = (updates: Partial<Event>) => {
+    onUpdate({ ...data, ...updates });
+  };
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
         Detalhes Processuais
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.grey1 || '#999' }]}>
-        Adicione informações do processo relacionado a este evento.
+      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || componentColors.defaultTextGrey }]}>
+        Adicione informações do processo relacionado a este evento, se houver.
       </Text>
 
       <View style={styles.formGroup}>
@@ -48,7 +54,7 @@ const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
         <Input
           placeholder="Ex: 0000000-00.0000.0.00.0000"
           value={data.numeroProcesso || ''}
-          onChangeText={(value) => onUpdate({ numeroProcesso: value })}
+          onChangeText={(value) => handleFieldUpdate({ numeroProcesso: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           keyboardType="default"
@@ -60,11 +66,12 @@ const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
       <View style={styles.formGroup}>
         <Text style={[styles.label, { color: theme.colors.text }]}>Vara/Tribunal</Text>
         <Input
-          placeholder="Ex: 2ª Vara Cível"
+          placeholder="Ex: 2ª Vara Cível de Comarca X"
           value={data.vara || ''}
-          onChangeText={(value) => onUpdate({ vara: value })}
+          onChangeText={(value) => handleFieldUpdate({ vara: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
+          autoCapitalize="words"
           accessibilityLabel="Vara ou tribunal"
           returnKeyType="next"
         />
@@ -72,16 +79,17 @@ const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
 
       <View style={styles.formGroup}>
         <Text style={[styles.label, { color: theme.colors.text }]}>Prioridade</Text>
-        <View style={[styles.pickerContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.grey5 || '#e0e0e0' }]}>
+        <View style={[styles.pickerContainer, { backgroundColor: theme.colors.background || componentColors.defaultSurface, borderColor: theme.colors.border || componentColors.defaultBorderGrey }]}>
           <Picker
             selectedValue={data.prioridade || ''}
-            onValueChange={(value) => onUpdate({ prioridade: value })}
+            onValueChange={(value) => handleFieldUpdate({ prioridade: value })}
             style={{ color: theme.colors.text }}
             dropdownIconColor={theme.colors.text}
             accessibilityLabel="Prioridade do evento"
+            prompt="Selecione a Prioridade"
           >
-            {priorities.map((priority) => (
-              <Picker.Item key={priority.value} label={priority.label} value={priority.value} />
+            {priorities.map((priorityOption) => (
+              <Picker.Item key={priorityOption.value} label={priorityOption.label} value={priorityOption.value} />
             ))}
           </Picker>
         </View>
@@ -90,9 +98,9 @@ const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
       <View style={styles.formGroup}>
         <Text style={[styles.label, { color: theme.colors.text }]}>Observações Processuais</Text>
         <Input
-          placeholder="Observações sobre o processo"
+          placeholder="Detalhes importantes sobre o andamento ou particularidades do processo"
           value={data.observacoes || ''}
-          onChangeText={(value) => onUpdate({ observacoes: value })}
+          onChangeText={(value) => handleFieldUpdate({ observacoes: value })}
           containerStyle={styles.inputContainer}
           inputStyle={{ color: theme.colors.text }}
           multiline
@@ -102,27 +110,33 @@ const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
         />
       </View>
 
-      <View style={styles.formGroup}>
+      <View style={styles.checkboxGroup}>
         <CheckBox
           title="Requer presença obrigatória"
-          checked={data.presencaObrigatoria || false}
-          onPress={() => onUpdate({ presencaObrigatoria: !(data.presencaObrigatoria || false) })}
-          containerStyle={[styles.checkboxContainer, { backgroundColor: 'transparent', borderColor: 'transparent' }]}
-          textStyle={{ color: theme.colors.text }}
+          checked={!!data.presencaObrigatoria}
+          onPress={() => handleFieldUpdate({ presencaObrigatoria: !data.presencaObrigatoria })}
+          containerStyle={styles.checkboxContainer}
+          textStyle={[styles.checkboxText, { color: theme.colors.text }]}
           checkedColor={theme.colors.primary}
-          accessibilityLabel="Requer presença obrigatória"
+          accessibilityLabel="Marcar se requer presença obrigatória"
+          iconType="material-community"
+          checkedIcon="checkbox-marked-outline"
+          uncheckedIcon="checkbox-blank-outline"
         />
       </View>
 
-      <View style={styles.formGroup}>
+      <View style={styles.checkboxGroup}>
         <CheckBox
-          title="Configurar lembretes"
-          checked={data.lembretes || false}
-          onPress={() => onUpdate({ lembretes: !(data.lembretes || false) })}
-          containerStyle={[styles.checkboxContainer, { backgroundColor: 'transparent', borderColor: 'transparent' }]}
-          textStyle={{ color: theme.colors.text }}
+          title="Configurar lembretes para este evento"
+          checked={!!data.lembretes} 
+          onPress={() => handleFieldUpdate({ lembretes: data.lembretes ? undefined : [] })}
+          containerStyle={styles.checkboxContainer}
+          textStyle={[styles.checkboxText, { color: theme.colors.text }]}
           checkedColor={theme.colors.primary}
-          accessibilityLabel="Configurar lembretes"
+          accessibilityLabel="Configurar lembretes para o evento"
+          iconType="material-community"
+          checkedIcon="bell-check-outline"
+          uncheckedIcon="bell-outline"
         />
       </View>
     </ScrollView>
@@ -130,42 +144,49 @@ const ProcessDetailsStep: React.FC<ProcessDetailsStepProps> = ({
 };
 
 const styles = StyleSheet.create({
+  checkboxContainer: {
+    backgroundColor: componentColors.transparent,
+    borderWidth: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    padding: 0,
+  },
+  checkboxGroup: {
+    marginBottom: 10,
+  },
+  checkboxText: {
+    marginLeft: 8,
+  },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-    fontWeight: '500',
+    marginBottom: 20,
   },
   inputContainer: {
     paddingHorizontal: 0,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderRadius: 8,
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
     marginBottom: 8,
   },
-  checkboxContainer: {
-    padding: 0,
-    marginLeft: 0,
-    marginRight: 0,
-    marginBottom: 10,
+  pickerContainer: {
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  sectionDescription: {
+    fontSize: 15,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
 });
 
