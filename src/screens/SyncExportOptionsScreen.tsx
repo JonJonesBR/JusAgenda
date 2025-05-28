@@ -1,145 +1,158 @@
-import React from "react";
-import {
-    // View, // Removido View
-    StyleSheet,
-    TouchableOpacity,
-    Text, // Importado de react-native
-    ScrollView, // Adicionado para caso de telas pequenas
-    // Platform, // Removed Platform as it's not directly used here
-} from "react-native";
-import { Icon } from "@rneui/themed"; // Apenas Icon é usado do RNE
-import { useNavigation, NavigationProp } from "@react-navigation/native";
-import { useTheme } from "../contexts/ThemeContext";
-import { SafeAreaView } from "react-native-safe-area-context"; // Para safe area
+// src/screens/SyncExportOptionsScreen.tsx
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Tipagem para o navegador que contém estas telas
-// (Pode ser uma Stack ou Tab Navigator)
-type AppNavigatorParamList = {
-  SyncExportOptions: undefined;
-  EmailSync: undefined;
-  Export: undefined;
-  Feedback: undefined;
-  // Adicionar outras telas
+import { useTheme, Theme } from '../contexts/ThemeContext';
+import { Header } from '../components/ui'; // Usando o Header de UI
+import { SyncStackParamList } from '../navigation/stacks/SyncStack'; // Ajuste para a sua Stack Param List
+import { ROUTES } from '../constants';
+
+// Tipagem para a prop de navegação
+type SyncExportOptionsScreenNavigationProp = StackNavigationProp<SyncStackParamList, typeof ROUTES.SYNC_EXPORT_OPTIONS>;
+
+interface OptionItemProps {
+  title: string;
+  description: string;
+  iconName: keyof typeof MaterialCommunityIcons.glyphMap;
+  onPress: () => void;
+  theme: Theme; // Passando o tema para estilização interna
+}
+
+const OptionButton: React.FC<OptionItemProps> = ({ title, description, iconName, onPress, theme }) => {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.optionButton,
+        {
+          backgroundColor: theme.colors.card,
+          borderColor: theme.colors.border,
+          // Aplicando sombras do tema
+          ...(Platform.OS === 'ios' ? theme.shadows.sm : { elevation: theme.shadows.sm.elevation }),
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.optionIconContainer}>
+        <MaterialCommunityIcons name={iconName} size={32} color={theme.colors.primary} />
+      </View>
+      <View style={styles.optionTextContainer}>
+        <Text style={[styles.optionTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+          {title}
+        </Text>
+        <Text style={[styles.optionDescription, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+          {description}
+        </Text>
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.placeholder} />
+    </TouchableOpacity>
+  );
 };
-
-type ScreenNavigationProp = NavigationProp<AppNavigatorParamList>;
 
 const SyncExportOptionsScreen: React.FC = () => {
-  const navigation = useNavigation<ScreenNavigationProp>();
   const { theme } = useTheme();
+  const navigation = useNavigation<SyncExportOptionsScreenNavigationProp>();
 
-  // Constantes de design do tema
-  const ds = {
-    spacing: theme.spacing,
-    typography: theme.typography,
-    radii: theme.radii,
-    shadows: theme.shadows,
-  };
-
-  // Função auxiliar para criar botões de opção
-  const OptionButton: React.FC<{label: string; iconName: string; iconType?: string; screenName: keyof AppNavigatorParamList; accessibilityHint: string}> =
-    ({ label, iconName, iconType = "material", screenName, accessibilityHint }) => (
-        <TouchableOpacity
-            style={[
-                styles.optionButtonBase,
-                {
-                    backgroundColor: theme.colors.card,
-                    borderRadius: ds.radii.xl, // Maior raio
-                    marginBottom: ds.spacing.xl, // Maior margem
-                    paddingVertical: ds.spacing.lg, // Ajustar padding
-                    paddingHorizontal: ds.spacing.lg,
-                    borderColor: theme.colors.border,
-                },
-                ds.shadows.medium // Aplicar sombra
-            ]}
-            onPress={() => navigation.navigate(screenName)}
-            activeOpacity={0.7}
-            accessibilityLabel={label}
-            accessibilityHint={accessibilityHint}
-            accessibilityRole="button"
-        >
-            <Icon
-                name={iconName}
-                type={iconType}
-                size={28}
-                color={theme.colors.primary}
-                containerStyle={{ marginRight: ds.spacing.lg }} // Maior margem
-            />
-            <Text style={[styles.optionTextBase, { color: theme.colors.text, fontSize: ds.typography.fontSize.lg, fontFamily: ds.typography.fontFamily.medium }]}>
-                {label}
-            </Text>
-            <Icon // Ícone de chevron indicando navegação
-                name="chevron-right"
-                type="material-community"
-                size={24}
-                color={theme.colors.textSecondary} // Replaced grey3
-            />
-      </TouchableOpacity>
-  );
-
+  const options = [
+    {
+      title: 'Sincronizar com Email',
+      description: 'Configure alertas de eventos e sincronize sua agenda por email.',
+      iconName: 'email-sync-outline' as keyof typeof MaterialCommunityIcons.glyphMap,
+      route: ROUTES.EMAIL_SYNC,
+    },
+    {
+      title: 'Exportar Dados',
+      description: 'Exporte seus eventos em formatos como Excel, PDF, CSV, etc.',
+      iconName: 'file-export-outline' as keyof typeof MaterialCommunityIcons.glyphMap,
+      route: ROUTES.EXPORT,
+    },
+    // Adicione mais opções aqui, se necessário
+    // {
+    //   title: 'Backup na Nuvem',
+    //   description: 'Configure backups automáticos dos seus dados na nuvem.',
+    //   iconName: 'cloud-upload-outline' as keyof typeof MaterialCommunityIcons.glyphMap,
+    //   route: ROUTES.CLOUD_BACKUP_CONFIG, // Exemplo de rota
+    // },
+  ];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['left', 'right', 'bottom']}>
-        {/* Header pode ser da Stack ou um customizado aqui */}
-        {/* <Header title="Gerenciar Dados" /> */}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={[styles.titleBase, { color: theme.colors.text, fontSize: ds.typography.fontSize.xl * 1.2, fontFamily: ds.typography.fontFamily.bold, marginBottom: ds.spacing.xxl }]}>
-            Gerenciar Dados
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {/*
+        O Header para esta tela é definido na SyncStack.tsx com o título "Sincronizar e Exportar".
+        Se quiser um header diferente ou nenhum header da stack, ajuste as opções na SyncStack.tsx
+        para a rota SYNC_EXPORT_OPTIONS.
+        Exemplo: options={{ headerShown: false }} na SyncStack.tsx para esta rota.
+        Se precisar de um header customizado aqui:
+        <Header title="Opções de Sincronização e Exportação" />
+      */}
+      <ScrollView contentContainerStyle={[styles.scrollContainer, {padding: theme.spacing.md}]}>
+        <Text style={[styles.screenTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold, marginBottom: theme.spacing.xs }]}>
+          Gerenciar Dados
+        </Text>
+        <Text style={[styles.screenSubtitle, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular, marginBottom: theme.spacing.lg }]}>
+          Escolha uma opção abaixo para sincronizar ou exportar suas informações.
         </Text>
 
-        <OptionButton
-            label="Sincronizar Compromissos"
-            iconName="sync"
-            screenName="EmailSync"
-            accessibilityHint="Navegar para a tela de sincronização por email"
-        />
-
-        <OptionButton
-            label="Exportar Compromissos"
-            iconName="file-download"
-            screenName="Export"
-            accessibilityHint="Navegar para a tela de exportação de dados"
-        />
-
-        <OptionButton
-            label="Enviar Feedback"
-            iconName="feedback"
-            screenName="Feedback"
-            accessibilityHint="Navegar para a tela de envio de feedback"
-        />
-
+        {options.map((option) => (
+          <OptionButton
+            key={option.route}
+            title={option.title}
+            description={option.description}
+            iconName={option.iconName}
+            onPress={() => navigation.navigate(option.route as any)} // 'as any' para flexibilidade de rota, mas idealmente tipado
+            theme={theme}
+          />
+        ))}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
-// Estilos base (sem dependência direta de theme/ds)
 const styles = StyleSheet.create({
-  container: {
+  scrollContainer: {
+    flexGrow: 1,
+    // padding é definido dinamicamente com o tema
+  },
+  screenTitle: {
+    fontSize: 26, // Usar theme.typography
+    // fontFamily e marginBottom são dinâmicos
+    textAlign: 'center',
+  },
+  screenSubtitle: {
+    fontSize: 15, // Usar theme.typography
+    textAlign: 'center',
+    // fontFamily e marginBottom são dinâmicos
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16, // Usar theme.spacing.md
+    borderRadius: 12, // Usar theme.radii.lg
+    marginBottom: 16, // Usar theme.spacing.md
+    borderWidth: 1,
+    // backgroundColor, borderColor e sombras são dinâmicos
+  },
+  optionIconContainer: {
+    marginRight: 16, // Usar theme.spacing.md
+    padding: 8, // Usar theme.spacing.sm
+    borderRadius: 24, // Metade do tamanho do ícone + padding
+    backgroundColor: 'rgba(0,0,0,0.05)', // Um fundo leve para o ícone, ajustar com o tema
+  },
+  optionTextContainer: {
     flex: 1,
   },
-  optionButtonBase: {
-    alignItems: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    width: "100%", // Ocupar largura total (considerando padding do container)
-    // backgroundColor, borderRadius, marginBottom, padding*, shadow*, borderColor são dinâmicos
+  optionTitle: {
+    fontSize: 17, // Usar theme.typography.fontSize.lg ou md
+    // fontFamily e color são dinâmicos
+    marginBottom: 4, // Usar theme.spacing.xs
   },
-  optionTextBase: {
-    flex: 1,
-    fontWeight: "600", // Ocupa espaço disponível entre os ícones
-    // fontSize, color, fontFamily são dinâmicos
-  },
-  scrollContent: {
-    alignItems: "center",
-    flexGrow: 1, // Para centralizar verticalmente se o conteúdo for pequeno
-    padding: 20, // Padding geral
-    paddingTop: 30, // Mais espaço no topo
-  },
-  titleBase: {
-    fontWeight: "bold",
-    textAlign: "center",
-    // fontSize, color, marginBottom, fontFamily são dinâmicos
+  optionDescription: {
+    fontSize: 13, // Usar theme.typography.fontSize.xs ou sm
+    // fontFamily e color são dinâmicos
+    lineHeight: 18, // Usar theme.typography.lineHeight
   },
 });
 

@@ -1,128 +1,259 @@
-import React from 'react';
-import DateTimePicker, { DateTimePickerEvent, AndroidNativeProps, IOSNativeProps } from '@react-native-community/datetimepicker';
-import { Platform, Modal, View, Button, StyleSheet, Text } from 'react-native';
+// src/components/CustomDateTimePicker.tsx
+import React, { useState, ReactNode } from 'react';
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  Modal,
+  StyleSheet,
+  Platform,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
+} from 'react-native';
+import DateTimePicker, {
+  DateTimePickerEvent, // Evento do DateTimePicker
+  AndroidNativeProps, // Props específicas do Android
+  IOSNativeProps,     // Props específicas do iOS
+} from '@react-native-community/datetimepicker';
 import { useTheme } from '../contexts/ThemeContext';
+import Button from './ui/Button'; // Usando o seu componente Button customizado
 
-// Re-exporta DateTimePickerEvent para que outros arquivos possam importá-lo daqui
-export type { DateTimePickerEvent as CustomDateTimePickerEvent };
+// Reexportando o tipo de evento para clareza, caso seja necessário externamente
+export type CustomDateTimePickerEvent = DateTimePickerEvent;
 
-export interface CustomDateTimePickerProps {
-  value: Date;
-  mode: 'date' | 'time' | 'datetime';
-  display?: AndroidNativeProps['display'] | IOSNativeProps['display'];
-  onChange: (event: DateTimePickerEvent, date?: Date) => void;
-  onClose?: () => void; // Para fechar o modal no iOS ao cancelar ou confirmar
+// Props para o CustomDateTimePicker
+// Combinando props do iOS e Android, e adicionando as nossas
+type DateTimePickerMode = 'date' | 'time' | 'datetime' | 'countdown'; // Adicionando 'countdown'
+
+interface CustomDateTimePickerProps {
+  value: Date; // A data/hora atual selecionada
+  mode?: DateTimePickerMode; // 'date', 'time', 'datetime', ou 'countdown'
+  display?: AndroidNativeProps['display'] | IOSNativeProps['display']; // 'default', 'spinner', 'calendar', 'clock' (Android) / 'default', 'compact', 'inline', 'spinner' (iOS)
+  onChange: (event: CustomDateTimePickerEvent, date?: Date) => void;
+  placeholder?: string; // Texto a ser exibido antes de uma data ser selecionada (para o TouchableOpacity)
+  style?: StyleProp<ViewStyle>; // Estilo para o TouchableOpacity que abre o picker
+  textStyle?: StyleProp<TextStyle>; // Estilo para o texto dentro do TouchableOpacity
+  disabled?: boolean;
   minimumDate?: Date;
   maximumDate?: Date;
+  minuteInterval?: IOSNativeProps['minuteInterval']; // Intervalo de minutos para iOS
+  timeZoneOffsetInMinutes?: IOSNativeProps['timeZoneOffsetInMinutes']; // Fuso horário para iOS
+  is24Hour?: AndroidNativeProps['is24Hour']; // Formato 24h para Android (time mode)
+  // Props para o Modal no iOS
+  iosModalTitle?: string;
+  iosDoneText?: string;
+  iosCancelText?: string;
+  // Render customizado para o ativador do picker
+  customTrigger?: (params: { onPress: () => void; displayValue: string }) => ReactNode;
 }
 
 const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   value,
-  mode,
-  display = Platform.OS === 'ios' ? 'spinner' : 'default',
+  mode = 'date',
+  display, // Será 'default' se não especificado, o DateTimePicker lida com isso
   onChange,
-  onClose,
+  placeholder = 'Selecionar...',
+  style,
+  textStyle,
+  disabled = false,
   minimumDate,
   maximumDate,
+  minuteInterval,
+  timeZoneOffsetInMinutes,
+  is24Hour,
+  iosModalTitle = 'Selecionar Data/Hora',
+  iosDoneText = 'Confirmar',
+  iosCancelText = 'Cancelar',
+  customTrigger,
 }) => {
   const { theme } = useTheme();
+  const [showPicker, setShowPicker] = useState(false);
+  // Para iOS, precisamos de um estado temporário para a data no modal
+  const [iosTempValue, setIosTempValue] = useState<Date>(value);
 
-  const handleConfirmIOS = () => {
-    // No iOS, o onChange pode já ter sido chamado.
-    // Esta função de confirmação garante que o onClose seja chamado.
-    // Se o onChange não for chamado continuamente no iOS, você pode chamar onChange aqui também.
-    // onChange({ type: 'set' } as DateTimePickerEvent, value); // Descomente se necessário
-    if (onClose) {
-      onClose();
+  const handlePress = () => {
+    if (!disabled) {
+      setIosTempValue(value); // Reseta o valor temporário do iOS ao abrir
+      setShowPicker(true);
     }
   };
 
+  const handleChange = (event: CustomDateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowPicker(false); // No Android, o picker se fecha automaticamente
+    }
+    // selectedDate pode ser undefined se o usuário cancelar (Android)
+    if (selectedDate) {
+      if (Platform.OS === 'ios') {
+        setIosTempValue(selectedDate); // Atualiza o valor temporário no modal do iOS
+        // Não chama onChange aqui ainda, espera o "Confirmar"
+      } else {
+        // No Android, ou se não for iOS, chama onChange diretamente
+        onChange(event, selectedDate);
+      }
+    } else if (Platform.OS === 'android' && event.type === 'dismissed') {
+        // Usuário cancelou no Android
+        onChange(event, undefined);
+    }
+  };
+
+  const handleIosConfirm = () => {
+    setShowPicker(false);
+    onChange({ type: 'set', nativeEvent: { timestamp: iosTempValue.getTime() } } as CustomDateTimePickerEvent, iosTempValue);
+  };
+
+  const handleIosCancel = () => {
+    setShowPicker(false);
+    // Opcional: notificar que foi cancelado, se necessário
+    // onChange({ type: 'dismissed', nativeEvent: { timestamp: Date.now() } } as CustomDateTimePickerEvent, undefined);
+  };
+
+  const getDisplayValue = (): string => {
+    if (!value || isNaN(value.getTime())) return placeholder;
+
+    if (mode === 'date') {
+      return value.toLocaleDateString(theme.mode === 'dark' ? 'pt-BR' : 'pt-BR'); // Ajuste de locale se necessário
+    }
+    if (mode === 'time') {
+      return value.toLocaleTimeString(theme.mode === 'dark' ? 'pt-BR' : 'pt-BR', { hour: '2-digit', minute: '2-digit', hour12: !is24Hour });
+    }
+    if (mode === 'datetime') {
+      return value.toLocaleString(theme.mode === 'dark' ? 'pt-BR' : 'pt-BR', { hour: '2-digit', minute: '2-digit', hour12: !is24Hour });
+    }
+    return value.toString(); // Fallback
+  };
+
+  const displayValue = getDisplayValue();
+
+  const pickerProps = {
+    value: Platform.OS === 'ios' ? iosTempValue : value,
+    mode,
+    display: display || (Platform.OS === 'ios' ? (mode === 'date' ? 'inline' : 'spinner') : 'default'),
+    onChange: handleChange,
+    minimumDate,
+    maximumDate,
+    minuteInterval,
+    timeZoneOffsetInMinutes,
+    is24Hour,
+    // Adicionar textColor para iOS 14+ se display for 'inline' ou 'compact'
+    ...(Platform.OS === 'ios' && (display === 'inline' || display === 'compact') && { textColor: theme.colors.text }),
+  };
+
+  // Estilos dinâmicos
+  const themedTouchableStyle: ViewStyle = {
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radii.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 2, // Similar ao Input
+    backgroundColor: theme.colors.surface,
+    justifyContent: 'center',
+    minHeight: 48, // Altura mínima para toque
+  };
+
+  const themedTextStyle: TextStyle = {
+    color: (value && !isNaN(value.getTime())) ? theme.colors.text : theme.colors.placeholder,
+    fontSize: theme.typography.fontSize.md,
+    fontFamily: theme.typography.fontFamily.regular,
+  };
+
+
   if (Platform.OS === 'ios') {
     return (
-      <Modal
-        transparent={true}
-        animationType="slide"
-        visible={true} // A visibilidade do modal é controlada pelo componente pai
-        onRequestClose={onClose} // Para o botão de voltar do Android (embora seja iOS aqui)
-      >
-        <View style={[styles.modalOverlay, {backgroundColor: theme.colors.overlay}]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.card, shadowColor: theme.colors.shadow }]}>
-            <Text style={[styles.modalTitle, {color: theme.colors.text}]}>Selecione {mode === 'date' ? 'Data' : 'Hora'}</Text>
-            <DateTimePicker
-              value={value}
-              mode={mode}
-              display={display as IOSNativeProps['display']}
-              onChange={onChange} // onChange é chamado quando o valor muda no picker
-              textColor={theme.colors.text}
-              minimumDate={minimumDate}
-              maximumDate={maximumDate}
-              locale="pt-BR" // Defina sua localidade
-              style={styles.iosPicker}
-            />
-            <View style={styles.iosButtonContainer}>
-                <Button title="Cancelar" onPress={onClose} color={theme.colors.error} />
-                <Button title="Confirmar" onPress={handleConfirmIOS} color={theme.colors.primary} />
+      <>
+        {customTrigger ? (
+          customTrigger({ onPress: handlePress, displayValue })
+        ) : (
+          <TouchableOpacity
+            style={[themedTouchableStyle, styles.touchableBase, style]}
+            onPress={handlePress}
+            disabled={disabled}
+            activeOpacity={0.7}
+          >
+            <Text style={[themedTextStyle, textStyle]}>{displayValue}</Text>
+          </TouchableOpacity>
+        )}
+        <Modal
+          transparent
+          visible={showPicker}
+          animationType="slide"
+          onRequestClose={handleIosCancel}
+        >
+          <View style={styles.iosModalOverlay}>
+            <View style={[styles.iosModalContent, { backgroundColor: theme.colors.card }]}>
+              {iosModalTitle && <Text style={[styles.iosModalTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>{iosModalTitle}</Text>}
+              {/* @ts-ignore: DateTimePicker types podem não estar perfeitos para todas as props condicionais */}
+              <DateTimePicker {...pickerProps} />
+              <View style={[styles.iosModalActions, { borderTopColor: theme.colors.border }]}>
+                <Button title={iosCancelText} onPress={handleIosCancel} type="clear" buttonStyle={styles.iosModalButton} titleStyle={{color: theme.colors.text}} />
+                <View style={styles.iosButtonSeparator} />
+                <Button title={iosDoneText} onPress={handleIosConfirm} type="solid" buttonStyle={styles.iosModalButton} />
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      </>
     );
   }
 
-  // Para Android, o DateTimePicker é renderizado diretamente
-  // A visibilidade é controlada pelo componente pai (ex: showDatePicker && <CustomDateTimePicker ... />)
+  // Android
   return (
-    <DateTimePicker
-      value={value}
-      mode={mode}
-      display={display as AndroidNativeProps['display']}
-      onChange={onChange} // onChange também é chamado no Android
-      minimumDate={minimumDate}
-      maximumDate={maximumDate}
-      // is24Hour={true} // Para modo 'time' se desejar formato 24h
-    />
+    <>
+      {customTrigger ? (
+        customTrigger({ onPress: handlePress, displayValue })
+      ) : (
+        <TouchableOpacity
+          style={[themedTouchableStyle, styles.touchableBase, style]}
+          onPress={handlePress}
+          disabled={disabled}
+          activeOpacity={0.7}
+        >
+          <Text style={[themedTextStyle, textStyle]}>{displayValue}</Text>
+        </TouchableOpacity>
+      )}
+      {showPicker && (
+        // @ts-ignore: DateTimePicker types podem não estar perfeitos para todas as props condicionais
+        <DateTimePicker {...pickerProps} />
+      )}
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  iosButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around', // Ou 'flex-end' com espaçamento
-    marginTop: 20,
-    paddingHorizontal: 20,
-    width: '100%',
+  touchableBase: {
+    // Estilos base para o TouchableOpacity que não dependem do tema
   },
-  iosPicker: {
-    // height: 216, // Altura padrão para spinner no iOS
-    width: '100%', // Ocupa a largura do modalContent
-  },
-  modalContent: {
-    alignItems: 'center',
-    // backgroundColor e shadowColor são aplicados dinamicamente
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    elevation: 5, // Para Android, embora este seja o bloco iOS
-    paddingBottom: 30, // Espaço para botões e safe area inferior
-    paddingTop: 20,
-    shadowOffset: {
-      height: -2,
-      width: 0,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    width: '100%',
-  },
-  modalOverlay: {
-    alignItems: 'center',
-    // backgroundColor é aplicado dinamicamente
+  // Estilos para o Modal do iOS
+  iosModalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end', // Modal aparece de baixo
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
+  iosModalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20, // Espaço para botões e safe area
   },
+  iosModalTitle: {
+    fontSize: 18, // Ajustado via theme
+    padding: 16,
+    textAlign: 'center',
+  },
+  iosModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+  },
+  iosModalButton: {
+    flex: 1, // Para os botões dividirem o espaço
+    marginHorizontal: 5,
+  },
+  iosButtonSeparator: {
+    width: 10,
+  }
 });
 
 export default CustomDateTimePicker;

@@ -1,322 +1,240 @@
+// src/components/EventWizard/ReviewStep.tsx
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, Divider, Icon } from '@rneui/themed';
-import { useTheme } from '../../contexts/ThemeContext';
-import { Event, Contact } from '../../types/event';
-import moment from 'moment';
-import * as Haptics from 'expo-haptics';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Section } from '../ui'; // Seu componente Section
+import { Theme } from '../../contexts/ThemeContext'; // Tipo do tema
+import { EventContact, Reminder } from '../../types/event'; // Tipos de Contact e Reminder
+import { EVENT_TYPE_LABELS, PRIORIDADE_LABELS, REMINDER_OPTIONS } from '../../constants'; // Labels e opções
 
-const componentColors = {
-  white: 'white',
-  shadowBlack: '#000',
-  defaultGrey: '#A9A9A9', // Fallback for various grey shades
-  lightGrey: '#D3D3D3', // Lighter fallback
-  defaultSurface: '#FFFFFF', // Fallback for surface
-};
+// Este formData será uma versão formatada para exibição
+interface ReviewStepFormData {
+  title?: string;
+  eventType?: string; // Já será o label
+  data?: string; // Já formatada como DD/MM/YYYY
+  hora?: string; // Já formatada como HH:MM ou "Dia Todo"
+  isAllDay?: boolean;
+  local?: string;
+  description?: string;
+  cor?: string;
 
-interface ReviewStepProps {
-  data: Partial<Event>;
-  onEditStep: (stepIndex: number) => void;
-  isEditMode?: boolean;
+  numeroProcesso?: string;
+  vara?: string;
+  comarca?: string;
+  instancia?: string;
+  naturezaAcao?: string;
+  faseProcessual?: string;
+  linkProcesso?: string;
+  prioridade?: string; // Já será o label
+  presencaObrigatoria?: boolean;
+  observacoes?: string;
+
+  clienteNome?: string;
+  contacts?: EventContact[];
+  reminders?: Reminder[];
+  [key: string]: any; // Para outros campos que possam existir
 }
 
-const ReviewStep: React.FC<ReviewStepProps> = ({
-  data,
-  onEditStep,
-  isEditMode = false,
-}) => {
-  const { theme } = useTheme();
+interface ReviewStepProps {
+  formData: ReviewStepFormData;
+  onEditStep: (stepIndex: number) => void;
+  isReadOnly: boolean;
+  theme: Theme; // Recebe o tema como prop
+}
 
-  const EditSectionButton: React.FC<{ stepIndex: number, accessibilityLabel: string }> = ({ stepIndex, accessibilityLabel }) => (
-    <TouchableOpacity
-        style={styles.editButtonTouchable}
-        onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            onEditStep(stepIndex);
-        }}
-        accessibilityLabel={accessibilityLabel}
-    >
-        <Icon
-            name="pencil-outline"
-            type="material-community"
-            size={22}
-            color={theme.colors.primary}
-        />
-    </TouchableOpacity>
-  );
+// Componente auxiliar para renderizar cada item de detalhe
+const DetailItem: React.FC<{
+  label: string;
+  value?: string | number | boolean | React.ReactNode;
+  theme: Theme;
+  isReadOnly?: boolean;
+  onEditPress?: () => void;
+  fullWidthValue?: boolean; // Se o valor deve ocupar mais espaço
+}> = ({ label, value, theme, isReadOnly, onEditPress, fullWidthValue = false }) => {
+  if (value === undefined || value === null || value === '') {
+    // Não renderiza o item se o valor for nulo, indefinido ou string vazia
+    // Pode querer mostrar "Não informado" dependendo do campo
+    return null;
+  }
 
-  const getReviewItem = (label: string, value: string | number | boolean | Date | string[] | undefined | null, iconName: string, iconType: string = "material-community") => {
-    if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
-        if (typeof value !== 'boolean' && !Array.isArray(value)) return null; // Allow empty arrays to be shown as "Não" or empty string
-        if (Array.isArray(value) && value.length === 0) return null;
-    }
-
-    let displayValue: string | number | boolean = value as string | number | boolean; // Initial cast
-
-    if (value instanceof Date) {
-      displayValue = moment(value).format('DD/MM/YYYY');
-    } else if (label === 'Data' && typeof value === 'string') { // Ensure it's a string before moment parsing
-      displayValue = moment(value, 'YYYY-MM-DD').format('DD/MM/YYYY');
-    } else if (typeof value === 'boolean') {
-      displayValue = value ? 'Sim' : 'Não';
-    } else if (Array.isArray(value)) {
-      displayValue = value.join(', ');
-      if (displayValue === '') displayValue = 'Nenhum'; // Or some other placeholder for empty array
-    } else if (label === 'Tipo' && data.tipo) {
-        const typeMap: {[key: string]: string} = { audiencia: 'Audiência', prazo: 'Prazo', reuniao: 'Reunião', despacho: 'Despacho', outro: 'Outro' };
-        displayValue = typeMap[data.tipo] || data.tipo;
-    } else if (label === 'Prioridade' && data.prioridade) {
-        const priorityMap: {[key: string]: string} = { baixa: 'Baixa', media: 'Média', alta: 'Alta', urgente: 'Urgente' };
-        displayValue = priorityMap[data.prioridade] || data.prioridade;
-    }
-
-
-    return (
-      <View style={styles.reviewItem}>
-        <View style={styles.reviewHeader}>
-          <Icon
-            name={iconName}
-            type={iconType}
-            size={20}
-            color={theme.colors.primary}
-            style={styles.reviewItemIcon}
-          />
-          <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary || componentColors.defaultGrey }]}>
-            {label}
-          </Text>
-        </View>
-        <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
-          {String(displayValue)}
-        </Text>
-      </View>
-    );
-  };
-
-  const hasRequiredFields = data.title && data.data && data.tipo;
+  let displayValue: React.ReactNode;
+  if (typeof value === 'boolean') {
+    displayValue = value ? 'Sim' : 'Não';
+  } else {
+    displayValue = value;
+  }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-        Revisão do Evento
-      </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || componentColors.defaultGrey }]}>
-        Revise todas as informações antes de {isEditMode ? 'salvar as alterações' : 'finalizar o cadastro'} do evento.
-      </Text>
-
-      {!hasRequiredFields && (
-        <Card containerStyle={[styles.warningCard, { backgroundColor: theme.colors.error }]}>
-          <View style={styles.warningCardContent}>
-            <Icon name="alert-circle-outline" type="material-community" color={componentColors.white} size={24} />
-            <View style={styles.warningTextContainer}>
-                <Card.Title style={[styles.warningTitle, { color: componentColors.white }]}><Text>Informações Incompletas</Text></Card.Title>
-                <Text style={[styles.warningText, { color: componentColors.white }]}>
-                    Por favor, preencha todos os campos obrigatórios (Título, Data e Tipo) nos passos anteriores.
-                </Text>
-            </View>
-          </View>
-        </Card>
+    <View style={styles.detailItemContainer}>
+      <View style={styles.detailTextContainer}>
+        <Text style={[styles.detailLabel, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+          {label}:
+        </Text>
+        <View style={fullWidthValue ? styles.detailValueFullWidth : styles.detailValue}>
+            {typeof displayValue === 'string' || typeof displayValue === 'number' ? (
+                 <Text style={[styles.detailValueText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>
+                    {displayValue}
+                 </Text>
+            ) : (
+                displayValue // Se for um ReactNode (ex: lista de contactos)
+            )}
+        </View>
+      </View>
+      {!isReadOnly && onEditPress && (
+        <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
+          <MaterialCommunityIcons name="pencil-circle-outline" size={24} color={theme.colors.primary} />
+        </TouchableOpacity>
       )}
+    </View>
+  );
+};
 
-      <Card containerStyle={[styles.sectionCard, { backgroundColor: theme.colors.background || componentColors.defaultSurface, borderColor: theme.colors.border }]}>
-        <View style={styles.cardHeaderContainer}>
-            <Icon name="information-outline" type="material-community" size={24} color={theme.colors.primary} style={styles.cardHeaderIcon} />
-            <Card.Title style={[styles.cardTitleText, { color: theme.colors.text }]}><Text>Informações Básicas</Text></Card.Title>
-            <EditSectionButton stepIndex={0} accessibilityLabel="Editar informações básicas" />
-        </View>
-        <Card.Divider style={{backgroundColor: theme.colors.border}}/>
-        {getReviewItem('Título', data.title, 'format-title')}
-        {getReviewItem('Tipo', data.tipo, 'tag-outline')}
-        {getReviewItem('Data', data.data, 'calendar-month-outline')}
-        {getReviewItem('Descrição', data.descricao, 'text-long')}
-        {getReviewItem('Local', data.local, 'map-marker-outline')}
-      </Card>
 
-      <Card containerStyle={[styles.sectionCard, { backgroundColor: theme.colors.background || componentColors.defaultSurface, borderColor: theme.colors.border }]}>
-         <View style={styles.cardHeaderContainer}>
-            <Icon name="file-document-outline" type="material-community" size={24} color={theme.colors.primary} style={styles.cardHeaderIcon} />
-            <Card.Title style={[styles.cardTitleText, { color: theme.colors.text }]}><Text>Detalhes Processuais</Text></Card.Title>
-            <EditSectionButton stepIndex={1} accessibilityLabel="Editar detalhes processuais" />
-        </View>
-        <Card.Divider style={{backgroundColor: theme.colors.border}}/>
-        {getReviewItem('Número do Processo', data.numeroProcesso, 'pound-box-outline')}
-        {getReviewItem('Vara/Tribunal', data.vara, 'gavel')}
-        {getReviewItem('Prioridade', data.prioridade, 'priority-high')}
-        {getReviewItem('Presença Obrigatória', data.presencaObrigatoria, 'account-check-outline')}
-        {getReviewItem('Lembretes', data.lembretes, 'bell-ring-outline')}
-        {getReviewItem('Observações Processuais', data.observacoes, 'comment-text-outline')}
-      </Card>
+const ReviewStep: React.FC<ReviewStepProps> = ({
+  formData,
+  onEditStep,
+  isReadOnly,
+  theme,
+}) => {
 
-      <Card containerStyle={[styles.sectionCard, { backgroundColor: theme.colors.background || componentColors.defaultSurface, borderColor: theme.colors.border }]}>
-        <View style={styles.cardHeaderContainer}>
-            <Icon name="account-group-outline" type="material-community" size={24} color={theme.colors.primary} style={styles.cardHeaderIcon} />
-            <Card.Title style={[styles.cardTitleText, { color: theme.colors.text }]}><Text>Contatos ({data.contatos?.length || 0})</Text></Card.Title>
-            <EditSectionButton stepIndex={2} accessibilityLabel="Editar contatos" />
-        </View>
-        <Card.Divider style={{backgroundColor: theme.colors.border}}/>
-        {data.contatos && data.contatos.length > 0 ? (
-          data.contatos.map((contact: Contact, index: number) => (
-            <View key={contact.id ? contact.id.toString() : `${contact.nome || 'contact'}-${index}`}>
-              <View style={styles.contactItemContainer}>
-                <Icon name="account-circle-outline" type="material-community" size={28} color={theme.colors.text} style={styles.contactItemIcon} />
-                <View style={styles.contactTextContainer}>
-                    <Text style={[styles.contactName, { color: theme.colors.text }]}>{contact.nome}</Text>
-                    {contact.telefone && (
-                        <Text style={[styles.contactDetailText, { color: theme.colors.textSecondary || componentColors.defaultGrey }]}>
-                            <Icon name="phone-outline" type="material-community" size={14} color={theme.colors.textSecondary || componentColors.defaultGrey} /> {contact.telefone}
-                        </Text>
-                    )}
-                    {contact.email && (
-                        <Text style={[styles.contactDetailText, { color: theme.colors.textSecondary || componentColors.defaultGrey }]}>
-                            <Icon name="email-outline" type="material-community" size={14} color={theme.colors.textSecondary || componentColors.defaultGrey} /> {contact.email}
-                        </Text>
-                    )}
-                </View>
-              </View>
-              {index < data.contatos.length - 1 && <Divider style={[styles.contactItemDivider, {backgroundColor: theme.colors.border}]} />}
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyListCentered}>
-            <Icon name="account-multiple-outline" type="material-community" size={32} color={theme.colors.textSecondary || componentColors.lightGrey}/>
-            <Text style={[styles.emptyListText, { color: theme.colors.textSecondary || componentColors.lightGrey }]}>
-                Nenhum contato adicionado.
-            </Text>
-          </View>
+  const formatReminders = (reminders?: Reminder[]): string => {
+    if (!reminders || reminders.length === 0) return 'Nenhum';
+    return reminders
+      .map(rValue => REMINDER_OPTIONS.find(opt => opt.value === rValue)?.label || `${rValue} min`)
+      .join(', ');
+  };
+
+  const renderContacts = (contacts?: EventContact[]) => {
+    if (!contacts || contacts.length === 0) {
+      return <Text style={{ color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }}>Nenhum contacto adicional.</Text>;
+    }
+    return contacts.map((contact, index) => (
+      <View key={contact.id || index} style={[styles.contactReviewItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.sm}]}>
+        <Text style={[styles.contactNameReview, {color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold}]}>{contact.name}</Text>
+        {contact.role && <Text style={styles.contactDetailReview}>Papel: {contact.role}</Text>}
+        {contact.phone && <Text style={styles.contactDetailReview}>Telefone: {contact.phone}</Text>}
+        {contact.email && <Text style={styles.contactDetailReview}>Email: {contact.email}</Text>}
+      </View>
+    ));
+  };
+
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContentContainer}>
+      <Section title="Informações Básicas" theme={theme} style={styles.sectionSpacing} showSeparator>
+        <DetailItem label="Título" value={formData.title} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailItem label="Tipo de Evento" value={formData.eventType} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailItem label="Data" value={formData.data} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        {!formData.isAllDay && formData.hora && (
+            <DetailItem label="Hora" value={formData.hora} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
         )}
-      </Card>
+        <DetailItem label="Dia Todo" value={formData.isAllDay} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailItem label="Local" value={formData.local} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailItem label="Cor (Hex)" value={formData.cor} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailItem label="Descrição" value={formData.description} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} fullWidthValue/>
+      </Section>
+
+      <Section title="Detalhes do Processo" theme={theme} style={styles.sectionSpacing} showSeparator>
+        <DetailItem label="Nº do Processo" value={formData.numeroProcesso} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Vara/Tribunal" value={formData.vara} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Comarca" value={formData.comarca} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Instância" value={formData.instancia} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Natureza da Ação" value={formData.naturezaAcao} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Fase Processual" value={formData.faseProcessual} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Link do Processo" value={formData.linkProcesso} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue/>
+        <DetailItem label="Prioridade" value={formData.prioridade} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Presença Obrigatória" value={formData.presencaObrigatoria} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+        <DetailItem label="Lembretes" value={formatReminders(formData.reminders)} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue/>
+        <DetailItem label="Observações (Processo)" value={formData.observacoes} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue/>
+      </Section>
+
+      <Section title="Contactos" theme={theme} style={styles.sectionSpacing} showSeparator>
+        <DetailItem label="Cliente Principal" value={formData.clienteNome} theme={theme} onEditPress={() => onEditStep(2)} isReadOnly={isReadOnly} />
+        <DetailItem
+            label="Contactos Adicionais"
+            value={renderContacts(formData.contacts)}
+            theme={theme}
+            onEditPress={() => onEditStep(2)}
+            isReadOnly={isReadOnly}
+            fullWidthValue
+        />
+      </Section>
+
+      {isReadOnly && (
+        <Text style={[styles.readOnlyMessage, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.italic }]}>
+          Este é um modo de visualização. Nenhuma alteração pode ser feita.
+        </Text>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  cardHeaderContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  cardHeaderIcon: {
-    marginRight: 8,
-  },
-  cardTitleText: {
-    flex: 1,
-    fontSize: 19,
-    fontWeight: 'bold',
-    textAlign: 'left',
-  },
-  contactDetailText: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    fontSize: 14,
-    marginBottom: 1,
-  },
-  contactItemContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  contactItemDivider: {
-    marginHorizontal: 16,
-  },
-  contactItemIcon: {
-    marginRight: 12,
-  },
-  contactName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  contactTextContainer: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  scrollContentContainer: {
+    paddingVertical: 8,
+    paddingBottom: 20, // Espaço extra no final
   },
-  editButtonTouchable: {
-    padding: 8,
+  sectionSpacing: {
+    marginBottom: 16, // Usar theme.spacing.lg
   },
-  emptyListCentered: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  emptyListText: {
-    fontSize: 15,
-    fontStyle: 'italic',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  reviewHeader: {
-    alignItems: 'center',
+  detailItemContainer: {
     flexDirection: 'row',
-    marginBottom: 4,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start', // Alinha no topo se o valor for multiline
+    paddingVertical: 8, // Usar theme.spacing.xs ou sm
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    // borderBottomColor é definido dinamicamente ou removido se for o último item
   },
-  reviewItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  detailTextContainer: {
+    flex: 1, // Permite que o texto do valor quebre a linha
+    flexDirection: 'row', // Para alinhar label e valor na mesma linha
+    // Se fullWidthValue for true, o valor pode precisar de um wrapper View com flex:1
   },
-  reviewItemIcon: {
-    marginRight: 10,
+  detailLabel: {
+    fontSize: 14, // Usar theme.typography.fontSize.sm
+    marginRight: 8, // Usar theme.spacing.sm
+    // Cor e fontFamily são dinâmicas
   },
-  reviewLabel: {
-    fontSize: 13,
+  detailValue: {
+    flexShrink: 1, // Permite que o valor encolha se necessário
+    alignItems: 'flex-start',
   },
-  reviewValue: {
-    flexWrap: 'wrap',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 30,
+  detailValueFullWidth: {
+    flex: 1, // Ocupa o espaço restante
+    alignItems: 'flex-start',
   },
-  sectionCard: {
-    borderRadius: 12,
-    elevation: 2,
-    marginBottom: 20,
-    padding: 0,
-    shadowColor: componentColors.shadowBlack,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.5,
-  },
-  sectionDescription: {
-    fontSize: 15,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  warningCard: {
-    borderRadius: 12,
-    borderWidth: 0,
-    marginBottom: 20,
-    padding: 12,
-  },
-  warningCardContent: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  warningText: {
-    fontSize: 14,
-  },
-  warningTextContainer: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  warningTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
+  detailValueText: {
+    fontSize: 14, // Usar theme.typography.fontSize.sm
     textAlign: 'left',
+    // Cor e fontFamily são dinâmicas
+  },
+  editButton: {
+    paddingLeft: 12, // Usar theme.spacing.sm
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contactReviewItem: {
+    padding: 10, // Usar theme.spacing.sm
+    marginBottom: 8, // Usar theme.spacing.xs
+    // backgroundColor, borderColor, borderRadius são dinâmicos
+  },
+  contactNameReview: {
+    fontSize: 15, // Usar theme.typography.fontSize.sm ou md
+    // fontWeight é dinâmico
+    marginBottom: 3,
+  },
+  contactDetailReview: {
+    fontSize: 13, // Usar theme.typography.fontSize.xs
+    color: '#666', // Usar theme.colors.placeholder ou text secundário
+  },
+  readOnlyMessage: {
+    textAlign: 'center',
+    padding: 16, // Usar theme.spacing.md
+    fontSize: 13, // Usar theme.typography.fontSize.xs
+    // Cor e fontFamily são dinâmicas
   },
 });
 

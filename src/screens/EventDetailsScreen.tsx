@@ -1,384 +1,492 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Platform, Text } from 'react-native';
-import { Input, Button, Card } from '@rneui/themed';
+// src/screens/EventDetailsScreen.tsx
+import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+  Switch,
+} from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as yup from 'yup';
-import { useEvents } from '../contexts/EventCrudContext';
-import { Event as EventType } from '../types/event'; // Importando EventType de src/types/event
-import CustomDateTimePicker, { CustomDateTimePickerEvent } from '../components/CustomDateTimePicker';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import * as Yup from 'yup';
+import { Picker } from '@react-native-picker/picker';
+
 import { useTheme } from '../contexts/ThemeContext';
-import Toast from 'react-native-toast-message';
-import * as Haptics from 'expo-haptics';
-import { format, parse, isValid as isDateValid, parseISO } from 'date-fns';
-import { formatDate as formatDateUtil, formatDateTime as formatDateTimeUtil } from '../utils/dateUtils';
+import { useEvents } from '../contexts/EventCrudContext';
+import { Event as EventType, EventStatus } from '../types/event';
+import { HomeStackParamList } from '../navigation/stacks/HomeStack'; // Ajuste para a sua Stack Param List correta
+import {
+  formatDate,
+  formatTime,
+  parseDateString,
+  combineDateTime,
+  ensureDateObject,
+} from '../utils/dateUtils';
+import { Input, Header, Button, CustomDateTimePicker, Section } from '../components/ui';
+import { Toast } from '../components/ui/Toast';
+import { ROUTES, EVENT_TYPES, EVENT_TYPE_LABELS, PRIORIDADES, PRIORIDADE_LABELS, EVENT_STATUS_LABELS } from '../constants';
 
-type EventStackParamList = {
-  EventList: undefined;
-  EventDetails: { eventId?: string; date?: string; event?: Partial<EventType> };
-};
-type EventDetailsNavigationProp = NativeStackNavigationProp<EventStackParamList, 'EventDetails'>;
-type EventDetailsRouteProp = RouteProp<EventStackParamList, 'EventDetails'>;
+// Tipagem para os parâmetros da rota
+type EventDetailsScreenRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.EVENT_DETAILS>;
+// Tipagem para a prop de navegação
+type EventDetailsScreenNavigationProp = StackNavigationProp<HomeStackParamList, typeof ROUTES.EVENT_DETAILS>;
 
+// Interface para os dados do formulário (usando Date para date pickers)
 interface EventFormData {
   id?: string;
   title: string;
-  data: Date | null;
-  hora: Date | null;
+  data: Date | null; // Data como objeto Date
+  hora: Date | null; // Hora como objeto Date
+  isAllDay: boolean;
+  eventType: string; // Usar EventTypeValue se definido em constants
   local?: string;
-  descricao?: string;
-  tipo?: string;
-  processo?: string;
+  description?: string;
+  numeroProcesso?: string;
   vara?: string;
   comarca?: string;
-  clienteEnvolvido?: string;
-  advogadoResponsavel?: string;
-  status?: EventType['status']; // Usando o tipo de src/types/event
-  lembretes?: number[];
-  recorrencia?: EventType['recorrencia']; // Usando o tipo de src/types/event
-  contatos?: EventType['contatos'];
+  prioridade?: EventType['prioridade'];
+  status?: EventStatus;
+  cor?: string;
+  // Adicione outros campos conforme necessário
 }
 
-const eventSchema = yup.object().shape({
-  title: yup.string().required('O título do evento é obrigatório.'),
-  data: yup.date().nullable().required('A data do evento é obrigatória.').typeError('Data inválida.'),
-  hora: yup.date().nullable().required('A hora do evento é obrigatória.').typeError('Hora inválida.'),
-  local: yup.string().optional().nullable(),
-  descricao: yup.string().optional().nullable(),
-  tipo: yup.string().optional().nullable(),
-  processo: yup.string().optional().nullable(),
-  vara: yup.string().optional().nullable(),
-  comarca: yup.string().optional().nullable(),
-  clienteEnvolvido: yup.string().optional().nullable(),
-  advogadoResponsavel: yup.string().optional().nullable(),
-  status: yup.string().optional().nullable(),
-  lembretes: yup.array().of(yup.number().required()).optional().nullable(), // Garante que é array de números
-  recorrencia: yup.string().optional().nullable(),
-});
+// Valores iniciais para um novo evento
+const getInitialFormData = (initialDateString?: string): EventFormData => {
+  let initialDate = new Date();
+  if (initialDateString) {
+    const parsedInitialDate = parseDateString(initialDateString);
+    if (parsedInitialDate) {
+      initialDate = parsedInitialDate;
+    }
+  }
+  // Define a hora inicial para o início da próxima hora cheia, ou null
+  const initialTime = new Date(initialDate);
+  initialTime.setHours(initialDate.getHours() + 1, 0, 0, 0);
 
-const EventDetailsScreen: React.FC = () => {
-  const navigation = useNavigation<EventDetailsNavigationProp>();
-  const route = useRoute<EventDetailsRouteProp>();
-  const { addEvent, updateEvent, getEventById } = useEvents();
-  const { theme } = useTheme();
 
-  const eventIdFromParams = route.params?.eventId;
-  const eventFromParams = route.params?.event;
-  const initialDateStringFromParams = route.params?.date;
-
-  const [formData, setFormData] = useState<EventFormData>({
-    id: undefined,
+  return {
     title: '',
-    data: initialDateStringFromParams ? parse(initialDateStringFromParams, 'yyyy-MM-dd', new Date()) : new Date(),
-    hora: new Date(),
+    data: initialDate,
+    hora: null, // Começa sem hora definida, a menos que queira um padrão
+    isAllDay: false,
+    eventType: EVENT_TYPES.REUNIAO, // Tipo padrão
     local: '',
-    descricao: '',
-    tipo: 'geral',
-    processo: '',
+    description: '',
+    numeroProcesso: '',
     vara: '',
     comarca: '',
-    clienteEnvolvido: '',
-    advogadoResponsavel: '',
-    status: 'agendado',
-    lembretes: [],
-    recorrencia: 'nao_repete',
-    contatos: [],
-  });
+    prioridade: PRIORIDADES.MEDIA,
+    status: 'scheduled',
+    cor: '',
+  };
+};
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+// Esquema de validação Yup (deve corresponder à estrutura de EventType após conversão)
+const eventValidationSchema = Yup.object().shape({
+  title: Yup.string().required('O título é obrigatório.').min(3, 'Mínimo 3 caracteres.'),
+  // 'data' e 'hora' no schema validam as strings formatadas, não os objetos Date do formulário
+  data: Yup.string().required('A data é obrigatória.').matches(/^\d{4}-\d{2}-\d{2}$/, 'Formato de data inválido.'),
+  hora: Yup.string().nullable().matches(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Formato de hora inválido.').optional(),
+  isAllDay: Yup.boolean().required(),
+  eventType: Yup.string().required('O tipo de evento é obrigatório.'),
+  local: Yup.string().optional().nullable(),
+  description: Yup.string().optional().nullable(),
+  numeroProcesso: Yup.string().optional().nullable(),
+  vara: Yup.string().optional().nullable(),
+  comarca: Yup.string().optional().nullable(),
+  prioridade: Yup.string().oneOf(Object.values(PRIORIDADES)).optional().nullable(),
+  status: Yup.string<EventStatus>().required('O status é obrigatório.'),
+  cor: Yup.string().optional().nullable().matches(/^#([0-9A-Fa-f]{3}){1,2}$/, 'Cor hexadecimal inválida (ex: #RRGGBB).'),
+});
+
+
+const EventDetailsScreen: React.FC = () => {
+  const { theme } = useTheme();
+  const { addEvent, updateEvent, getEventById } = useEvents();
+  const navigation = useNavigation<EventDetailsScreenNavigationProp>();
+  const route = useRoute<EventDetailsScreenRouteProp>();
+
+  const eventIdFromParams = route.params?.eventId;
+  const initialDateStringFromParams = route.params?.initialDateString; // YYYY-MM-DD
+
+  const [formData, setFormData] = useState<EventFormData>(getInitialFormData(initialDateStringFromParams));
+  const [isEditing, setIsEditing] = useState<boolean>(!!eventIdFromParams);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<Partial<Record<keyof EventFormData, string>>>({});
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: isEditing ? 'Editar Evento' : 'Novo Evento',
+    });
+  }, [navigation, isEditing]);
+
   useEffect(() => {
-    let eventToEdit: EventType | Partial<EventType> | undefined = undefined;
     if (eventIdFromParams) {
-        eventToEdit = getEventById(eventIdFromParams);
-    } else if (eventFromParams) {
-        eventToEdit = eventFromParams;
-    }
-
-    if (eventToEdit) {
-      let eventDateObj = new Date();
-      let eventTimeObj = new Date();
-
-      if (eventToEdit.data && typeof eventToEdit.data === 'string') {
-        const parsedDatePart = parseISO(eventToEdit.data);
-        if (isDateValid(parsedDatePart)) {
-          eventDateObj = parsedDatePart;
-          if (eventToEdit.hora && typeof eventToEdit.hora === 'string') {
-            const [h, m] = eventToEdit.hora.split(':').map(Number);
-            if (!isNaN(h) && !isNaN(m)) {
-              eventTimeObj = new Date(parsedDatePart);
-              eventTimeObj.setHours(h, m, 0, 0);
-            } else {
-                eventTimeObj = new Date(parsedDatePart);
-                eventTimeObj.setHours(new Date().getHours(), new Date().getMinutes(), 0, 0);
-            }
-          } else {
-            eventTimeObj = new Date(parsedDatePart);
-            eventTimeObj.setHours(new Date().getHours(), new Date().getMinutes(), 0, 0);
-          }
+      const eventToEdit = getEventById(eventIdFromParams);
+      if (eventToEdit) {
+        setIsLoading(true);
+        // Converte data e hora (strings) para objetos Date para o formulário
+        const dataDate = eventToEdit.data ? parseDateString(eventToEdit.data) : null;
+        let horaDate: Date | null = null;
+        if (eventToEdit.data && eventToEdit.hora) {
+          horaDate = combineDateTime(eventToEdit.data, eventToEdit.hora);
+        } else if (dataDate && !eventToEdit.hora && !eventToEdit.isAllDay) {
+            // Se tem data, não tem hora e não é dia todo, podemos inicializar a hora
+            // horaDate = new Date(dataDate); // Hora será 00:00 ou pode pegar hora atual
         }
+
+
+        setFormData({
+          id: eventToEdit.id,
+          title: eventToEdit.title,
+          data: dataDate,
+          hora: horaDate,
+          isAllDay: eventToEdit.isAllDay || false,
+          eventType: eventToEdit.eventType || EVENT_TYPES.REUNIAO,
+          local: eventToEdit.local || '',
+          description: eventToEdit.description || '',
+          numeroProcesso: eventToEdit.numeroProcesso || '',
+          vara: eventToEdit.vara || '',
+          comarca: eventToEdit.comarca || '',
+          prioridade: eventToEdit.prioridade || PRIORIDADES.MEDIA,
+          status: eventToEdit.status || 'scheduled',
+          cor: eventToEdit.cor || '',
+        });
+        setIsEditing(true);
+        setIsLoading(false);
+      } else {
+        Toast.show({ type: 'error', text1: 'Erro', text2: 'Evento não encontrado.' });
+        navigation.goBack();
       }
-
-      setFormData({
-        id: eventToEdit.id,
-        title: eventToEdit.title || '',
-        data: eventDateObj,
-        hora: eventTimeObj,
-        local: eventToEdit.local || '',
-        descricao: eventToEdit.descricao || '',
-        tipo: eventToEdit.tipo || 'geral',
-        processo: eventToEdit.processo || '', // Acessando corretamente
-        vara: eventToEdit.vara || '',
-        comarca: eventToEdit.comarca || '',
-        clienteEnvolvido: eventToEdit.clienteEnvolvido || '',
-        advogadoResponsavel: eventToEdit.advogadoResponsavel || '',
-        status: eventToEdit.status || 'agendado',
-        lembretes: Array.isArray(eventToEdit.lembretes) ? eventToEdit.lembretes.map(Number) : [],
-        recorrencia: eventToEdit.recorrencia || 'nao_repete',
-        contatos: eventToEdit.contatos || [],
-      });
-    } else if (initialDateStringFromParams) {
-        const parsedInitialDate = parse(initialDateStringFromParams, 'yyyy-MM-dd', new Date());
-        if (isDateValid(parsedInitialDate)) {
-            setFormData(prev => ({
-                ...prev,
-                data: parsedInitialDate,
-                hora: new Date(),
-            }));
-        }
+    } else {
+      // Novo evento, data inicial já definida por getInitialFormData
+      setIsEditing(false);
     }
-  }, [eventIdFromParams, eventFromParams, initialDateStringFromParams, getEventById]);
+  }, [eventIdFromParams, getEventById, navigation, initialDateStringFromParams]);
 
-  const handleChange = (name: keyof EventFormData, value: string | Date | null | number[] | EventType['contatos']) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
+  const handleInputChange = useCallback((field: keyof EventFormData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-  };
+  }, [errors]);
 
   const handleDateChange = (event: CustomDateTimePickerEvent, selectedDate?: Date) => {
-    if (event.type === "set" && selectedDate) {
-      handleChange('data', selectedDate);
+    if (event.type === 'set' && selectedDate) {
+      handleInputChange('data', selectedDate);
+      if (formData.isAllDay) {
+        handleInputChange('hora', null); // Limpa a hora se for dia todo
+      }
     }
-    setShowDatePicker(false);
   };
 
   const handleTimeChange = (event: CustomDateTimePickerEvent, selectedTime?: Date) => {
-    if (event.type === "set" && selectedTime) {
-      handleChange('hora', selectedTime);
+    if (event.type === 'set' && selectedTime) {
+      handleInputChange('hora', selectedTime);
     }
-    setShowTimePicker(false);
   };
 
-  const handleSave = async () => {
+  const handleIsAllDayChange = (value: boolean) => {
+    handleInputChange('isAllDay', value);
+    if (value) {
+      handleInputChange('hora', null); // Limpa a hora se for dia todo
+    }
+  };
+
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    setErrors({});
+
+    // Prepara os dados para validação e submissão (converte Date para string)
+    const dataToValidateAndSubmit: Partial<EventType> = {
+      ...formData,
+      id: formData.id, // Mantém o ID se estiver editando
+      data: formData.data ? formatDate(formData.data, 'yyyy-MM-dd') : '', // String YYYY-MM-DD
+      hora: !formData.isAllDay && formData.hora ? formatTime(formData.hora) : undefined, // String HH:MM ou undefined
+      // Garante que campos opcionais não definidos sejam undefined
+      local: formData.local?.trim() || undefined,
+      description: formData.description?.trim() || undefined,
+      numeroProcesso: formData.numeroProcesso?.trim() || undefined,
+      vara: formData.vara?.trim() || undefined,
+      comarca: formData.comarca?.trim() || undefined,
+      cor: formData.cor?.trim() || undefined,
+    };
+
     try {
-      await eventSchema.validate(formData, { abortEarly: false });
-      setErrors({});
+      await eventValidationSchema.validate(dataToValidateAndSubmit, { abortEarly: false });
 
-      const eventDataForContext: EventType = {
-        id: formData.id || Date.now().toString(),
-        title: formData.title,
-        data: formData.data ? format(formData.data, 'yyyy-MM-dd') : '',
-        hora: formData.hora ? format(formData.hora, 'HH:mm') : '',
-        local: formData.local,
-        descricao: formData.descricao,
-        tipo: formData.tipo,
-        processo: formData.processo,
-        vara: formData.vara,
-        comarca: formData.comarca,
-        clienteEnvolvido: formData.clienteEnvolvido,
-        advogadoResponsavel: formData.advogadoResponsavel,
-        status: formData.status,
-        lembretes: formData.lembretes, // Agora é number[]
-        recorrencia: formData.recorrencia,
-        contatos: formData.contatos,
-      };
+      const eventPayload = dataToValidateAndSubmit as Omit<EventType, 'id'> | EventType;
 
-      if (formData.id && eventIdFromParams) {
-        updateEvent(eventDataForContext);
-        Toast.show({ type: 'success', text1: 'Evento Atualizado!' });
+      if (isEditing && formData.id) {
+        await updateEvent(eventPayload as EventType);
+        Toast.show({ type: 'success', text1: 'Evento Atualizado', text2: `"${formData.title}" foi atualizado.` });
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id: _id, ...newEventData } = eventDataForContext;
-        addEvent(newEventData as Omit<EventType, 'id'>);
-        Toast.show({ type: 'success', text1: 'Evento Criado!' });
+        await addEvent(eventPayload as Omit<EventType, 'id'>);
+        Toast.show({ type: 'success', text1: 'Evento Criado', text2: `"${formData.title}" foi adicionado.` });
       }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(()=>{});
       navigation.goBack();
-
-    } catch (err) {
-      if (err instanceof yup.ValidationError) {
-        const formattedErrors: Partial<Record<keyof EventFormData, string>> = {};
+    } catch (err: unknown) {
+      if (err instanceof Yup.ValidationError) {
+        const yupErrors: Partial<Record<keyof EventFormData, string>> = {};
         err.inner.forEach(error => {
-          if (error.path) {
-            formattedErrors[error.path as keyof EventFormData] = error.message;
+          if (error.path && !yupErrors[error.path as keyof EventFormData]) {
+            yupErrors[error.path as keyof EventFormData] = error.message;
           }
         });
-        setErrors(formattedErrors);
-        Toast.show({ type: 'error', text1: 'Erro de Validação', text2: 'Verifique os campos.' });
+        setErrors(yupErrors);
+        Toast.show({ type: 'error', text1: 'Campos Inválidos', text2: 'Por favor, corrija os erros.' });
       } else {
-        console.error("Erro ao salvar evento:", err);
-        Alert.alert('Erro', 'Não foi possível salvar o evento.');
+        console.error('Erro ao salvar evento:', err);
+        Toast.show({ type: 'error', text1: 'Erro ao Salvar', text2: 'Não foi possível salvar o evento.' });
       }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(()=>{});
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  if (isLoading && eventIdFromParams) { // Mostra loading apenas se estiver carregando um evento para edição
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ color: theme.colors.text, marginTop: theme.spacing.md }}>Carregando evento...</Text>
+      </View>
+    );
+  }
+
+  // Estilos para Pickers
+    const pickerContainerStyle = (hasError?: boolean) => ({
+        borderColor: hasError ? theme.colors.error : theme.colors.border,
+        borderWidth: 1,
+        borderRadius: theme.radii.md,
+        backgroundColor: theme.colors.surface,
+        marginBottom: hasError ? 0 : theme.spacing.md,
+        minHeight: Platform.OS === 'ios' ? undefined : 50,
+        justifyContent: 'center',
+    });
+
+    const pickerStyle = {
+        color: theme.colors.text,
+        fontFamily: theme.typography.fontFamily.regular,
+    };
+
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Card containerStyle={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <Card.Title style={{ color: theme.colors.text }}>
-          {formData.id ? 'Editar Evento' : 'Novo Evento'}
-        </Card.Title>
-        <Card.Divider color={theme.colors.border} />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined} // 'height' pode ser problemático com ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? (64 + theme.spacing.md) : 0} // Ajuste conforme o seu Header
+    >
+      <Header
+        title={isEditing ? 'Editar Evento' : 'Novo Evento'}
+        onBackPress={() => navigation.goBack()}
+      />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Section title="Informações Básicas" theme={theme} style={styles.sectionSpacing}>
+          <Input
+            label="Título *"
+            value={formData.title}
+            onChangeText={(text) => handleInputChange('title', text)}
+            error={errors.title}
+            placeholder="Ex: Reunião de alinhamento"
+          />
+          <Text style={[styles.label, { color: theme.colors.placeholder }]}>Tipo de Evento *</Text>
+          <View style={pickerContainerStyle(!!errors.eventType)}>
+            <Picker
+              selectedValue={formData.eventType}
+              onValueChange={(itemValue) => handleInputChange('eventType', itemValue as string)}
+              style={pickerStyle}
+              dropdownIconColor={theme.colors.placeholder}
+            >
+              {Object.entries(EVENT_TYPE_LABELS).map(([key, label]) => (
+                <Picker.Item key={key} label={label} value={key} />
+              ))}
+            </Picker>
+          </View>
+          {errors.eventType && <Text style={styles.errorText}>{errors.eventType}</Text>}
 
-        <Input
-          label="Título do Evento"
-          placeholder="Ex: Reunião com Cliente X"
-          value={formData.title}
-          onChangeText={value => handleChange('title', value)}
-          errorMessage={errors.title}
-          labelStyle={[styles.inputLabel, { color: theme.colors.textSecondary }]}
-          inputStyle={{ color: theme.colors.text }}
-          errorStyle={{ color: theme.colors.error }}
-        />
 
-        <View style={styles.dateTimeRow}>
-          <View style={styles.dateOrTimeContainer}>
-            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Data</Text>
-            <Button
-              title={formData.data ? formatDateUtil(formData.data, 'dd/MM/yyyy') : 'Selecionar Data'}
-              onPress={() => setShowDatePicker(true)}
-              icon={{ name: 'calendar', type: 'font-awesome', color: theme.colors.onPrimary }}
-              buttonStyle={[styles.dateTimePickerButton, styles.dateButtonMargin, { backgroundColor: theme.colors.primary }]}
-              titleStyle={{color: theme.colors.onPrimary}}
+          <View style={styles.row}>
+            <View style={styles.flexInput}>
+              <Text style={[styles.label, { color: theme.colors.placeholder }]}>Data *</Text>
+              <CustomDateTimePicker
+                value={formData.data || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                onChange={handleDateChange}
+              />
+              {errors.data && <Text style={styles.errorText}>{errors.data}</Text>}
+            </View>
+            {!formData.isAllDay && (
+              <View style={styles.flexInput}>
+                <Text style={[styles.label, { color: theme.colors.placeholder }]}>Hora</Text>
+                <CustomDateTimePicker
+                  value={formData.hora || new Date()} // Passa new Date() se hora for null para o picker
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleTimeChange}
+                  disabled={formData.isAllDay}
+                />
+                {errors.hora && <Text style={styles.errorText}>{errors.hora}</Text>}
+              </View>
+            )}
+          </View>
+           {/* Espaçamento após a linha de data/hora e antes do switch "Dia todo" */}
+          <View style={{ marginBottom: (errors.data || errors.hora) ? 0 : theme.spacing.md }} />
+
+
+          <View style={styles.switchRow}>
+            <Text style={[styles.label, { color: theme.colors.text, flex: 1 }]}>Dia Todo?</Text>
+            <Switch
+              trackColor={{ false: theme.colors.disabled, true: theme.colors.primary }}
+              thumbColor={theme.colors.surface}
+              ios_backgroundColor={theme.colors.disabled}
+              onValueChange={handleIsAllDayChange}
+              value={formData.isAllDay}
             />
-            {errors.data && <Text style={[styles.errorTextSmall, { color: theme.colors.error }]}>{String(errors.data)}</Text>}
           </View>
 
-          <View style={styles.dateOrTimeContainer}>
-            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Hora</Text>
-            <Button
-              title={formData.hora ? formatDateTimeUtil(formData.hora, 'HH:mm') : 'Selecionar Hora'}
-              onPress={() => setShowTimePicker(true)}
-              icon={{ name: 'clock-o', type: 'font-awesome', color: theme.colors.onPrimary }}
-              buttonStyle={[styles.dateTimePickerButton, styles.timeButtonMargin, { backgroundColor: theme.colors.primary }]}
-              titleStyle={{color: theme.colors.onPrimary}}
-            />
-            {errors.hora && <Text style={[styles.errorTextSmall, { color: theme.colors.error }]}>{String(errors.hora)}</Text>}
+          <Input
+            label="Local"
+            value={formData.local || ''}
+            onChangeText={(text) => handleInputChange('local', text)}
+            error={errors.local}
+            placeholder="Ex: Escritório, Online"
+          />
+          <Input
+            label="Cor (Hex)"
+            value={formData.cor || ''}
+            onChangeText={(text) => handleInputChange('cor', text)}
+            error={errors.cor}
+            placeholder="#RRGGBB"
+            autoCapitalize="none"
+          />
+        </Section>
+
+        <Section title="Detalhes Adicionais" theme={theme} style={styles.sectionSpacing}>
+          <Input
+            label="Número do Processo"
+            value={formData.numeroProcesso || ''}
+            onChangeText={(text) => handleInputChange('numeroProcesso', text)}
+            error={errors.numeroProcesso}
+            keyboardType="numeric"
+          />
+          <Input
+            label="Vara / Comarca"
+            value={formData.vara || ''} // Pode dividir em dois campos se preferir
+            onChangeText={(text) => handleInputChange('vara', text)} // Assumindo que 'vara' pode conter comarca
+            error={errors.vara || errors.comarca}
+            placeholder="Ex: 1ª Vara Cível de Curitiba"
+          />
+          <Text style={[styles.label, { color: theme.colors.placeholder }]}>Prioridade</Text>
+           <View style={pickerContainerStyle(!!errors.prioridade)}>
+            <Picker
+              selectedValue={formData.prioridade}
+              onValueChange={(itemValue) => handleInputChange('prioridade', itemValue as EventType['prioridade'])}
+              style={pickerStyle}
+              dropdownIconColor={theme.colors.placeholder}
+            >
+              {Object.entries(PRIORIDADE_LABELS).map(([key, label]) => (
+                <Picker.Item key={key} label={label} value={key} />
+              ))}
+            </Picker>
           </View>
-        </View>
+          {errors.prioridade && <Text style={styles.errorText}>{errors.prioridade}</Text>}
 
-        {showDatePicker && (
-          <CustomDateTimePicker
-            value={formData.data || new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleDateChange}
-            onClose={() => setShowDatePicker(false)}
-          />
-        )}
-        {showTimePicker && (
-          <CustomDateTimePicker
-            value={formData.hora || new Date()}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleTimeChange}
-            onClose={() => setShowTimePicker(false)}
-          />
-        )}
+          <Text style={[styles.label, { color: theme.colors.placeholder, marginTop: theme.spacing.md }]}>Status do Evento *</Text>
+           <View style={pickerContainerStyle(!!errors.status)}>
+            <Picker
+              selectedValue={formData.status}
+              onValueChange={(itemValue) => handleInputChange('status', itemValue as EventStatus)}
+              style={pickerStyle}
+              dropdownIconColor={theme.colors.placeholder}
+            >
+              {Object.entries(EVENT_STATUS_LABELS).map(([key, label]) => (
+                <Picker.Item key={key} label={label} value={key as EventStatus} />
+              ))}
+            </Picker>
+          </View>
+          {errors.status && <Text style={styles.errorText}>{errors.status}</Text>}
 
-        <Input
-          label="Local (Opcional)"
-          placeholder="Ex: Escritório, Fórum XYZ"
-          value={formData.local}
-          onChangeText={value => handleChange('local', value)}
-          errorMessage={errors.local}
-          labelStyle={[styles.inputLabel, { color: theme.colors.textSecondary }]}
-          inputStyle={{ color: theme.colors.text }}
-        />
-        <Input
-          label="Tipo (Opcional)"
-          placeholder="Ex: Reunião, Audiência, Prazo"
-          value={formData.tipo}
-          onChangeText={value => handleChange('tipo', value)}
-          errorMessage={errors.tipo}
-          labelStyle={[styles.inputLabel, { color: theme.colors.textSecondary }]}
-          inputStyle={{ color: theme.colors.text }}
-        />
-        <Input
-          label="Descrição (Opcional)"
-          placeholder="Detalhes adicionais sobre o evento..."
-          value={formData.descricao}
-          onChangeText={value => handleChange('descricao', value)}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          errorMessage={errors.descricao}
-          labelStyle={[styles.inputLabel, { color: theme.colors.textSecondary }]}
-          inputStyle={[styles.multilineInput, { color: theme.colors.text }]}
-        />
+
+          <Input
+            label="Descrição / Observações"
+            value={formData.description || ''}
+            onChangeText={(text) => handleInputChange('description', text)}
+            error={errors.description}
+            multiline
+            numberOfLines={4}
+            inputStyle={{ height: 100, textAlignVertical: 'top' }}
+            placeholder="Detalhes, pauta, links importantes..."
+          />
+        </Section>
 
         <Button
-          title={formData.id ? 'Atualizar Evento' : 'Salvar Evento'}
-          onPress={handleSave}
-          buttonStyle={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
-          titleStyle={{color: theme.colors.onPrimary}}
-          icon={{ name: 'save', color: theme.colors.onPrimary }}
+          title={isEditing ? 'Salvar Alterações' : 'Criar Evento'}
+          onPress={handleSubmit}
+          loading={isLoading}
+          disabled={isLoading}
+          type="solid"
+          buttonStyle={{ marginTop: theme.spacing.md, marginBottom: theme.spacing.lg }}
         />
-      </Card>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    // backgroundColor e borderColor virão do tema
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     flex: 1,
   },
-  dateButtonMargin: { // Novo estilo para margem
-    marginRight: 5,
+  contentContainer: {
+    paddingHorizontal: 16, // Usar theme.spacing.md
+    paddingBottom: 30, // Espaço para o botão Salvar não ficar colado na borda
   },
-  dateOrTimeContainer: { // Ordem corrigida
-    alignItems: 'center',
-    flex: 1,
+  sectionSpacing: {
+    marginBottom: 12, // Usar theme.spacing.md ou lg
   },
-  dateTimePickerButton: {
-    // backgroundColor virá do tema
+  label: {
+    fontSize: 14, // Usar theme.typography.fontSize.sm
+    // color: theme.colors.placeholder, // Definido inline
+    marginBottom: 6, // Usar theme.spacing.xs
+    // fontFamily: theme.typography.fontFamily.regular, // Definido inline
   },
-  dateTimeRow: { // Ordem corrigida
+  errorText: {
+    fontSize: 12, // Usar theme.typography.fontSize.xs
+    color: 'red', // Definido via theme.colors.error inline
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    alignItems: 'flex-start', // Para alinhar labels e inputs corretamente
+    // marginBottom: 16, // Espaçamento gerenciado pelos inputs ou View abaixo
   },
-  errorTextSmall: {
-    fontSize: 12,
-    marginTop: 4,
+  flexInput: {
+    flex: 1,
+    // Adicionar marginRight ou marginLeft para espaçamento entre inputs na mesma linha
+    // Ex: se este for o input da esquerda: { marginRight: theme.spacing.sm }
   },
-  inputLabel: {
-    // color virá do tema
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginVertical: 12, // Usar theme.spacing.sm ou md
   },
-  label: { // Ordem corrigida
-    alignSelf: 'flex-start',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    marginLeft: 10,
-  },
-  multilineInput: {
-    minHeight: 80, // Estilo inline movido
-  },
-  saveButton: {
-    // backgroundColor virá do tema
-    marginTop: 20, // Estilo inline movido
-  },
-  timeButtonMargin: { // Novo estilo para margem
-    marginLeft: 5,
-  },
+  // Estilos para Pickers são aplicados inline através da função pickerContainerStyle
 });
 
 export default EventDetailsScreen;

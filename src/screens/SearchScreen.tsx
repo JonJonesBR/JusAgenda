@@ -1,368 +1,344 @@
-import React, { useState, useCallback, useEffect, memo } from "react"; // Removed useMemo
+// src/screens/SearchScreen.tsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   TouchableOpacity,
-  //Alert, // Comment this line
-  RefreshControl,
-  Text,
-  ScrollView,
-} from "react-native";
-import { SearchBar, Button, Card, Icon, Skeleton as RNESkeleton } from "@rneui/themed";
-import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
-import * as Haptics from "expo-haptics";
-import { useNavigation, useIsFocused, NavigationProp } from "@react-navigation/native";
-import { useEvents, Event } from "../contexts/EventCrudContext";
-import { useTheme } from "../contexts/ThemeContext";
-import { formatDate } from "../utils/dateUtils";
-import { eventTypes } from "../constants";
-import { SafeAreaView } from "react-native-safe-area-context";
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+} from 'react-native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import DraggableFlatList, {
+  RenderItemParams as DraggableRenderItemParams,
+  ScaleDecorator,
+} from 'react-native-draggable-flatlist'; // Assumindo que ainda quer usar
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-type RootStackParamList = {
-  Search: undefined;
-  EventView: { eventId: string };
-  EventDetails: { event?: Partial<Event>; editMode?: boolean; readOnly?: boolean };
-};
-type SearchNavigationProp = NavigationProp<RootStackParamList, 'Search'>;
+import { useTheme } from '../contexts/ThemeContext';
+import { useEvents } from '../contexts/EventCrudContext'; // Para aceder aos eventos
+import { Event as EventType } from '../types/event';
+import { SearchStackParamList } from '../navigation/stacks/SearchStack'; // Ajuste para a sua Stack Param List
+import { Header, Input, Card, Button, LoadingSkeleton } from '../components/ui';
+import { Toast } from '../components/ui/Toast';
+import { ROUTES, EVENT_TYPES, EVENT_TYPE_LABELS, getEventTypeLabel, getEventStatusLabel } from '../constants';
+import { formatDate, formatTime, parseISO, isDateValid } from '../utils/dateUtils';
+import { DEBOUNCE_DELAY } from '../constants';
 
-const EVENT_FILTERS = Object.entries(eventTypes || {}).map(([key, value]) => ({
-    id: value.id, // Use the unique id property from the nested object
-    label: key,
-    icon: value.id === 'hearing' ? 'gavel' : (value.id === 'meeting' ? 'groups' : (value.id === 'deadline' ? 'timer-outline' : 'calendar-blank-outline'))
-}));
+// Tipagem para a prop de navegação específica desta tela
+type SearchScreenNavigationProp = StackNavigationProp<SearchStackParamList, typeof ROUTES.SEARCH>;
 
-const componentColors = {
-  white: '#FFFFFF',
-  defaultPlaceholderText: '#A9A9A9',
-  defaultSurface: '#FFFFFF',
-};
+// Tipos de filtro (poderiam vir de constants.ts)
+type FilterType = EventType['eventType'] | 'all';
+
+const EVENT_FILTERS_OPTIONS: Array<{ label: string; value: FilterType }> = [
+  { label: 'Todos', value: 'all' },
+  ...Object.entries(EVENT_TYPE_LABELS).map(([value, label]) => ({ label, value: value as EventType['eventType'] })),
+  // Adicionar filtros para status, prioridade, etc., se necessário
+];
+
 
 const SearchScreen: React.FC = () => {
-  const navigation = useNavigation<SearchNavigationProp>();
-  const eventData = useEvents();
-  const events = eventData?.events || [];
-  // const refreshEvents = eventData?.refreshEvents; // Not in context
-  // const loadingContext = eventData?.loading ?? false; // Not in context
-  //const deleteEvent = eventData.deleteEvent;
   const { theme } = useTheme();
+  const { events: allEvents, isLoading: isLoadingEventsContext } = useEvents();
+  const navigation = useNavigation<SearchScreenNavigationProp>();
   const isFocused = useIsFocused();
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [searchResults, setSearchResults] = useState<Event[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  const [activeFilters, setActiveFilters] = useState<FilterType[]>(['all']); // Filtro de tipo de evento
+  const [searchResults, setSearchResults] = useState<EventType[]>([]);
+  const [isLoading, setIsLoading] = useState(false); // Loading para a própria busca
+  const [showFilters, setShowFilters] = useState(false); // Para mostrar/esconder opções de filtro
 
-
-  const searchEventsInternal = useCallback((term: string, filters: string[], eventsToSearch: Event[]): Event[] => {
-    const termLower = term.toLowerCase().trim();
-    const filterSet = new Set(filters.map(f => f.toLowerCase()));
-    let localFiltered = eventsToSearch;
-
-    if (termLower) {
-      localFiltered = localFiltered.filter(event =>
-        (event.title?.toLowerCase().includes(termLower)) ||
-        (event.cliente?.toLowerCase().includes(termLower)) ||
-        (event.description?.toLowerCase().includes(termLower)) ||
-        (event.local?.toLowerCase().includes(termLower)) ||
-        (event.numeroProcesso?.includes(termLower))
-      );
-    }
-
-    if (filterSet.size > 0) {
-      localFiltered = localFiltered.filter(event => event.type && filterSet.has(event.type.toLowerCase()));
-    }
-
-    return localFiltered.sort((a, b) => {
-        const dateA = a.date ? new Date(a.date).getTime() : 0;
-        const dateB = b.date ? new Date(b.date).getTime() : 0;
-        return dateA - dateB;
-    });
-  }, []);
-
-  const loadAndSearchEvents = useCallback(async (showMainLoadingSpinner = false) => {
-    if(showMainLoadingSpinner) setRefreshing(true); // Use refreshing for the main search/load activity
-    const results = searchEventsInternal(searchTerm, selectedFilters, events);
-    setSearchResults(results);
-    if(showMainLoadingSpinner) setRefreshing(false);
-  }, [searchTerm, selectedFilters, events, searchEventsInternal]);
-
+  // Debounce para o termo de busca
   useEffect(() => {
-    if (isFocused) {
-      loadAndSearchEvents(false);
-    }
-  }, [isFocused, loadAndSearchEvents, events]);
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, DEBOUNCE_DELAY);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-  useEffect(() => {
-      const results = searchEventsInternal(searchTerm, selectedFilters, events);
+
+  const performSearch = useCallback(() => {
+    if (!isFocused) return; // Não executa a busca se a tela não estiver focada
+
+    // console.log(`SearchScreen: Performing search for "${debouncedSearchTerm}" with filters:`, activeFilters);
+    if (!debouncedSearchTerm.trim() && activeFilters.includes('all') && activeFilters.length === 1) {
+      setSearchResults([]); // Limpa resultados se a busca for vazia e sem filtros específicos
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+
+    // Simula uma busca (poderia ser uma chamada de API ou uma filtragem mais complexa)
+    setTimeout(() => {
+      const lowerSearchTerm = debouncedSearchTerm.toLowerCase();
+      const results = allEvents.filter(event => {
+        const matchesTerm = !lowerSearchTerm || // Se não houver termo, considera que corresponde (para filtrar apenas por tipo)
+          (event.title && event.title.toLowerCase().includes(lowerSearchTerm)) ||
+          (event.description && event.description.toLowerCase().includes(lowerSearchTerm)) ||
+          (event.local && event.local.toLowerCase().includes(lowerSearchTerm)) ||
+          (event.numeroProcesso && event.numeroProcesso.toLowerCase().includes(lowerSearchTerm));
+
+        const matchesFilters = activeFilters.includes('all') ||
+          (event.eventType && activeFilters.includes(event.eventType));
+          // Adicionar lógica para outros tipos de filtro (status, prioridade) aqui
+
+        return matchesTerm && matchesFilters;
+      }).sort((a, b) => { // Ordena por data (mais recente primeiro) e depois por hora
+        const dateA = a.data ? parseISO(a.data).getTime() : 0;
+        const dateB = b.data ? parseISO(b.data).getTime() : 0;
+        if (dateB !== dateA) return dateB - dateA; // Mais recente primeiro
+        const timeA = a.hora ? a.hora.replace(':', '') : '0000';
+        const timeB = b.hora ? b.hora.replace(':', '') : '0000';
+        return timeA.localeCompare(timeB);
+      });
+
       setSearchResults(results);
-  }, [events, searchTerm, selectedFilters, searchEventsInternal]);
+      setIsLoading(false);
+      // console.log(`SearchScreen: Found ${results.length} results.`);
+    }, 500); // Simula latência da busca
+  }, [allEvents, debouncedSearchTerm, activeFilters, isFocused]);
+
+  // Executa a busca quando o termo debounceado ou os filtros mudam, ou quando a tela foca
+  useEffect(() => {
+    if (isFocused) { // Só executa a busca se a tela estiver focada
+        performSearch();
+    } else {
+        // Opcional: limpar resultados ou manter o estado anterior quando a tela não está focada
+        // setSearchResults([]); // Exemplo: limpar resultados ao sair da tela
+    }
+  }, [debouncedSearchTerm, activeFilters, isFocused, performSearch]); // performSearch foi adicionado
 
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    // if (refreshEvents) { // refreshEvents removed
-    //     try {
-    //         await refreshEvents();
-    //     } catch {
-    //         Toast.show({ type: 'error', text1: 'Erro ao atualizar'});
-    //     }
-    // } else {
-    await loadAndSearchEvents(false); // Directly call loadAndSearchEvents
-    // }
-    setRefreshing(false);
-  }, [loadAndSearchEvents]); // Removed refreshEvents from dependencies
+  const toggleFilter = (filterValue: FilterType) => {
+    setActiveFilters(prevFilters => {
+      if (filterValue === 'all') {
+        return ['all']; // Se 'all' for selecionado, remove outros filtros de tipo
+      }
+      const newFilters = prevFilters.includes(filterValue)
+        ? prevFilters.filter(f => f !== filterValue && f !== 'all') // Remove o filtro e 'all'
+        : [...prevFilters.filter(f => f !== 'all'), filterValue]; // Adiciona o filtro e remove 'all'
 
-  const toggleFilter = useCallback((filterId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setSelectedFilters((prevFilters) => {
-        const newFilters = new Set(prevFilters);
-        if (newFilters.has(filterId)) {
-            newFilters.delete(filterId);
-        } else {
-            newFilters.add(filterId);
-        }
-        return Array.from(newFilters);
+      return newFilters.length === 0 ? ['all'] : newFilters; // Se nenhum filtro específico, volta para 'all'
     });
-  }, []);
+  };
 
+  const navigateToEventView = (event: EventType) => {
+    Keyboard.dismiss(); // Esconde o teclado antes de navegar
+    navigation.navigate(ROUTES.EVENT_VIEW, { eventId: event.id, eventTitle: event.title, event });
+  };
 
-
-  const handleEventPress = useCallback((event: Event) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      navigation.navigate("EventView", { eventId: event.id });
-    }, [navigation]);
-  const getFilterIcon = useCallback((filterId: string): string => {
-      const filterObj = EVENT_FILTERS.find((f) => f.id === filterId);
-      return filterObj?.icon || 'calendar-blank-outline';
-  }, []);
-
-   const renderResultItem = ({ item, drag, isActive }: RenderItemParams<Event>) => (
-      <TouchableOpacity
-        activeOpacity={1}
-        onLongPress={drag}
+  const renderSearchResultItem = ({ item, drag, isActive }: DraggableRenderItemParams<EventType>) => (
+    <ScaleDecorator>
+      <Card
+        style={styles.resultCard}
+        onPress={() => navigateToEventView(item)}
+        onLongPress={!isActive ? drag : undefined} // Permite arrastar com long press
         disabled={isActive}
-        onPress={() => handleEventPress(item)}
-        // Removed onLongPress here as drag will handle the long press
-        delayLongPress={500} // Keep delay for the remaining onPress if needed, although might not be necessary with onLongPress for drag
+        elevation="sm"
       >
-        <Card containerStyle={[styles.resultCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <View style={styles.resultHeader}>
-            <Icon
-              name={getFilterIcon(item.type?.toLowerCase() || '')}
-              type="material-community"
-              color={theme.colors.primary}
-              size={24}
-              containerStyle={[styles.resultIconContainer, { backgroundColor: theme.colors.primary + '20'}]}
-            />
-            <View style={styles.resultInfo}>
-              <Text style={[styles.resultTitleStyle, { color: theme.colors.text }]} numberOfLines={1}>{item.title || "Sem Título"}</Text>
-              <Text style={[styles.resultDate, { color: theme.colors.textSecondary }]}>
-                {item.date ? formatDate(new Date(item.date)) : 'Sem data'}
-              </Text>
-            </View>
-          </View>
-          {item.local && (
-            <View style={styles.resultDetailRow}>
-              <Icon name="map-marker-outline" type="material-community" size={16} color={theme.colors.textSecondary} />
-              <Text style={[styles.resultDetailText, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.local}</Text>
-            </View>
-          )}
-          {item.cliente && (
-            <View style={styles.resultDetailRow}>
-              <Icon name="account-outline" type="material-community" size={16} color={theme.colors.textSecondary} />
-              <Text style={[styles.resultDetailText, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.cliente}</Text>
-            </View>
-          )}
-        </Card>
-      </TouchableOpacity>
-    );
-
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-       <SearchBar
-          placeholder="Buscar por título, cliente, local..."
-          onChangeText={setSearchTerm}
-          value={searchTerm}
-          platform="default"
-          containerStyle={[styles.searchBarContainer, { backgroundColor: theme.colors.background }]}
-          inputContainerStyle={[styles.searchBarInput, { backgroundColor: theme.colors.background || componentColors.defaultSurface }]}
-          inputStyle={styles.searchInputStyle}
-          placeholderTextColor={theme.colors.textSecondary || componentColors.defaultPlaceholderText}
-          searchIcon={{ color: theme.colors.textSecondary }}
-          clearIcon={{ color: theme.colors.textSecondary }}
-          round
-          showLoading={false} // loadingContext removed
-        />
-
-        <View style={[styles.filtersScrollViewContainer, {borderBottomColor: theme.colors.border}]}>
-             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContent}>
-                 {EVENT_FILTERS.map((filter) => {
-                    const isSelected = selectedFilters.includes(filter.id);
-                    return (
-                        <Button
-                            key={filter.id}
-                            icon={{ name: filter.icon, type: 'material-community', size: 20, color: isSelected ? componentColors.white : theme.colors.primary }}
-                            type={isSelected ? "solid" : "outline"}
-                            buttonStyle={[ styles.filterChipButton, isSelected ? { backgroundColor: theme.colors.primary } : { borderColor: theme.colors.primary } ]}
-                            onPress={() => toggleFilter(filter.id)}
-                            accessibilityLabel={`Filtrar por ${filter.label}`}
-                        />
-                    );
-                 })}
-             </ScrollView>
+        <Text style={[styles.itemTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+          {item.title}
+        </Text>
+        <View style={styles.itemDetailRow}>
+          <MaterialCommunityIcons name="calendar-month-outline" size={16} color={theme.colors.primary} style={styles.iconStyle} />
+          <Text style={[styles.itemDetailText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>
+            {item.data ? formatDate(parseISO(item.data), 'dd/MM/yyyy') : 'N/D'}
+            {item.hora && !item.isAllDay ? ` às ${item.hora}` : (item.isAllDay ? ' (Dia Todo)' : '')}
+          </Text>
         </View>
-
-      <View style={styles.resultsListContainer}>
-        {refreshing && searchResults.length === 0 ? ( // Changed to refreshing from loadingContext
-            <ScrollView style={styles.skeletonContainer}>
-                 <RNESkeleton height={80} style={styles.skeletonItem}/>
-                 <RNESkeleton height={80} style={styles.skeletonItem}/>
-                 <RNESkeleton height={80} style={styles.skeletonItem}/>
-            </ScrollView>
-        ) : searchResults.length > 0 ? (
-          <DraggableFlatList<Event>
-            data={searchResults}
-            renderItem={renderResultItem}
-            keyExtractor={(item, index) => item.id ? item.id.toString() : `${item.title || 'event'}-${index}`}
-            contentContainerStyle={styles.listContent}
-            onDragEnd={({ data }) => { /* TODO: Update searchResults state with the new order */ setSearchResults(data); console.log('New search results order:', data); }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[theme.colors.primary]}
-                tintColor={theme.colors.primary}
-              />
-            }
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-            windowSize={11}
-            removeClippedSubviews={true}
-          />
-        ) : (searchTerm || selectedFilters.length > 0) ? (
-            <View style={styles.centeredMessageContainer}>
-                <Icon name="text-search" type="material-community" size={48} color={theme.colors.textSecondary} />
-                <Text style={[styles.centeredMessageText, { color: theme.colors.textSecondary }]}>
-                    Nenhum compromisso encontrado para sua busca.
-                </Text>
-                 <Button title="Limpar Busca/Filtros" onPress={() => { setSearchTerm(''); setSelectedFilters([]); }} type="clear" titleStyle={{ color: theme.colors.primary }} />
-            </View>
-        ) : (
-            <View style={styles.centeredMessageContainer}>
-                 <Icon name="lightbulb-on-outline" type="material-community" size={48} color={theme.colors.textSecondary} />
-                 <Text style={[styles.centeredMessageText, { color: theme.colors.textSecondary }]}>
-                    Digite termos na barra de busca ou use os filtros rápidos para encontrar seus compromissos.
-                 </Text>
+        {item.local && (
+          <View style={styles.itemDetailRow}>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color={theme.colors.primary} style={styles.iconStyle} />
+            <Text style={[styles.itemDetailText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>{item.local}</Text>
+          </View>
+        )}
+        {item.eventType && (
+            <View style={[styles.itemDetailRow, {marginTop: theme.spacing.xs/2}]}>
+                <View style={[styles.badge, {backgroundColor: theme.colors.primary}]}>
+                    <Text style={[styles.badgeText, {color: theme.colors.white, fontFamily: theme.typography.fontFamily.regular}]}>{getEventTypeLabel(item.eventType)}</Text>
+                </View>
+                {item.status && (
+                    <View style={[styles.badge, {backgroundColor: theme.colors.info, marginLeft: theme.spacing.xs}]}>
+                        <Text style={[styles.badgeText, {color: theme.colors.white, fontFamily: theme.typography.fontFamily.regular}]}>{getEventStatusLabel(item.status)}</Text>
+                    </View>
+                )}
             </View>
         )}
+      </Card>
+    </ScaleDecorator>
+  );
+
+  const renderFilterOptions = () => (
+    <View style={styles.filterContainer}>
+      <Text style={[styles.filterTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>Filtrar por Tipo:</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+        {EVENT_FILTERS_OPTIONS.map(filter => (
+          <TouchableOpacity
+            key={filter.value}
+            style={[
+              styles.filterButton,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+              activeFilters.includes(filter.value) && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+            ]}
+            onPress={() => toggleFilter(filter.value)}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                { color: activeFilters.includes(filter.value) ? theme.colors.white : theme.colors.primary, fontFamily: theme.typography.fontFamily.regular },
+              ]}
+            >
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <Header
+        title="Buscar"
+        // Opcional: Adicionar um botão para limpar a busca ou filtros no header
+        // rightComponent={
+        //   (searchTerm || activeFilters.length > 1 || !activeFilters.includes('all')) ? (
+        //     <TouchableOpacity onPress={() => { setSearchTerm(''); setActiveFilters(['all']); }}>
+        //       <MaterialCommunityIcons name="close-circle-outline" size={24} color={theme.colors.text} />
+        //     </TouchableOpacity>
+        //   ) : null
+        // }
+      />
+      <View style={styles.searchControlsContainer}>
+        <Input
+          placeholder="Digite para buscar eventos..."
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          leftIcon={<MaterialCommunityIcons name="magnify" size={20} color={theme.colors.placeholder} />}
+          containerStyle={{ flex: 1, marginRight: theme.spacing.sm }}
+          // autoFocus // Pode ser irritante se a tela focar e o teclado abrir sempre
+        />
+        <Button
+            icon={showFilters ? "filter-variant-remove" : "filter-variant"}
+            onPress={() => setShowFilters(prev => !prev)}
+            type="outline"
+            size="md" // Para alinhar com a altura do Input
+        />
       </View>
-    </SafeAreaView>
+
+      {showFilters && renderFilterOptions()}
+
+      {isLoading && searchResults.length === 0 ? ( // Mostra skeleton se estiver a carregar e não houver resultados ainda
+        <View style={{padding: theme.spacing.md, flex:1}}>
+            <LoadingSkeleton count={4} rowHeight={100} />
+        </View>
+      ) : (
+        <DraggableFlatList<EventType>
+          data={searchResults}
+          renderItem={renderSearchResultItem}
+          keyExtractor={(item) => item.id}
+          onDragEnd={({ data }) => setSearchResults(data)} // Atualiza a ordem local se arrastar
+          // useNativeDriver={Platform.OS !== 'web'} // useNativeDriver pode ser problemático na web para draggable
+          ListEmptyComponent={
+            !isLoading && ( // Só mostra se não estiver a carregar
+              <View style={styles.centeredMessageContainer}>
+                <MaterialCommunityIcons name="text-search" size={48} color={theme.colors.placeholder} />
+                <Text style={[styles.messageText, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+                  {debouncedSearchTerm || (activeFilters.length > 1 || !activeFilters.includes('all'))
+                    ? 'Nenhum resultado encontrado para sua busca.'
+                    : 'Digite algo para buscar ou aplique filtros.'}
+                </Text>
+              </View>
+            )
+          }
+          contentContainerStyle={styles.listContentContainer}
+        />
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  centeredMessageContainer: {
-      alignItems: 'center',
-      flex: 1,
-      justifyContent: 'center',
-      padding: 30,
+  searchControlsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16, // Usar theme.spacing.md
+    paddingTop: 8,       // Usar theme.spacing.sm
+    paddingBottom: 4,    // Usar theme.spacing.xs
+    alignItems: 'center',
   },
-   centeredMessageText: {
-      fontSize: 16,
-      lineHeight: 23,
-      marginTop: 16,
-      textAlign: 'center',
+  filterContainer: {
+    paddingHorizontal: 16, // Usar theme.spacing.md
+    paddingVertical: 8,   // Usar theme.spacing.sm
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    // borderBottomColor: theme.colors.border, // Aplicar dinamicamente
   },
-  container: {
-    flex: 1,
+  filterTitle: {
+    fontSize: 14, // Usar theme.typography.fontSize.sm
+    marginBottom: 8, // Usar theme.spacing.sm
   },
-  filterChipButton: {
-      borderRadius: 20,
-      borderWidth: 1.5,
-      marginRight: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 6,
+  filterScroll: {
+    paddingRight: 16, // Espaço no final do scroll horizontal
   },
-  filtersContent: {
-      alignItems: 'center',
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16, // Usar theme.radii.xl ou round
+    borderWidth: 1,
+    marginRight: 8, // Usar theme.spacing.sm
   },
-  filtersScrollViewContainer: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-  },
-  listContent: {
-      paddingBottom: 20,
-      paddingHorizontal: 16,
-      paddingTop: 8,
+  filterButtonText: {
+    fontSize: 13, // Usar theme.typography.fontSize.xs
   },
   resultCard: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    elevation: 1,
-    marginBottom: 12,
-    padding: 12,
-    shadowOffset: { width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    marginHorizontal: 16, // Usar theme.spacing.md
+    marginVertical: 8,   // Usar theme.spacing.sm
   },
-  resultDate: {
-    fontSize: 13,
-  },
-  resultDetailRow: {
-      alignItems: "center",
-      flexDirection: "row",
-      marginLeft: 42,
-      marginTop: 6,
-  },
-  resultDetailText: {
-      flex: 1,
-      fontSize: 14,
-      marginLeft: 6,
-  },
-  resultHeader: {
-    alignItems: "center",
-    flexDirection: "row",
+  itemTitle: {
+    fontSize: 17, // Usar theme.typography
     marginBottom: 6,
   },
-  resultIconContainer: {
-      borderRadius: 20,
-      marginRight: 10,
-      padding: 8,
+  itemDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
-  resultInfo: {
-    flex: 1,
+  iconStyle: {
+    marginRight: 8,
   },
-  resultTitleStyle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 2,
+  itemDetailText: {
+    fontSize: 14,
+    flexShrink: 1,
   },
-  resultsListContainer: {
-      flex: 1,
-  },
-  searchBarContainer: {
-    borderBottomWidth: 0,
-    borderTopWidth: 0,
+  badge: {
     paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
+    borderRadius: 12, // Usar theme.radii.lg
   },
-  searchBarInput: {
-    borderRadius: 10,
-    height: 44,
+  badgeText: {
+    fontSize: 11, // Usar theme.typography.fontSize.xs
+    // fontWeight: 'bold', // Opcional
   },
-  searchInputStyle: {
+  listContentContainer: {
+    paddingBottom: 20,
+  },
+  centeredMessageContainer: {
+    flex: 1, // Para ocupar o espaço se a lista estiver vazia
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 30, // Para não ficar colado nos filtros/busca
+  },
+  messageText: {
     fontSize: 16,
-  },
-  skeletonContainer: {
-    paddingHorizontal: 16,
-  },
-  skeletonItem: {
-    borderRadius: 12,
-    marginBottom: 10,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });
 
-export default memo(SearchScreen);
+export default SearchScreen;

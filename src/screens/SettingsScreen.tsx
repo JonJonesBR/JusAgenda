@@ -1,431 +1,358 @@
-import React, { useEffect, useState, useCallback } from 'react';
+// src/screens/SettingsScreen.tsx
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  StyleSheet,
+  View,
+  Text,
   ScrollView,
+  StyleSheet,
+  Switch,
+  TouchableOpacity,
   Alert,
   Linking,
-  Text,
-  Switch,
-  View,
-  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
-import * as MailComposer from 'expo-mail-composer';
-import { useTheme } from '../contexts/ThemeContext';
-import { Header, InputDialog, Section, ListItem } from '../components/ui';
-import { SETTINGS_KEYS } from '../constants';
-import { configureNotifications } from '../services/notifications';
-import { Icon } from '@rneui/themed';
-import Toast from 'react-native-toast-message';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const defaultDs = {
-  spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
-  typography: {
-    fontSize: { sm: 12, md: 14, lg: 16, xl: 18, xxl: 22 },
-    fontFamily: { regular: 'System', medium: 'System', bold: 'System' }
-  },
-  radii: { md: 8 },
-};
+import { useTheme, Theme } from '../contexts/ThemeContext';
+import { Header, Section, InputDialog, Button } from '../components/ui'; // Usando componentes de UI atualizados
+import { Toast } from '../components/ui/Toast';
+import { STORAGE_KEYS, ROUTES } from '../constants';
+import * as NotificationService from '../services/notifications'; // Importando todo o módulo
+import * as EmailService from '../services/EmailService'; // Importando todo o módulo
+// Assumindo que HomeStackParamList é onde SettingsScreen está, ou uma RootStackParamList
+import { HomeStackParamList } from '../navigation/stacks/HomeStack';
 
-const componentColors = {
-  white: '#FFFFFF',
-  defaultGrey: '#CCCCCC',
-  trackColorFalse: '#767577',
-  thumbColorFalse: '#f4f3f4',
-  defaultPlaceholderText: '#A9A9A9',
-  defaultDisabledText: '#C0C0C0',
-};
+
+// Tipagem para a prop de navegação específica desta tela
+type SettingsScreenNavigationProp = StackNavigationProp<HomeStackParamList, typeof ROUTES.SETTINGS>;
+
+interface SettingsState {
+  notificationsEnabled: boolean;
+  emailNotificationsEnabled: boolean;
+  userEmail: string;
+  // darkMode: boolean; // O tema escuro é agora gerido pelo ThemeContext
+  isEmailClientAvailable: boolean;
+}
 
 const SettingsScreen: React.FC = () => {
-  const { theme, isDark, toggleTheme } = useTheme(); // Correctly destructure isDark and toggleTheme
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [defaultEmail, setDefaultEmail] = useState("");
-  const [defaultReminderTime, setDefaultReminderTime] = useState("30");
-  const [isEmailAvailable, setIsEmailAvailable] = useState(false);
-  const [showEmailDialog, setShowEmailDialog] = useState(false);
-  const [showReminderDialog, setShowReminderDialog] = useState(false);
-  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
-  const insets = useSafeAreaInsets();
+  const { theme, isDark, toggleTheme } = useTheme();
+  const navigation = useNavigation<SettingsScreenNavigationProp>();
 
-  // Use local defaults as theme object does not have spacing, typography, radii
-  const ds = defaultDs;
+  const [settings, setSettings] = useState<SettingsState>({
+    notificationsEnabled: false,
+    emailNotificationsEnabled: false,
+    userEmail: '',
+    isEmailClientAvailable: false,
+  });
+  const [isEmailDialogVisible, setIsEmailDialogVisible] = useState(false);
+  const [tempEmail, setTempEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const checkEmailAvailability = useCallback(async () => {
+  const loadSettings = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const available = await MailComposer.isAvailableAsync();
-      setIsEmailAvailable(available);
-    } catch (error: unknown){
-      console.error("Erro ao verificar disponibilidade de email:", error);
-      setIsEmailAvailable(false);
+      const storedNotificationsEnabled = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED);
+      const storedEmailNotificationsEnabled = await AsyncStorage.getItem(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED);
+      const storedUserEmail = await AsyncStorage.getItem(STORAGE_KEYS.USER_EMAIL_FOR_NOTIFICATIONS);
+      // O tema já é carregado pelo ThemeProvider, não precisamos carregar aqui.
+
+      const emailAvailable = await EmailService.isEmailClientAvailable();
+
+      setSettings({
+        notificationsEnabled: storedNotificationsEnabled === 'true',
+        emailNotificationsEnabled: storedEmailNotificationsEnabled === 'true' && emailAvailable,
+        userEmail: storedUserEmail || '',
+        isEmailClientAvailable: emailAvailable,
+      });
+      setTempEmail(storedUserEmail || ''); // Inicializa tempEmail para o diálogo
+    } catch (error) {
+      console.error("SettingsScreen: Erro ao carregar configurações:", error);
+      Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível carregar as configurações.' });
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  const loadSettings = useCallback(async () => {
+  useFocusEffect(
+    useCallback(() => {
+      loadSettings();
+    }, [loadSettings])
+  );
+
+  const saveSetting = async (key: keyof SettingsState | typeof STORAGE_KEYS.APP_THEME, value: string | boolean) => {
     try {
-      const [
-          notificationsValue,
-          emailNotificationsValue,
-          defaultEmailValue,
-          reminderTimeValue,
-          themeValue
-      ] = await Promise.all([
-          AsyncStorage.getItem(SETTINGS_KEYS.NOTIFICATIONS_ENABLED),
-          AsyncStorage.getItem(SETTINGS_KEYS.EMAIL_NOTIFICATIONS),
-          AsyncStorage.getItem(SETTINGS_KEYS.DEFAULT_EMAIL),
-          AsyncStorage.getItem(SETTINGS_KEYS.DEFAULT_REMINDER_TIME),
-          AsyncStorage.getItem(SETTINGS_KEYS.THEME)
-      ]);
-
-      setNotificationsEnabled(notificationsValue !== "false");
-      setEmailNotifications(emailNotificationsValue === "true");
-      if (defaultEmailValue) setDefaultEmail(defaultEmailValue);
-      if (reminderTimeValue) setDefaultReminderTime(reminderTimeValue);
-      
-      // Apply saved theme if toggleTheme is available and saved theme differs from current
-      if (themeValue && toggleTheme && (themeValue === 'dark' !== isDark)) {
-        toggleTheme();
-      }
-
-    } catch (error: unknown) {
-      console.error("Erro ao carregar configurações:", error);
-      Toast.show({ type:'error', text1: 'Erro', text2: 'Não foi possível carregar configurações.' });
+      await AsyncStorage.setItem(key as string, String(value));
+    } catch (error) {
+      console.error(`SettingsScreen: Erro ao salvar configuração ${key}:`, error);
+      Toast.show({ type: 'error', text1: 'Erro ao Salvar', text2: `Não foi possível salvar ${key}.` });
     }
-  }, [isDark, toggleTheme]);
-
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoadingSettings(true);
-      await Promise.all([loadSettings(), checkEmailAvailability()]);
-      setIsLoadingSettings(false);
-    };
-    loadInitialData();
-  }, [loadSettings, checkEmailAvailability]);
-
-
-  const saveSetting = async (key: string, value: string | boolean) => {
-      try {
-          await AsyncStorage.setItem(key, String(value));
-      } catch (error: unknown) {
-          console.error(`Erro ao salvar ${key}:`, error);
-          Toast.show({ type:'error', text1: 'Erro', text2: `Não foi possível salvar ${key}.` });
-          throw error;
-      }
   };
 
-  const toggleNotifications = async (value: boolean) => {
-    try {
-      setNotificationsEnabled(value);
-      await saveSetting(SETTINGS_KEYS.NOTIFICATIONS_ENABLED, value);
-      if (value) {
-        const permissionGranted = await configureNotifications();
-        if (!permissionGranted) {
-          Alert.alert(
-            "Permissão Necessária",
-            "Para receber notificações, conceda permissão nas configurações.",
-            [
-              { text: "Cancelar", style: "cancel", onPress: async () => { setNotificationsEnabled(false); await saveSetting(SETTINGS_KEYS.NOTIFICATIONS_ENABLED, false); } },
-              { text: "Configurações", onPress: () => Linking.openSettings() },
-            ],
-            { onDismiss: async () => { if(notificationsEnabled) { setNotificationsEnabled(false); await saveSetting(SETTINGS_KEYS.NOTIFICATIONS_ENABLED, false); }} }
-          );
-          setNotificationsEnabled(false);
-        } else {
-          Toast.show({ type: 'success', text1: 'Notificações Ativadas' });
-        }
+  const handleToggleNotifications = async (value: boolean) => {
+    if (value) { // Tentando ativar
+      const permissionStatus = await NotificationService.registerForPushNotificationsAsync();
+      if (permissionStatus) { // Se permissão concedida (string não undefined)
+        setSettings(s => ({ ...s, notificationsEnabled: true }));
+        await saveSetting(STORAGE_KEYS.NOTIFICATIONS_ENABLED, true);
+        Toast.show({ type: 'success', text1: 'Notificações Ativadas' });
       } else {
-        Toast.show({ type: 'info', text1: 'Notificações Desativadas' });
+        // Permissão não concedida, registerForPushNotificationsAsync já deve ter mostrado um Alert
+        // Não altera o switch, pois a permissão é necessária.
+        Toast.show({ type: 'info', text1: 'Permissão Necessária', text2: 'Ative as notificações nas configurações.' });
       }
-    } catch (error: unknown) {
-      console.error("Erro ao alternar notificações:", error);
-      setNotificationsEnabled(!value);
-      Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível alterar as notificações.' });
+    } else { // Tentando desativar
+      setSettings(s => ({ ...s, notificationsEnabled: false, emailNotificationsEnabled: false })); // Desativa email também
+      await saveSetting(STORAGE_KEYS.NOTIFICATIONS_ENABLED, false);
+      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, false); // Desativa email também
+      // Opcional: cancelar todas as notificações agendadas
+      // await NotificationService.cancelAllScheduledNotifications();
+      Toast.show({ type: 'info', text1: 'Notificações Desativadas' });
     }
   };
 
-  const toggleEmailNotifications = async (value: boolean) => {
-    if (value && !isEmailAvailable) {
-         Alert.alert("Email Indisponível", "Nenhum app de email detectado para enviar notificações.");
-         return;
+  const handleToggleEmailNotifications = async (value: boolean) => {
+    if (!settings.notificationsEnabled && value) {
+      Toast.show({ type: 'error', text1: 'Aviso', text2: 'Ative as notificações gerais primeiro.' });
+      return;
     }
-    try {
-      setEmailNotifications(value);
-      await saveSetting(SETTINGS_KEYS.EMAIL_NOTIFICATIONS, value);
-      if (value && !defaultEmail) {
-        setShowEmailDialog(true);
-      } else if (value) {
-        Toast.show({ type: 'success', text1: 'Notificações por Email Ativadas' });
-      } else {
-        Toast.show({ type: 'info', text1: 'Notificações por Email Desativadas' });
-      }
-    } catch (error: unknown) {
-      console.error("Erro ao alternar notificações por email:", error);
-      setEmailNotifications(!value);
-      Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível alterar as notificações por email.' });
+    if (!settings.isEmailClientAvailable && value) {
+        Toast.show({ type: 'error', text1: 'Sem Email', text2: 'Nenhum cliente de email configurado.' });
+        return;
     }
-  };
 
-  const handleEmailDialogCancel = async () => {
-    setShowEmailDialog(false);
-    if (emailNotifications && !defaultEmail) {
-        setEmailNotifications(false);
-        await saveSetting(SETTINGS_KEYS.EMAIL_NOTIFICATIONS, false);
+    if (value && !settings.userEmail) {
+      // Se está a ativar e não há email, abre o diálogo para inserir email
+      setTempEmail(settings.userEmail); // Garante que o diálogo comece com o email atual (ou vazio)
+      setIsEmailDialogVisible(true);
+      // Não salva a configuração ainda, espera a confirmação do email
+    } else if (value && settings.userEmail) {
+      setSettings(s => ({ ...s, emailNotificationsEnabled: true }));
+      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, true);
+      Toast.show({ type: 'success', text1: 'Alertas por Email Ativados' });
+    } else { // Desativando
+      setSettings(s => ({ ...s, emailNotificationsEnabled: false }));
+      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, false);
+      Toast.show({ type: 'info', text1: 'Alertas por Email Desativados' });
     }
   };
 
-  const validateEmailLocal = (emailToValidate: string): boolean => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(String(emailToValidate).toLowerCase());
-  };
-
-  const handleEmailDialogSubmit = async (emailValue: string) => {
-    setShowEmailDialog(false);
-    const trimmedEmail = emailValue.trim();
-    if (trimmedEmail && validateEmailLocal(trimmedEmail)) {
-      try {
-        setDefaultEmail(trimmedEmail);
-        await saveSetting(SETTINGS_KEYS.DEFAULT_EMAIL, trimmedEmail);
-        Toast.show({ type: 'success', text1: 'Email Configurado', text2: `Notificações serão enviadas para ${trimmedEmail}` });
-        if(!emailNotifications) {
-             setEmailNotifications(true);
-             await saveSetting(SETTINGS_KEYS.EMAIL_NOTIFICATIONS, true);
-        }
-      } catch (error: unknown) { console.error("Erro ao salvar email:", error); }
+  const handleSaveUserEmail = async (email: string) => {
+    if (email && EmailService.isValidEmail(email)) {
+      setSettings(s => ({ ...s, userEmail: email, emailNotificationsEnabled: true })); // Ativa notificações por email ao salvar um email válido
+      await saveSetting(STORAGE_KEYS.USER_EMAIL_FOR_NOTIFICATIONS, email);
+      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, true);
+      setIsEmailDialogVisible(false);
+      setTempEmail(''); // Limpa o email temporário
+      Toast.show({ type: 'success', text1: 'Email Salvo', text2: 'Alertas por email configurados.' });
     } else {
-      Alert.alert("Email Inválido", "Por favor, insira um endereço de email válido.");
-      if (emailNotifications && !defaultEmail) {
-          setEmailNotifications(false);
-          await saveSetting(SETTINGS_KEYS.EMAIL_NOTIFICATIONS, false);
-      }
+      Toast.show({ type: 'error', text1: 'Email Inválido', text2: 'Por favor, insira um email válido.' });
+      // Não fecha o diálogo, permite correção
     }
   };
 
-  const handleDarkModeToggle = async () => {
-    const newIsDarkState = !isDark; // Determine the new state before calling toggleTheme
-    try {
-      if (toggleTheme) toggleTheme(); // Call the context's toggle function
-      Toast.show({ type: 'info', text1: newIsDarkState ? "Modo Escuro Ativado" : "Modo Claro Ativado" });
-      await saveSetting(SETTINGS_KEYS.THEME, newIsDarkState ? "dark" : "light");
-    } catch (error: unknown) {
-      console.error("Erro ao alterar tema:", error);
-      Toast.show({ type: 'error', text1: 'Erro ao Alterar Tema' });
+  const handleEmailDialogCancel = () => {
+    setIsEmailDialogVisible(false);
+    setTempEmail(''); // Limpa o email temporário
+    // Se o utilizador cancelou e as notificações por email estavam ativadas sem um email, desativa-as
+    if (settings.emailNotificationsEnabled && !settings.userEmail) {
+      setSettings(s => ({ ...s, emailNotificationsEnabled: false }));
+      saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, false);
     }
   };
 
-  const changeDefaultReminderTime = () => setShowReminderDialog(true);
-  const handleReminderDialogCancel = () => setShowReminderDialog(false);
-
-  const handleReminderDialogSubmit = async (timeValue: string) => {
-    setShowReminderDialog(false);
-    const timeInt = parseInt(timeValue, 10);
-    if (!isNaN(timeInt) && timeInt > 0) {
-       const timeStr = String(timeInt);
-       try {
-            setDefaultReminderTime(timeStr);
-            await saveSetting(SETTINGS_KEYS.DEFAULT_REMINDER_TIME, timeStr);
-            Toast.show({ type: 'success', text1: 'Tempo de Lembrete Atualizado' });
-       } catch (error: unknown) { console.error("Erro ao salvar tempo de lembrete:", error); }
-    } else {
-      Alert.alert("Valor Inválido", "Por favor, insira um número de minutos válido (maior que zero).");
-    }
+  const handleToggleDarkMode = async () => {
+    toggleTheme(); // O ThemeContext já lida com a persistência do tema
   };
 
-  const changeDefaultEmail = () => setShowEmailDialog(true);
-
-  const clearAllNotifications = () => {
-    Alert.alert(
-      "Limpar Notificações Agendadas",
-      "Tem certeza que deseja cancelar todos os lembretes futuros agendados pelo aplicativo?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Confirmar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await Notifications.cancelAllScheduledNotificationsAsync();
-              Toast.show({ type: 'success', text1: 'Notificações Canceladas'});
-            } catch (error: unknown) {
-              console.error("Erro ao cancelar notificações:", error);
-              Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível cancelar.' });
-            }
-          },
-        },
-      ]
-    );
+  const navigateToFeedback = () => {
+    navigation.navigate(ROUTES.FEEDBACK);
   };
 
-  const renderNotificationItems = () => (
-      <>
-        <ListItem
-          title="Notificações Push"
-          subtitle="Receber alertas no dispositivo"
-          leftIcon={<Icon name="bell-outline" type="material-community" color={theme.colors.textSecondary} />}
-          rightIcon={
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={toggleNotifications}
-              trackColor={{ false: componentColors.trackColorFalse, true: theme.colors.primary + '70' }}
-              thumbColor={notificationsEnabled ? theme.colors.primary : componentColors.thumbColorFalse}
-              ios_backgroundColor={componentColors.defaultGrey} // Fallback for greyOutline/grey4
-            />
-          }
+  const ListItem: React.FC<{ title: string; value?: string | boolean; onValueChange?: (value: boolean) => void; onPress?: () => void; isSwitch?: boolean; iconName?: keyof typeof MaterialCommunityIcons.glyphMap; hideArrow?: boolean }> =
+    ({ title, value, onValueChange, onPress, isSwitch = false, iconName, hideArrow = false }) => (
+    <TouchableOpacity
+      style={[styles.listItem, { borderBottomColor: theme.colors.border }]}
+      onPress={onPress}
+      disabled={!onPress || isSwitch} // Desabilita onPress se for switch (o switch tem seu próprio handler)
+      activeOpacity={onPress ? 0.7 : 1}
+    >
+      {iconName && <MaterialCommunityIcons name={iconName} size={22} color={theme.colors.primary} style={styles.listItemIcon} />}
+      <Text style={[styles.listItemText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>{title}</Text>
+      {isSwitch && typeof value === 'boolean' && onValueChange ? (
+        <Switch
+          trackColor={{ false: theme.colors.disabled, true: theme.colors.primary }}
+          thumbColor={theme.colors.surface}
+          ios_backgroundColor={theme.colors.disabled}
+          onValueChange={onValueChange}
+          value={value}
         />
-        <ListItem
-          title="Tempo Lembrete Padrão"
-          subtitle={`${defaultReminderTime} minutos antes`}
-          leftIcon={<Icon name="clock-time-four-outline" type="material-community" color={theme.colors.textSecondary} />}
-          onPress={notificationsEnabled ? changeDefaultReminderTime : undefined}
-          disabled={!notificationsEnabled}
-          bottomDivider
-        />
-        <ListItem
-          title="Notificações por Email"
-          subtitle={isEmailAvailable ? "Receber alertas por email" : "App de email não detectado"}
-          leftIcon={<Icon name="email-alert-outline" type="material-community" color={isEmailAvailable ? theme.colors.textSecondary : componentColors.defaultDisabledText} />}
-          rightIcon={
-            <Switch
-              value={emailNotifications}
-              onValueChange={toggleEmailNotifications}
-              trackColor={{ false: componentColors.defaultGrey, true: theme.colors.primary + '70' }} // Fallback for greyOutline/grey4
-              thumbColor={emailNotifications ? theme.colors.primary : componentColors.thumbColorFalse} // Fallback for grey3
-              disabled={!isEmailAvailable}
-              ios_backgroundColor={componentColors.defaultGrey} // Fallback for greyOutline/grey4
-            />
-          }
-          disabled={!isEmailAvailable}
-          bottomDivider
-        />
-        <ListItem
-          title="Email para Alertas"
-          subtitle={defaultEmail || "Toque para configurar"}
-          leftIcon={<Icon name="email-edit-outline" type="material-community" color={theme.colors.textSecondary} />}
-          onPress={isEmailAvailable && emailNotifications ? changeDefaultEmail : (isEmailAvailable ? () => setShowEmailDialog(true) : undefined)}
-          disabled={!isEmailAvailable}
-          bottomDivider
-        />
-        <ListItem
-          title="Limpar Notificações Agendadas"
-          leftIcon={<Icon name="notification-clear-all" type="material-community" color={theme.colors.error} />}
-          onPress={clearAllNotifications}
-          titleStyle={{ color: theme.colors.error }}
-        />
-      </>
-    );
+      ) : typeof value === 'string' && value ? (
+        <Text style={[styles.listItemValue, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>{value}</Text>
+      ) : null}
+      {onPress && !isSwitch && !hideArrow && (
+        <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.placeholder} />
+      )}
+    </TouchableOpacity>
+  );
 
-  const renderAppearanceItems = () => (
-      <ListItem
-        title="Modo Escuro"
-        leftIcon={<Icon name={isDark ? "weather-night" : "weather-sunny"} type="material-community" color={theme.colors.textSecondary} />}
-        rightIcon={
-          <Switch
-            value={isDark}
-            onValueChange={handleDarkModeToggle}
-            trackColor={{ false: componentColors.defaultGrey, true: theme.colors.primary + '70' }} // Fallback for greyOutline/grey4
-            thumbColor={isDark ? theme.colors.primary : componentColors.thumbColorFalse} // Fallback for grey3
-            ios_backgroundColor={componentColors.defaultGrey} // Fallback for greyOutline/grey4
-          />
-        }
-      />
+
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
     );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['left', 'right', 'bottom']}>
-       <Header title="Configurações" />
-      {isLoadingSettings ? (
-           <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.colors.primary} /></View>
-      ) : (
-        <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, {paddingBottom: insets.bottom + ds.spacing.lg}]}>
-            <Section title="Notificações">
-            {renderNotificationItems()}
-            </Section>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <Header title="Configurações" />
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <Section title="Notificações" theme={theme} style={styles.sectionStyle}>
+          <ListItem
+            title="Ativar Lembretes"
+            isSwitch
+            value={settings.notificationsEnabled}
+            onValueChange={handleToggleNotifications}
+            iconName="bell-ring-outline"
+          />
+          <ListItem
+            title="Alertas por Email"
+            isSwitch
+            value={settings.emailNotificationsEnabled}
+            onValueChange={handleToggleEmailNotifications}
+            disabled={!settings.notificationsEnabled || !settings.isEmailClientAvailable} // Desabilita se notificações gerais ou email não estiverem ok
+            iconName="email-alert-outline"
+          />
+          <ListItem
+            title="Email para Alertas"
+            value={settings.userEmail || 'Não definido'}
+            onPress={() => {
+                setTempEmail(settings.userEmail); // Preenche o diálogo com o email atual
+                setIsEmailDialogVisible(true);
+            }}
+            disabled={!settings.notificationsEnabled || !settings.isEmailClientAvailable}
+            iconName="email-edit-outline"
+          />
+           <ListItem
+            title="Cancelar Todos os Lembretes Agendados"
+            onPress={async () => {
+                Alert.alert("Confirmar", "Tem certeza que deseja cancelar todos os lembretes agendados?", [
+                    {text: "Não"},
+                    {text: "Sim", onPress: async () => {
+                        await NotificationService.cancelAllScheduledNotifications();
+                        Toast.show({type: 'info', text1: "Lembretes Cancelados"});
+                    }}
+                ]);
+            }}
+            iconName="calendar-remove-outline"
+          />
+        </Section>
 
-            <Section title="Aparência">
-            {renderAppearanceItems()}
-            </Section>
+        <Section title="Aparência" theme={theme} style={styles.sectionStyle}>
+          <ListItem
+            title="Modo Escuro"
+            isSwitch
+            value={isDark} // Do ThemeContext
+            onValueChange={handleToggleDarkMode}
+            iconName={isDark ? "weather-night" : "weather-sunny"}
+          />
+          {/* Adicionar mais opções de aparência, como tamanho da fonte, se implementado */}
+        </Section>
 
-            <Section title="Sobre o Aplicativo">
-            <View style={styles.aboutSection}>
-                <Text style={[styles.appVersion, { color: theme.colors.text, fontSize: ds.typography.fontSize.lg, fontFamily: ds.typography.fontFamily.bold, marginBottom: ds.spacing.sm }]}>
-                    JusAgenda v1.0.0
-                </Text>
-                <Text style={[styles.appDescription, { color: theme.colors.textSecondary, fontSize: ds.typography.fontSize.md, marginBottom: ds.spacing.lg }]}>
-                    Assistente para advogados organizarem prazos, audiências, reuniões e muito mais.
-                </Text>
-                <View style={[styles.divider, { backgroundColor: theme.colors.border, marginVertical: ds.spacing.md }]} />
-                <Text style={[styles.appCopyright, { color: theme.colors.textSecondary, fontSize: ds.typography.fontSize.sm }]}>
-                    © 2024 Seu Nome/Empresa - Todos os direitos reservados
-                </Text>
-            </View>
-            </Section>
-        </ScrollView>
-      )}
+        <Section title="Dados" theme={theme} style={styles.sectionStyle}>
+            <ListItem
+                title="Exportar Dados"
+                onPress={() => navigation.navigate(ROUTES.EXPORT)} // Assumindo que EXPORT está na mesma stack ou numa stack acessível
+                iconName="export-variant"
+            />
+            <ListItem
+                title="Sincronizar com Email"
+                onPress={() => navigation.navigate(ROUTES.EMAIL_SYNC)}
+                iconName="email-sync-outline"
+            />
+        </Section>
+
+        <Section title="Sobre e Suporte" theme={theme} style={styles.sectionStyle}>
+          <ListItem
+            title="Enviar Feedback"
+            onPress={navigateToFeedback}
+            iconName="comment-quote-outline"
+          />
+          <ListItem
+            title="Termos de Serviço"
+            onPress={() => Linking.openURL('https://seusite.com/termos').catch(err => console.error("Erro ao abrir URL", err))}
+            iconName="file-document-outline"
+          />
+          <ListItem
+            title="Política de Privacidade"
+            onPress={() => Linking.openURL('https://seusite.com/privacidade').catch(err => console.error("Erro ao abrir URL", err))}
+            iconName="shield-lock-outline"
+          />
+           <ListItem
+            title="Versão do App"
+            value={Platform.OS === 'ios' ? "1.0.0 (iOS)" : "1.0.0 (Android)"} // Obter dinamicamente do package.json ou expo-application
+            hideArrow // Não é clicável
+            iconName="information-outline"
+          />
+        </Section>
+      </ScrollView>
 
       <InputDialog
-        visible={showEmailDialog}
-        title="Email para Notificações"
-        message="Informe seu endereço de email:"
-        defaultValue={defaultEmail}
-        placeholder="seu@email.com"
-        keyboardType="email-address"
-        autoCapitalize="none"
+        visible={isEmailDialogVisible}
+        title="Email para Alertas"
+        message="Insira o endereço de email onde deseja receber os alertas de eventos."
+        initialValue={tempEmail} // Usa tempEmail para o input
+        placeholder="seuemail@exemplo.com"
+        confirmText="Salvar Email"
+        cancelText="Cancelar"
+        onConfirm={(email) => handleSaveUserEmail(email)}
         onCancel={handleEmailDialogCancel}
-        onSubmit={handleEmailDialogSubmit}
-        submitText="Salvar Email"
-        cancelText="Cancelar"
+        textInputProps={{
+          keyboardType: 'email-address',
+          autoCapitalize: 'none',
+        }}
       />
-
-      <InputDialog
-        visible={showReminderDialog}
-        title="Tempo de Lembrete (Minutos)"
-        message="Minutos antes do compromisso para receber o alerta:"
-        defaultValue={defaultReminderTime}
-        placeholder="Ex: 30"
-        keyboardType="number-pad"
-        onCancel={handleReminderDialogCancel}
-        onSubmit={handleReminderDialogSubmit}
-        submitText="Salvar Tempo"
-        cancelText="Cancelar"
-      />
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  aboutSection: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-   appCopyright: {
-    marginTop: 8,
-  },
-  appDescription: {
-    lineHeight: 21,
-    textAlign: 'center',
-  },
-  appVersion: {},
-  container: {
-    flex: 1,
-  },
-  divider: {
-    alignSelf: 'center',
-    height: StyleSheet.hairlineWidth,
-    width: '80%',
-  },
   loadingContainer: {
-    alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  scrollContent: {
-    padding: 16,
+  scrollContainer: {
     paddingBottom: 30,
   },
-  scrollView: {
+  sectionStyle: {
+    marginTop: 8, // Usar theme.spacing.sm
+    marginBottom: 16, // Usar theme.spacing.md
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14, // Usar theme.spacing.sm + theme.spacing.xs
+    paddingHorizontal: 16, // Usar theme.spacing.md
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    // borderBottomColor é dinâmico
+    // backgroundColor: theme.colors.surface, // Opcional, se quiser que cada item tenha um fundo
+  },
+  listItemIcon: {
+    marginRight: 16, // Usar theme.spacing.md
+  },
+  listItemText: {
     flex: 1,
+    fontSize: 16, // Usar theme.typography.fontSize.md
+    // Cor e fontFamily são dinâmicas
+  },
+  listItemValue: {
+    fontSize: 14, // Usar theme.typography.fontSize.sm
+    // Cor e fontFamily são dinâmicas
   },
 });
 

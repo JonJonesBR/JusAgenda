@@ -1,201 +1,268 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useColorScheme, Platform } from 'react-native';
+import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { Appearance, ColorSchemeName } from 'react-native';
+import { darkColors, lightColors, Colors } from '@rneui/themed'; // Importando cores base do RNEUI
 
-export type ShadowStyle = {
-  elevation?: number;
-  shadowColor?: string;
-  shadowOffset?: { width: number; height: number };
-  shadowOpacity?: number;
-  shadowRadius?: number;
+// Definição da paleta de cores personalizada
+// Estas cores são exemplos, ajuste conforme a identidade visual do seu app
+const customLightColors = {
+  primary: '#6200ee',
+  secondary: '#03dac6',
+  background: '#ffffff',
+  surface: '#ffffff', // Usado para Cards, por exemplo
+  card: '#f8f9fa', // Cor de card um pouco diferente do background
+  text: '#000000',
+  placeholder: '#a0a0a0',
+  disabled: '#c0c0c0',
+  border: '#e0e0e0',
+  notification: '#ff80ab',
+  error: '#b00020',
+  success: '#4CAF50',
+  warning: '#FB8C00',
+  info: '#2196F3',
+  // Cores específicas do seu app
+  appPrimaryLight: '#7F39FB',
+  appPrimaryDark: '#4A00A8',
+  appAccent: '#FFD600',
+  shadow: 'rgba(0, 0, 0, 0.1)', // Cor base para sombras
 };
 
-export type ThemeColors = {
-  primary: string;
-  secondary: string;
-  background: string;
-  card: string;
-  text: string;
-  textSecondary: string;
-  border: string;
-  notification: string;
-  error: string;
-  success: string;
-  warning: string;
-  info: string;
-  onPrimary: string;
-  onSuccess: string;
-  onError: string;
-  onWarning: string;
-  onInfo: string;
-  overlay: string;
-  shadow: string; // Primary shadow color (e.g., for iOS shadowColor)
-  transparent: string;
-  disabledInputBackground: string;
-  disabledInputText: string;
-  inputBackground: string;
-  defaultShadowColor: string; // Added for base shadow definitions
+const customDarkColors = {
+  primary: '#bb86fc',
+  secondary: '#03dac6',
+  background: '#121212',
+  surface: '#1e1e1e', // Um pouco mais claro que o background para superfícies
+  card: '#2c2c2c', // Cor de card para tema escuro
+  text: '#ffffff',
+  placeholder: '#757575',
+  disabled: '#505050',
+  border: '#3a3a3a',
+  notification: '#ff80ab', // Pode ser o mesmo ou ajustado
+  error: '#cf6679',
+  success: '#66BB6A',
+  warning: '#FFA726',
+  info: '#64B5F6',
+  // Cores específicas do seu app
+  appPrimaryLight: '#D0BCFF', // Versão light para tema escuro
+  appPrimaryDark: '#BB86FC',
+  appAccent: '#FFEB3B', // Ajuste de acento para tema escuro
+  shadow: 'rgba(255, 255, 255, 0.1)', // Cor base para sombras no escuro
 };
 
-export type DesignSystemProps = {
-  spacing: { xs: number; sm: number; md: number; lg: number; xl: number; xxl: number; };
-  typography: {
-    fontSize: { xs: number; sm: number; md: number; lg: number; xl: number; xxl: number; };
-    fontFamily: { regular: string; medium: string; bold: string; };
-    fontWeight: { light: '300'; normal: '400'; medium: '500'; bold: '700'; };
+// Interface para estilos de sombra
+export interface ShadowStyle {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  elevation: number; // Para Android
+}
+
+// Tipagem para o Design System
+export interface DesignSystemProps {
+  spacing: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    xxl: number;
   };
-  radii: { sm: number; md: number; lg: number; xl: number; };
-  components: {
-    input: { height: number; };
+  typography: {
+    fontFamily: {
+      regular: string;
+      bold: string;
+      italic?: string; // Opcional
+      boldItalic?: string; // Opcional
+    };
+    fontSize: {
+      xs: number;
+      sm: number;
+      md: number;
+      lg: number;
+      xl: number;
+      xxl: number;
+      display1: number;
+      display2: number;
+    };
+    lineHeight: {
+      tight: number;
+      normal: number;
+      loose: number;
+    };
+  };
+  radii: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    round: number; // Para elementos completamente redondos
   };
   shadows: {
-    small: ShadowStyle;
-    medium: ShadowStyle;
-    large: ShadowStyle;
-    none?: ShadowStyle;
+    xs: ShadowStyle;
+    sm: ShadowStyle;
+    md: ShadowStyle;
+    lg: ShadowStyle;
+    none: ShadowStyle; // Para remover sombra explicitamente
   };
-};
+  // Adicionar outras propriedades do design system conforme necessário (ex: zIndex)
+}
 
-export type Theme = {
-  dark: boolean;
-  colors: ThemeColors;
-} & DesignSystemProps;
+// Interface para o tema completo
+export interface Theme extends DesignSystemProps {
+  colors: typeof customLightColors & Partial<Colors>; // Combina suas cores customizadas com as do RNEUI
+  isDark: boolean;
+  mode: 'light' | 'dark';
+}
 
-// Define a base shadow color to be used in defaultDesignSystem
-const BASE_SHADOW_COLOR = '#000000'; // This is a common base, opacity will make it lighter
+// Constantes do Design System (valores de exemplo)
+const BASE_SPACING = 8;
+const BASE_FONT_SIZE = 16;
+const BASE_RADIUS = 4;
+const BASE_SHADOW_COLOR_LIGHT = 'rgba(0, 0, 0, 0.1)'; // Ajustado para ser mais genérico
+const BASE_SHADOW_COLOR_DARK = 'rgba(0, 0, 0, 0.6)'; // Sombra mais escura para tema escuro, ou use branco
 
 const defaultDesignSystem: DesignSystemProps = {
-  spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 },
+  spacing: {
+    xs: BASE_SPACING * 0.5, // 4
+    sm: BASE_SPACING, // 8
+    md: BASE_SPACING * 2, // 16
+    lg: BASE_SPACING * 3, // 24
+    xl: BASE_SPACING * 4, // 32
+    xxl: BASE_SPACING * 6, // 48
+  },
   typography: {
-    fontSize: { xs: 12, sm: 14, md: 16, lg: 18, xl: 20, xxl: 24 },
-    fontFamily: { regular: Platform.OS === 'ios' ? 'System' : 'sans-serif', medium: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium', bold: Platform.OS === 'ios' ? 'System' : 'sans-serif-bold' },
-    fontWeight: { light: '300', normal: '400', medium: '500', bold: '700' },
+    fontFamily: {
+      regular: 'System', // Use a fonte padrão do sistema ou sua fonte customizada
+      bold: 'System', // Para bold, pode ser 'NomeFonte-Bold'
+    },
+    fontSize: {
+      xs: BASE_FONT_SIZE * 0.75, // 12
+      sm: BASE_FONT_SIZE * 0.875, // 14
+      md: BASE_FONT_SIZE, // 16
+      lg: BASE_FONT_SIZE * 1.125, // 18
+      xl: BASE_FONT_SIZE * 1.25, // 20
+      xxl: BASE_FONT_SIZE * 1.5, // 24
+      display1: BASE_FONT_SIZE * 2, // 32
+      display2: BASE_FONT_SIZE * 2.5, // 40
+    },
+    lineHeight: {
+      tight: 1.2,
+      normal: 1.5,
+      loose: 1.8,
+    },
   },
-  radii: { sm: 4, md: 8, lg: 12, xl: 16 },
-  components: {
-    input: { height: 48 }
+  radii: {
+    xs: BASE_RADIUS * 0.5, // 2
+    sm: BASE_RADIUS, // 4
+    md: BASE_RADIUS * 2, // 8
+    lg: BASE_RADIUS * 3, // 12
+    xl: BASE_RADIUS * 4, // 16
+    round: 9999, // Um valor grande para arredondamento completo
   },
-  shadows: { // MODIFIED: Uses BASE_SHADOW_COLOR
-    small: Platform.OS === 'android'
-        ? { elevation: 2 }
-        : { shadowColor: BASE_SHADOW_COLOR, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.18, shadowRadius: 1.00 },
-    medium: Platform.OS === 'android'
-        ? { elevation: 5 }
-        : { shadowColor: BASE_SHADOW_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.22, shadowRadius: 2.22 },
-    large: Platform.OS === 'android'
-        ? { elevation: 8 }
-        : { shadowColor: BASE_SHADOW_COLOR, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-    none: Platform.OS === 'android' ? { elevation: 0 } : { shadowOpacity: 0 },
-  }
+  shadows: {
+    // Sombras ajustadas para serem mais distintas
+    xs: { shadowColor: BASE_SHADOW_COLOR_LIGHT, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.18, shadowRadius: 1.00, elevation: 1 },
+    sm: { shadowColor: BASE_SHADOW_COLOR_LIGHT, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.20, shadowRadius: 1.41, elevation: 2 },
+    md: { shadowColor: BASE_SHADOW_COLOR_LIGHT, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.22, shadowRadius: 2.22, elevation: 4 },
+    lg: { shadowColor: BASE_SHADOW_COLOR_LIGHT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 8 },
+    none: { shadowColor: 'transparent', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
+  },
 };
 
-const lightTheme: Theme = {
-  dark: false,
-  colors: {
-    primary: '#2196F3',
-    secondary: '#03DAC6',
-    background: '#f5f5f5',
-    card: '#ffffff',
-    text: '#212121',
-    textSecondary: '#757575',
-    border: '#e0e0e0',
-    notification: '#f50057',
-    error: '#B00020',
-    success: '#4CAF50',
-    warning: '#FB8C00',
-    info: '#1976D2',
-    onPrimary: '#FFFFFF',
-    onSuccess: '#FFFFFF',
-    onError: '#FFFFFF',
-    onWarning: '#000000',
-    onInfo: '#FFFFFF',
-    overlay: 'rgba(0, 0, 0, 0.4)',
-    shadow: BASE_SHADOW_COLOR, // Use the base shadow color
-    transparent: 'transparent',
-    disabledInputBackground: '#eeeeee',
-    disabledInputText: '#bdbdbd',
-    inputBackground: '#ffffff',
-    defaultShadowColor: BASE_SHADOW_COLOR,
-  },
-  ...defaultDesignSystem,
-};
-
-const darkTheme: Theme = {
-  dark: true,
-  colors: {
-    primary: '#64b5f6',
-    secondary: '#03DAC6',
-    background: '#121212',
-    card: '#1e1e1e',
-    text: '#e0e0e0',
-    textSecondary: '#b0b0b0',
-    border: '#2c2c2c',
-    notification: '#f50057',
-    error: '#CF6679',
-    success: '#81c784',
-    warning: '#ffb74d',
-    info: '#64b5f6',
-    onPrimary: '#000000',
-    onSuccess: '#000000',
-    onError: '#000000',
-    onWarning: '#000000',
-    onInfo: '#000000',
-    overlay: 'rgba(0, 0, 0, 0.6)',
-    shadow: BASE_SHADOW_COLOR, // Use the base shadow color (can be different for dark theme if needed)
-    transparent: 'transparent',
-    disabledInputBackground: '#2a2a2a',
-    disabledInputText: '#555555',
-    inputBackground: '#2c2c2c',
-    defaultShadowColor: BASE_SHADOW_COLOR, // Or a lighter shadow for dark themes if preferred
-  },
-  ...defaultDesignSystem,
-};
-
-// ... (rest of the ThemeContext, ThemeProvider, useTheme, themes export remains the same)
-
-type ThemeContextType = {
-  theme: Theme;
-  toggleTheme: () => void;
-  isDark: boolean;
-};
-
-const ThemeContext = createContext<ThemeContextType>({
-  theme: lightTheme,
-  toggleTheme: () => { console.warn('ThemeProvider não encontrado'); },
-  isDark: false,
+// Função para criar sombras dinâmicas baseadas na cor do tema
+const createDynamicShadows = (shadowBaseColor: string): DesignSystemProps['shadows'] => ({
+  xs: { shadowColor: shadowBaseColor, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.18, shadowRadius: 1.00, elevation: 1 },
+  sm: { shadowColor: shadowBaseColor, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41, elevation: 3 }, // Ajuste de elevação para sm
+  md: { shadowColor: shadowBaseColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.22, shadowRadius: 2.22, elevation: 5 }, // Ajuste de elevação para md
+  lg: { shadowColor: shadowBaseColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 8 },
+  none: { shadowColor: 'transparent', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
 });
 
-export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const colorScheme = useColorScheme();
-  const [isDark, setIsDark] = useState(colorScheme === 'dark');
+
+// Tema claro
+export const lightTheme: Theme = {
+  ...defaultDesignSystem,
+  shadows: createDynamicShadows(customLightColors.shadow), // Sombras dinâmicas
+  colors: {
+    ...lightColors, // Cores base do RNEUI para tema claro
+    ...customLightColors, // Suas cores customizadas sobrescrevem ou adicionam
+  },
+  isDark: false,
+  mode: 'light',
+};
+
+// Tema escuro
+export const darkTheme: Theme = {
+  ...defaultDesignSystem,
+  shadows: createDynamicShadows(customDarkColors.shadow), // Sombras dinâmicas para tema escuro
+  colors: {
+    ...darkColors, // Cores base do RNEUI para tema escuro
+    ...customDarkColors, // Suas cores customizadas sobrescrevem ou adicionam
+  },
+  isDark: true,
+  mode: 'dark',
+};
+
+// Contexto do Tema
+interface ThemeContextProps {
+  theme: Theme;
+  isDark: boolean;
+  toggleTheme: () => void;
+}
+
+// Fornecendo um valor padrão mais completo para o contexto
+const defaultThemeContextValue: ThemeContextProps = {
+  theme: lightTheme, // Inicia com o tema claro como padrão
+  isDark: false,
+  toggleTheme: () => {
+    console.warn('toggleTheme foi chamado antes do ThemeProvider estar pronto.');
+  },
+};
+
+export const ThemeContext = createContext<ThemeContextProps>(defaultThemeContextValue);
+
+interface ThemeProviderProps {
+  children: ReactNode;
+}
+
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
+  const colorScheme = Appearance.getColorScheme();
+  const [isDark, setIsDark] = useState<boolean>(colorScheme === 'dark');
 
   useEffect(() => {
-    setIsDark(colorScheme === 'dark');
-  }, [colorScheme]);
-
-  const activeTheme = isDark ? darkTheme : lightTheme;
-
-  const toggleTheme = useCallback(() => {
-    setIsDark(prevIsDark => !prevIsDark);
+    const subscription = Appearance.addChangeListener(({ colorScheme: newColorScheme }) => {
+      setIsDark(newColorScheme === 'dark');
+      console.log('Tema do sistema alterado para:', newColorScheme);
+    });
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
+  const toggleTheme = (): void => {
+    setIsDark(prevIsDark => !prevIsDark);
+  };
+
+  const currentTheme = isDark ? darkTheme : lightTheme;
+
+  // Adicionando logs para depuração do tema
+  // console.log('ThemeProvider - Current theme mode:', currentTheme.mode);
+  // console.log('ThemeProvider - Current theme colors:', currentTheme.colors);
+
   return (
-    <ThemeContext.Provider value={{ theme: activeTheme, toggleTheme, isDark }}>
+    <ThemeContext.Provider value={{ theme: currentTheme, isDark, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
-export const useTheme = (): ThemeContextType => {
+// Hook customizado para usar o tema
+export const useTheme = (): ThemeContextProps => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
+    // Isso não deveria acontecer se o ThemeProvider estiver corretamente configurado na raiz do app
     throw new Error('useTheme deve ser usado dentro de um ThemeProvider');
   }
   return context;
 };
-
-export const themes = {
-  light: lightTheme,
-  dark: darkTheme,
-};
-
-export default ThemeContext;

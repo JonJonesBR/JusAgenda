@@ -1,168 +1,138 @@
-import React from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, Platform } from 'react-native'; // Adicionado Platform
+// src/components/EventWizard/ProgressIndicator.tsx
+import React, { useEffect } from 'react';
+import { View, StyleSheet, StyleProp, ViewStyle, Text, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+  interpolateColor,
+} from 'react-native-reanimated';
 import { useTheme } from '../../contexts/ThemeContext';
-import Animated, { useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated'; // Adicionado Easing
 
 interface ProgressIndicatorProps {
-  currentStep: number; // 1-indexed
-  totalSteps: number;
-  titles?: string[];
+  currentStep: number; // Índice do passo atual (base 0)
+  totalSteps: number;  // Número total de passos
+  height?: number;      // Altura da barra de progresso
+  style?: StyleProp<ViewStyle>; // Estilo para o container da barra
+  activeColor?: string;   // Cor para a parte preenchida da barra (opcional, usa o tema por padrão)
+  inactiveColor?: string; // Cor para a parte não preenchida (opcional, usa o tema por padrão)
+  showStepText?: boolean; // Se deve mostrar o texto "Passo X de Y"
+  stepTextStyle?: StyleProp<ViewStyle>; // Estilo para o texto do passo
 }
 
-const DEFAULT_STEP_DOT_SIZE = 12;
-const CURRENT_STEP_DOT_SIZE = 16;
-const PROGRESS_BAR_HEIGHT = 8; // Um pouco mais visível
-
-const componentColors = {
-  transparent: 'transparent',
-  shadowBlack: '#000',
-};
-
-/**
- * Componente que mostra o progresso no wizard com indicação visual das etapas
- */
 const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   currentStep,
   totalSteps,
-  titles = [],
+  height = 8, // Altura padrão da barra
+  style,
+  activeColor,
+  inactiveColor,
+  showStepText = false,
+  stepTextStyle,
 }) => {
   const { theme } = useTheme();
-  const { width: windowWidth } = useWindowDimensions(); // Renomeado para clareza
+  const progress = useSharedValue(0);
 
-  const progressBarContainerWidth = windowWidth - (styles.container.paddingHorizontal || 0) * 2;
-  const progressPercentage = totalSteps > 1 ? (currentStep - 1) / (totalSteps - 1) : (currentStep >= 1 ? 1 : 0);
-  const animatedProgressWidth = progressBarContainerWidth * progressPercentage;
+  // Validação básica das props
+  const safeCurrentStep = Math.max(0, Math.min(currentStep, totalSteps -1));
+  const safeTotalSteps = Math.max(1, totalSteps); // Total de passos deve ser pelo menos 1
 
-  const progressFillStyle = useAnimatedStyle(() => {
+  useEffect(() => {
+    // Calcula a percentagem de progresso (0 a 1)
+    const progressPercentage = safeTotalSteps > 1 ? safeCurrentStep / (safeTotalSteps -1) : (safeCurrentStep >= 0 ? 1 : 0);
+    progress.value = withTiming(progressPercentage, {
+      duration: 300, // Duração da animação
+      easing: Easing.out(Easing.quad), // Easing suave
+    });
+  }, [safeCurrentStep, safeTotalSteps, progress]);
+
+  const animatedProgressStyle = useAnimatedStyle(() => {
+    const widthPercentage = `${progress.value * 100}%`;
     return {
-      width: withTiming(animatedProgressWidth, {
-        duration: 350,
-        easing: Easing.out(Easing.quad),
-      }),
+      width: widthPercentage,
     };
   });
 
-  const renderStaticSteps = () => {
-    return Array(totalSteps)
-      .fill(0)
-      .map((_, index) => {
-        const stepNumber = index + 1;
-        const isActive = stepNumber <= currentStep;
-        const isCompleted = stepNumber < currentStep;
-        const isCurrent = stepNumber === currentStep;
+  // Cores do tema ou customizadas
+  const finalActiveColor = activeColor || theme.colors.primary;
+  const finalInactiveColor = inactiveColor || (theme.isDark ? theme.colors.surface : theme.colors.disabled);
 
-        const stepDotDynamicStyle = {
-          backgroundColor: isCompleted
-            ? theme.colors.primary
-            : isCurrent
-            ? theme.colors.primary
-            : theme.colors.border || '#E0E0E0', // Fallback for grey4
-          width: isCurrent ? CURRENT_STEP_DOT_SIZE : DEFAULT_STEP_DOT_SIZE,
-          height: isCurrent ? CURRENT_STEP_DOT_SIZE : DEFAULT_STEP_DOT_SIZE,
-          borderRadius: isCurrent ? CURRENT_STEP_DOT_SIZE / 2 : DEFAULT_STEP_DOT_SIZE / 2,
-          borderColor: isCurrent ? (theme.colors.primary) : componentColors.transparent, // Fallback for primaryDark
-          borderWidth: isCurrent ? 2 : 0,
-        };
-
-        const titleDynamicStyle = {
-          color: isCurrent
-            ? theme.colors.primary
-            : isActive
-            ? theme.colors.text
-            : theme.colors.textSecondary || '#A9A9A9', // Fallback for grey2
-        };
-
-        return (
-          <View key={`step-${index}`} style={styles.stepContainer}>
-            <View style={[styles.stepDot, stepDotDynamicStyle]} />
-            {titles && titles[index] && (
-              <Text
-                style={[
-                  styles.stepTitle,
-                  titleDynamicStyle,
-                  isCurrent ? styles.stepTitleCurrent : styles.stepTitleNormal,
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {titles[index]}
-              </Text>
-            )}
-          </View>
-        );
-      });
-  };
+  // Interpolação de cor para a barra de progresso (opcional, mas pode ser um efeito interessante)
+  // const animatedBackgroundColor = useAnimatedStyle(() => {
+  //   return {
+  //     backgroundColor: interpolateColor(
+  //       progress.value,
+  //       [0, 1],
+  //       [finalInactiveColor, finalActiveColor] // Interpola da cor inativa para ativa
+  //     ),
+  //   };
+  // });
+  // Se for usar a interpolação de cor acima, a barra de progresso (progressFill)
+  // não precisaria de uma cor de fundo separada, e a barra de fundo (progressTrack)
+  // poderia ser a cor inativa ou transparente. Por simplicidade, manteremos duas Views.
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.stepIndicatorText, { color: theme.colors.textSecondary || '#A9A9A9' }]}> {/* Fallback for grey1 */}
-        {`Passo ${currentStep} de ${totalSteps}: ${titles[currentStep - 1] || ''}`}
-      </Text>
-      <View style={[styles.progressBarTrack, { backgroundColor: theme.colors.border || '#E0E0E0' }]}> {/* Fallback for grey4 */}
+    <View style={[styles.container, style]}>
+      <View
+        style={[
+          styles.progressTrack,
+          {
+            height,
+            backgroundColor: finalInactiveColor,
+            borderRadius: height / 2,
+          },
+        ]}
+      >
         <Animated.View
           style={[
-            styles.progressBarFill,
-            { backgroundColor: theme.colors.primary },
-            progressFillStyle,
+            styles.progressFill,
+            {
+              backgroundColor: finalActiveColor,
+              borderRadius: height / 2,
+            },
+            animatedProgressStyle, // Aplica a largura animada
+            // animatedBackgroundColor, // Se usar interpolação de cor para o preenchimento
           ]}
         />
       </View>
-      <View style={styles.stepsLabelContainer}>
-        {renderStaticSteps()}
-      </View>
+      {showStepText && safeTotalSteps > 0 && (
+        <Text
+          style={[
+            styles.stepText,
+            {
+              color: theme.colors.text,
+              fontFamily: theme.typography.fontFamily.regular,
+              marginTop: theme.spacing.xs,
+            },
+            stepTextStyle,
+          ]}
+        >
+          Passo {safeCurrentStep + 1} de {safeTotalSteps}
+        </Text>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 16,
-    paddingHorizontal: 15,
+    width: '100%', // Ocupa toda a largura por padrão
+    alignItems: 'center', // Centraliza o texto do passo, se visível
   },
-  // currentStepDotBorder: {}, // This was empty and not used effectively, removed. Handled in stepDotDynamicStyle
-  progressBarFill: {
-    borderRadius: PROGRESS_BAR_HEIGHT / 2,
-    height: '100%',
-  },
-  progressBarTrack: {
-    borderRadius: PROGRESS_BAR_HEIGHT / 2,
-    height: PROGRESS_BAR_HEIGHT,
-    overflow: 'hidden',
+  progressTrack: {
     width: '100%',
+    overflow: 'hidden', // Garante que o borderRadius seja aplicado corretamente
+    // backgroundColor é definido dinamicamente
   },
-  stepContainer: {
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: 2,
+  progressFill: {
+    height: '100%', // Ocupa toda a altura da track
+    // backgroundColor e borderRadius são definidos dinamicamente
   },
-  stepDot: {
-    // Basic structure, dynamic parts are in stepDotDynamicStyle
-    elevation: 1,
-    marginBottom: 6,
-    shadowColor: componentColors.shadowBlack,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-  },
-  stepIndicatorText: {
-    fontSize: 14,
-    marginBottom: 12,
+  stepText: {
+    fontSize: 12, // Ajustado via theme.typography
+    // A cor é definida dinamicamente
     textAlign: 'center',
-  },
-  stepTitle: {
-    fontSize: Platform.OS === 'ios' ? 11 : 12,
-    textAlign: 'center',
-  },
-  stepTitleCurrent: {
-    fontWeight: 'bold',
-  },
-  stepTitleNormal: {
-    fontWeight: 'normal',
-  },
-  stepsLabelContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
   },
 });
 

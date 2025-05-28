@@ -1,256 +1,156 @@
+// src/components/ClientWizard/ClientDocumentsStep.tsx
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Input, Text } from '@rneui/themed'; // @rneui/base não é necessário aqui se não usar componentes específicos dele
-import { useTheme } from '../../contexts/ThemeContext';
-import Client from '../../screens/ClientWizardScreen'; // Reintroduzido Client para tipagem
-
-// Tente instalar @types/react-native-masked-text
-// Se instalado, o @ts-ignore pode não ser mais necessário.
-// Se ainda der erro de tipo mesmo com @types, então o @ts-ignore pode permanecer.
-import MaskInput from 'react-native-mask-input';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { Input } from '../ui';
+import { ClientWizardFormData } from '../../screens/ClientWizardScreen'; // Tipo dos dados do formulário
+import { Theme } from '../../contexts/ThemeContext'; // Tipo do tema
+import MaskInput from 'react-native-mask-input'; // Para máscaras de CPF/CNPJ
+import { REGEX_PATTERNS } from '../../constants'; // Para as máscaras e validações
 
 interface ClientDocumentsStepProps {
-  data: Partial<typeof Client>; // Usando Partial<typeof Client>
-  onUpdate: (data: Partial<typeof Client>) => void;
-  // isEditMode?: boolean; // Removido, pois não está sendo usado
+  formData: ClientWizardFormData;
+  updateField: (field: keyof ClientWizardFormData, value: any) => void;
+  errors: Partial<Record<keyof ClientWizardFormData, string>>;
+  isReadOnly: boolean;
+  theme: Theme;
 }
 
-/**
- * Segundo passo do wizard de cliente - Documentos
- */
 const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
-  data,
-  onUpdate,
-  // isEditMode = false, // Removido, pois não está sendo usado
+  formData,
+  updateField,
+  errors,
+  isReadOnly,
+  theme,
 }) => {
-  const { theme } = useTheme();
 
-  // Função para simplificar a atualização, preservando 'data'
-  const handleFieldUpdate = (field: keyof Client, value: string) => {
-    onUpdate({ ...data, [field]: value });
+  // Máscaras para CPF e CNPJ
+  const cpfMask = [/\d/, /\d/, /\d/, '.', /\d/, /\d/, /\d/, '.', /\d/, /\d/, /\d/, '-', /\d/, /\d/]; // 000.000.000-00
+  const cnpjMask = [/\d/, /\d/, '.', /\d/, /\d/, /\d/, '.', /\d/, /\d/, /\d/, '/', /\d/, /\d/, /\d/, /\d/, '-', /\d/, /\d/]; // 00.000.000/0000-00
+
+  // Estilos para os MaskInput containers, para que se assemelhem ao Input
+  const maskedInputContainerStyle = (hasError?: boolean) => ({
+    borderColor: hasError ? theme.colors.error : theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.sm,
+    minHeight: Platform.OS === 'ios' ? 48 : 50, // Altura consistente com Input
+    justifyContent: 'center',
+    marginBottom: hasError ? 0 : theme.spacing.md,
+  });
+
+  const maskedInputStyle = {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.text,
+    fontFamily: theme.typography.fontFamily.regular,
+    paddingVertical: Platform.OS === 'ios' ? (theme.spacing.sm + 2) : 0, // Ajuste para iOS
   };
 
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-        Documentos
-      </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
-        {data.tipo === 'pessoaFisica'
-          ? 'Informe os documentos pessoais do cliente.'
-          : 'Informe os documentos da empresa.'}
-      </Text>
-
-      {data.tipo === 'pessoaFisica' ? (
-        // Campos para Pessoa Física
+    <View style={styles.container}>
+      {formData.tipo === 'pessoaFisica' && (
         <>
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>CPF</Text>
-            <Input
+          <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+            CPF *
+          </Text>
+          <View style={maskedInputContainerStyle(!!errors.cpf)}>
+            <MaskInput
+              value={formData.cpf || ''}
+              onChangeText={(masked, unmasked) => updateField('cpf', unmasked)} // Salva o valor não mascarado para validação
+              mask={cpfMask}
               placeholder="000.000.000-00"
-              value={data.cpf || ''}
-              onChangeText={(value) => handleFieldUpdate('cpf', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
               keyboardType="numeric"
-              accessibilityLabel="CPF do cliente"
-              returnKeyType="next"
-              InputComponent={(props: any) => (
-                <MaskInput
-                  {...props}
-                  mask={'[0-9]{3}.[0-9]{3}.[0-9]{3}-[0-9]{2}'}
-                />
-              )}
+              editable={!isReadOnly}
+              style={maskedInputStyle}
+              placeholderTextColor={theme.colors.placeholder}
             />
           </View>
+          {errors.cpf && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.cpf}</Text>}
 
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>RG</Text>
-            <Input
-              placeholder="00.000.000-0" // Considere adicionar máscara para RG também se desejar
-              value={data.rg || ''}
-              onChangeText={(value) => handleFieldUpdate('rg', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              keyboardType="numeric"
-              accessibilityLabel="RG do cliente"
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Órgão Emissor</Text>
-            <Input
-              placeholder="SSP/UF"
-              value={data.orgaoEmissor || ''}
-              onChangeText={(value) => handleFieldUpdate('orgaoEmissor', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              autoCapitalize="characters"
-              accessibilityLabel="Órgão emissor do RG"
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Profissão</Text>
-            <Input
-              placeholder="Profissão do cliente"
-              value={data.profissao || ''}
-              onChangeText={(value) => handleFieldUpdate('profissao', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              autoCapitalize="words"
-              accessibilityLabel="Profissão do cliente"
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Estado Civil</Text>
-            <Input // Considere usar um Picker aqui para opções padronizadas
-              placeholder="Estado civil do cliente"
-              value={data.estadoCivil || ''}
-              onChangeText={(value) => handleFieldUpdate('estadoCivil', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              autoCapitalize="words"
-              accessibilityLabel="Estado civil do cliente"
-              returnKeyType="next"
-            />
-          </View>
-        </>
-      ) : (
-        // Campos para Pessoa Jurídica
-        <>
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>CNPJ</Text>
-            <Input
-              placeholder="00.000.000/0000-00"
-              value={data.cnpj || ''}
-              onChangeText={(value) => handleFieldUpdate('cnpj', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              keyboardType="numeric"
-              accessibilityLabel="CNPJ da empresa"
-              returnKeyType="next"
-              InputComponent={(props) => (
-                <MaskInput
-                  {...props}
-                  mask={'[0-9]{2}.[0-9]{3}.[0-9]{3}/[0-9]{4}-[0-9]{2}'}
-                />
-              )}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Inscrição Estadual</Text>
-            <Input
-              placeholder="Inscrição Estadual (se houver)"
-              value={data.inscricaoEstadual || ''}
-              onChangeText={(value) => handleFieldUpdate('inscricaoEstadual', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              keyboardType="numeric"
-              accessibilityLabel="Inscrição estadual da empresa"
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Inscrição Municipal</Text>
-            <Input
-              placeholder="Inscrição Municipal (se houver)"
-              value={data.inscricaoMunicipal || ''}
-              onChangeText={(value) => handleFieldUpdate('inscricaoMunicipal', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              keyboardType="numeric"
-              accessibilityLabel="Inscrição municipal da empresa"
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Ramo de Atividade</Text>
-            <Input
-              placeholder="Ramo de atividade da empresa"
-              value={data.ramoAtividade || ''}
-              onChangeText={(value) => handleFieldUpdate('ramoAtividade', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              autoCapitalize="sentences"
-              accessibilityLabel="Ramo de atividade da empresa"
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Responsável Legal</Text>
-            <Input
-              placeholder="Nome do responsável legal"
-              value={data.responsavelLegal || ''}
-              onChangeText={(value) => handleFieldUpdate('responsavelLegal', value)}
-              containerStyle={styles.inputContainer}
-              inputStyle={{ color: theme.colors.text }}
-              autoCapitalize="words"
-              accessibilityLabel="Nome do responsável legal"
-              returnKeyType="next"
-            />
-          </View>
+          <Input
+            label="RG"
+            placeholder="Número do RG"
+            value={formData.rg || ''}
+            onChangeText={(text) => updateField('rg', text)}
+            error={errors.rg}
+            editable={!isReadOnly}
+            keyboardType="numeric" // Ou default, dependendo do formato do RG
+            containerStyle={styles.inputSpacing}
+          />
+          {/* Adicionar outros campos de Pessoa Física se necessário, como Órgão Emissor, Data de Emissão */}
         </>
       )}
 
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Documentos Adicionais</Text>
-        <Input
-          placeholder="Informações sobre documentos adicionais"
-          value={data.documentosAdicionais || ''}
-          onChangeText={(value) => handleFieldUpdate('documentosAdicionais', value)}
-          containerStyle={styles.inputContainer}
-          inputStyle={{ color: theme.colors.text }}
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-          accessibilityLabel="Documentos adicionais"
-        />
-      </View>
-    </ScrollView>
+      {formData.tipo === 'pessoaJuridica' && (
+        <>
+          <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+            CNPJ *
+          </Text>
+          <View style={maskedInputContainerStyle(!!errors.cnpj)}>
+            <MaskInput
+              value={formData.cnpj || ''}
+              onChangeText={(masked, unmasked) => updateField('cnpj', unmasked)} // Salva o valor não mascarado
+              mask={cnpjMask}
+              placeholder="00.000.000/0000-00"
+              keyboardType="numeric"
+              editable={!isReadOnly}
+              style={maskedInputStyle}
+              placeholderTextColor={theme.colors.placeholder}
+            />
+          </View>
+          {errors.cnpj && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.cnpj}</Text>}
+
+          <Input
+            label="Inscrição Estadual"
+            placeholder="Número da Inscrição Estadual"
+            value={formData.inscricaoEstadual || ''}
+            // @ts-ignore // formData pode não ter inscricaoEstadual se tipo for PF, mas aqui é PJ
+            onChangeText={(text) => updateField('inscricaoEstadual', text)}
+            // @ts-ignore
+            error={errors.inscricaoEstadual}
+            editable={!isReadOnly}
+            keyboardType="numeric" // Ou default
+            containerStyle={styles.inputSpacing}
+          />
+          <Input
+            label="Inscrição Municipal"
+            placeholder="Número da Inscrição Municipal"
+            // @ts-ignore
+            value={formData.inscricaoMunicipal || ''}
+            // @ts-ignore
+            onChangeText={(text) => updateField('inscricaoMunicipal', text)}
+            // @ts-ignore
+            error={errors.inscricaoMunicipal}
+            editable={!isReadOnly}
+            keyboardType="numeric" // Ou default
+            containerStyle={styles.inputSpacing}
+          />
+        </>
+      )}
+    </View>
   );
 };
 
-// Estilos permanecem os mesmos
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    paddingVertical: 8,
   },
-  contentContainer: {
-    paddingBottom: 20,
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  inputContainer: {
-    paddingHorizontal: 0,
+  inputSpacing: {
+    // marginBottom: 16, // O Input já tem marginBottom
   },
   label: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  sectionDescription: {
     fontSize: 14,
-    marginBottom: 20,
+    marginBottom: 6,
+    // Cor e fontFamily são dinâmicas
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8, // Espaço extra após erro
+    // Cor é dinâmica
   },
+  // Estilos para MaskInput são aplicados inline
 });
 
 export default ClientDocumentsStep;

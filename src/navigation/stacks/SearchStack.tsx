@@ -1,86 +1,67 @@
-import React from "react";
-// import { TextStyle, StyleProp } from "react-native"; // Removido TextStyle, StyleProp
-import { useTheme } from "../../contexts/ThemeContext";
-import SearchScreen from "../../screens/SearchScreen";
-import EventDetailsScreen from "../../screens/EventDetailsScreen";
-import EventViewScreen from "../../screens/EventViewScreen";
-import { Stack, navigationConfig } from "../navigationConfig";
-import { RouteProp, ParamListBase } from '@react-navigation/native'; // Import RouteProp and ParamListBase
-import { NativeStackNavigationProp } from "@react-navigation/native-stack"; // Re-add for navigation prop type
-import { Event } from "../../types/event"; // Importar tipo Event para params
+// src/navigation/stacks/SearchStack.tsx
+import React from 'react';
+import { Platform } from 'react-native';
+import { Stack, getStackScreenOptions } from '../navigationConfig'; // Usando Stack e getStackScreenOptions
+import { useTheme } from '../../contexts/ThemeContext';
+import { ROUTES } from '../../constants';
+import { Event as EventType } from '../../types/event'; // Para tipar params
 
-// Definindo tipo para os parâmetros das rotas
-type SearchStackParamList = {
-  SearchScreen: undefined;
-  EventView: { eventId: string }; // Busca geralmente leva a visualizar um evento existente
-  EventDetails: { event: Event; editMode?: boolean }; // Ou editar um evento existente
-  // A rota "Novo Evento" a partir da busca é incomum. Se necessária, adicione:
-  // NewEventFromSearch: { /* parâmetros iniciais? */ };
+// Importar as telas que pertencem a esta stack
+import SearchScreen from '../../screens/SearchScreen';
+import EventDetailsScreen from '../../screens/EventDetailsScreen';
+import EventViewScreen from '../../screens/EventViewScreen';
+
+// Defina a ParamList para a SearchStack
+// Isto é crucial para a segurança de tipos com React Navigation
+export type SearchStackParamList = {
+  [ROUTES.SEARCH]: undefined; // Tela de busca não recebe parâmetros diretos ao ser chamada pela tab
+  [ROUTES.EVENT_DETAILS]: { eventId?: string; initialDateString?: string }; // Para adicionar/editar evento a partir da busca (ou visualizar se for o mesmo componente)
+  [ROUTES.EVENT_VIEW]: { eventId: string; eventTitle?: string; event?: EventType }; // Para visualizar detalhes de um evento encontrado na busca
+  // Adicione outras telas que podem ser navegadas a partir da SearchStack
 };
 
-/**
- * Stack de navegação para a seção de Busca
- */
-const SearchStack: React.FC = () => {
+const SearchStackNavigator: React.FC = () => {
   const { theme } = useTheme();
 
-  // Configurações padrão para as telas desta stack
-  const stackScreenOptions = {
-    ...navigationConfig,
-    headerStyle: {
-      backgroundColor: theme.colors.primary,
-    },
-    headerTintColor: "#FFFFFF", // Fallback for onPrimary
-    headerTitleStyle: {
-      fontWeight: "bold" as const,
-      fontSize: 18,
-      color: "#FFFFFF", // Fallback for onPrimary
-    },
-    // contentStyle: { // Remover se não for válido
-    //   backgroundColor: theme.colors.background,
-    // },
-  };
+  // Obtém as opções de ecrã para a stack, baseadas no tema atual
+  const stackScreenOptions = getStackScreenOptions(theme);
 
   return (
-    <Stack.Navigator
-        // initialRouteName="SearchScreen"
-        screenOptions={stackScreenOptions}
-    >
-      {/* Tela de Busca */}
+    // Tipando o Stack.Navigator com a SearchStackParamList
+    <Stack.Navigator initialRouteName={ROUTES.SEARCH} screenOptions={stackScreenOptions}>
       <Stack.Screen
-        name="SearchScreen"
+        name={ROUTES.SEARCH}
         component={SearchScreen}
-        options={{ headerShown: false }} // Assume header/busca customizado na tela
-      />
-      {/* Tela de Visualização (resultado da busca) */}
-      <Stack.Screen
-        name="EventView"
-        component={EventViewScreen}
         options={{
-          title: "Detalhes do Compromisso",
+          headerShown: false, // A SearchScreen pode já ter um Header customizado ou uma barra de busca no header
+          // title: 'Buscar Eventos e Clientes', // Ou obter o título do componente Header interno
         }}
-        // Componente receberá eventId via route.params para buscar/exibir
       />
-      {/* Tela de Edição (acessada a partir de EventView ou diretamente da busca?) */}
       <Stack.Screen
-        name="EventDetails"
+        name={ROUTES.EVENT_DETAILS}
         component={EventDetailsScreen}
-        options={({ route }: { route: RouteProp<ParamListBase, 'EventDetails'>; navigation: NativeStackNavigationProp<SearchStackParamList> }) => { // Destructure only route
-          const params = route.params as SearchStackParamList['EventDetails']; // Cast to specific params
-          // No contexto da busca, geralmente se edita um evento existente.
-          // A lógica de "Novo Evento" aqui pode não fazer sentido.
-          // Se for sempre edição a partir daqui:
-          const title = params?.event ? "Editar Compromisso" : "Detalhes do Compromisso"; // Fallback ou título de erro
-          // Ou se você permitir navegar para detalhes sem edição:
-          // const title = params?.editMode ? "Editar Compromisso" : "Detalhes do Compromisso";
-          return {
-            title: title,
-          };
-        }}
-        // Componente receberá 'event' e opcionalmente 'editMode' via route.params
+        options={({ route }) => ({
+          // O título será definido dinamicamente dentro de EventDetailsScreen
+          presentation: Platform.OS === 'ios' ? 'modal' : 'card',
+        })}
       />
+      <Stack.Screen
+        name={ROUTES.EVENT_VIEW}
+        component={EventViewScreen}
+        options={({ route }) => ({
+          // O título será definido dinamicamente dentro de EventViewScreen
+          // title: route.params?.eventTitle || 'Detalhes do Evento',
+        })}
+      />
+      {/* Adicionar outras telas aqui, por exemplo, se a busca puder levar a detalhes de clientes:
+      <Stack.Screen
+        name={ROUTES.CLIENT_WIZARD} // Supondo que CLIENT_WIZARD esteja em ROUTES
+        component={ClientWizardScreen}
+        options={{ presentation: Platform.OS === 'ios' ? 'modal' : 'card' }}
+      />
+      */}
     </Stack.Navigator>
   );
 };
 
-export default SearchStack;
+export default SearchStackNavigator;

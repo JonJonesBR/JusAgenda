@@ -1,345 +1,381 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Input, Text, Button, Icon, ListItem } from '@rneui/themed';
-import { useTheme } from '../../contexts/ThemeContext';
-import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
-import { Event } from '../../types/event';
+// src/components/EventWizard/ContactsStep.tsx
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+// import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist'; // Descomente se for usar
+import { FlatList } from 'react-native'; // Usando FlatList normal por agora
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { v4 as uuidv4 } from 'uuid';
 
-interface Contact {
-  id: string;
-  nome: string;
-  telefone?: string;
-  email?: string;
-}
+import { Input, Button, InputDialog } from '../ui'; // Assumindo InputDialog para adicionar/editar
+import { EventWizardFormData } from './index';
+import { Theme } from '../../contexts/ThemeContext';
+import { EventContact } from '../../types/event';
+import { Toast } from '../ui/Toast';
 
 interface ContactsStepProps {
-  data: Partial<Event>;
-  onUpdate: (data: Partial<Event>) => void;
+  formData: EventWizardFormData;
+  updateField: (field: keyof EventWizardFormData, value: any) => void;
+  errors: Partial<Record<keyof EventWizardFormData | `contacts.${number}.${keyof EventContact}`, string>>; // Erros podem ser para o array ou campos específicos
+  isReadOnly: boolean;
+  theme: Theme;
 }
 
-const ContactsStep: React.FC<ContactsStepProps> = ({
-  data,
-  onUpdate,
-}) => {
-  const { theme } = useTheme();
-  const [newContact, setNewContact] = useState<Partial<Contact>>({});
-  const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>(data.contatos || []);
+const emptyContact: EventContact = { id: '', name: '', phone: '', email: '', role: '' };
 
-  useEffect(() => {
-    setContacts(data.contatos || []);
-  }, [data.contatos]);
+const ContactsStep: React.FC<ContactsStepProps> = ({
+  formData,
+  updateField,
+  errors,
+  isReadOnly,
+  theme,
+}) => {
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [currentContact, setCurrentContact] = useState<EventContact | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  // Campos do formulário do modal de contacto
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactRole, setContactRole] = useState('');
+  const [contactErrors, setContactErrors] = useState<Partial<Record<keyof EventContact, string>>>({});
+
+
+  const contacts = formData.contacts || [];
+
+  const handleAddNewContact = () => {
+    setCurrentContact(emptyContact); // Novo contacto
+    setEditingIndex(null);
+    setContactName('');
+    setContactPhone('');
+    setContactEmail('');
+    setContactRole('');
+    setContactErrors({});
+    setIsModalVisible(true);
+  };
+
+  const handleEditContact = (contact: EventContact, index: number) => {
+    if (isReadOnly) return;
+    setCurrentContact(contact);
+    setEditingIndex(index);
+    setContactName(contact.name);
+    setContactPhone(contact.phone || '');
+    setContactEmail(contact.email || '');
+    setContactRole(contact.role || '');
+    setContactErrors({});
+    setIsModalVisible(true);
+  };
+
+  const handleDeleteContact = (index: number) => {
+    if (isReadOnly) return;
+    Alert.alert(
+      "Remover Contacto",
+      `Tem a certeza de que deseja remover "${contacts[index].name}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Remover",
+          style: "destructive",
+          onPress: () => {
+            const updatedContacts = contacts.filter((_, i) => i !== index);
+            updateField('contacts', updatedContacts);
+            Toast.show({type: 'info', text1: 'Contacto Removido'});
+          },
+        },
+      ]
+    );
+  };
+
+  const validateContactForm = (): boolean => {
+    const errors: Partial<Record<keyof EventContact, string>> = {};
+    if (!contactName.trim()) {
+      errors.name = 'O nome é obrigatório.';
+    }
+    if (contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      errors.email = 'Email inválido.';
+    }
+    // Adicionar mais validações se necessário (ex: telefone)
+    setContactErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
 
   const handleSaveContact = () => {
-    if (!newContact.nome || newContact.nome.trim() === '') {
-      Alert.alert("Nome Necessário", "Por favor, insira o nome do contato.");
-      return;
+    if (!validateContactForm()) {
+        Toast.show({type: 'error', text1: 'Campos Inválidos', text2: 'Por favor, corrija os campos do contacto.'});
+        return;
     }
 
-    let updatedContacts;
-    if (editingContactId) {
-      updatedContacts = contacts.map(contact =>
-        contact.id === editingContactId ? { ...contact, ...newContact, id: editingContactId } : contact
+    const newContactData: EventContact = {
+      id: currentContact?.id || uuidv4(), // Mantém ID se a editar, ou gera novo
+      name: contactName.trim(),
+      phone: contactPhone.trim() || undefined,
+      email: contactEmail.trim() || undefined,
+      role: contactRole.trim() || undefined,
+    };
+
+    let updatedContacts: EventContact[];
+    if (editingIndex !== null) {
+      // Editar contacto existente
+      updatedContacts = contacts.map((contact, index) =>
+        index === editingIndex ? newContactData : contact
       );
     } else {
-      const contactToAdd: Contact = {
-        id: newContact.id || Date.now().toString(),
-        nome: newContact.nome,
-        telefone: newContact.telefone,
-        email: newContact.email,
-      };
-      updatedContacts = [...contacts, contactToAdd];
+      // Adicionar novo contacto
+      updatedContacts = [...contacts, newContactData];
     }
-    setContacts(updatedContacts);
-    onUpdate({ ...data, contatos: updatedContacts });
-    setNewContact({});
-    setEditingContactId(null);
+    updateField('contacts', updatedContacts);
+    setIsModalVisible(false);
+    setCurrentContact(null);
+    setEditingIndex(null);
+    Toast.show({type: 'success', text1: editingIndex !== null ? 'Contacto Atualizado' : 'Contacto Adicionado'});
   };
 
-  const handleEditContact = (contactToEdit: Contact) => {
-    setNewContact({ ...contactToEdit });
-    setEditingContactId(contactToEdit.id);
-  };
 
-  const handleRemoveContact = (idToRemove: string) => {
-    const updatedContacts = contacts.filter(contact => contact.id !== idToRemove);
-    setContacts(updatedContacts);
-    onUpdate({ ...data, contatos: updatedContacts });
+  // Se usar DraggableFlatList:
+  // const renderItemDraggable = useCallback(({ item, drag, isActive, getIndex }: RenderItemParams<EventContact>) => {
+  //   const index = getIndex(); // Necessário para handleEditContact e handleDeleteContact
+  //   // ... seu JSX para o item
+  // }, [isReadOnly, theme.colors]);
 
-    if (editingContactId === idToRemove) {
-      setEditingContactId(null);
-      setNewContact({});
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingContactId(null);
-    setNewContact({});
-  };
-
-  const renderContactItem = ({ item, drag, isActive }: RenderItemParams<Contact>) => (
-    <TouchableOpacity
-      activeOpacity={1}
-      onLongPress={drag}
-      disabled={isActive}
-    >
-      <ListItem
-        containerStyle={[
-          styles.contactItem,
-          {
-            backgroundColor: theme.colors.card,
-            borderColor: theme.colors.border || '#e0e0e0',
-          }
-        ]}
-        bottomDivider
-      >
-        <Icon
-          name="person-outline"
-          type="material"
-          color={theme.colors.primary}
-          size={28}
-        />
-        <ListItem.Content>
-          <ListItem.Title style={[styles.contactName, { color: theme.colors.text }]}>{item.nome}</ListItem.Title>
-          {item.telefone && (
-            <ListItem.Subtitle style={[styles.contactDetail, { color: theme.colors.textSecondary || '#999' }]}>
-              <Text>Tel: </Text>{item.telefone}
-            </ListItem.Subtitle>
-          )}
-          {item.email && (
-            <ListItem.Subtitle style={[styles.contactDetail, { color: theme.colors.textSecondary || '#999' }]}>
-              <Text>Email: </Text>{item.email}
-            </ListItem.Subtitle>
-          )}
-        </ListItem.Content>
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            onPress={() => handleEditContact(item)}
-            style={styles.actionButton}
-            accessibilityLabel={`Editar contato ${item.nome}`}
-          >
-            <Icon
-              name="edit"
-              type="material"
-              size={22}
-              color={theme.colors.primary}
-            />
+  const renderContactItem = ({ item, index }: { item: EventContact; index: number }) => (
+    <View style={[styles.contactItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      <View style={styles.contactDetails}>
+        <Text style={[styles.contactName, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>{item.name}</Text>
+        {item.role && <Text style={[styles.contactInfo, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>Papel: {item.role}</Text>}
+        {item.phone && <Text style={[styles.contactInfo, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>Telefone: {item.phone}</Text>}
+        {item.email && <Text style={[styles.contactInfo, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>Email: {item.email}</Text>}
+      </View>
+      {!isReadOnly && (
+        <View style={styles.contactActions}>
+          <TouchableOpacity onPress={() => handleEditContact(item, index)} style={styles.iconButton}>
+            <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleRemoveContact(item.id)}
-            style={styles.actionButton}
-            accessibilityLabel={`Remover contato ${item.nome}`}
-          >
-            <Icon
-              name="delete-outline"
-              type="material"
-              size={22}
-              color={theme.colors.error}
-            />
+          <TouchableOpacity onPress={() => handleDeleteContact(index)} style={styles.iconButton}>
+            <MaterialCommunityIcons name="delete-outline" size={22} color={theme.colors.error} />
           </TouchableOpacity>
+          {/* Se usar DraggableFlatList, o ícone de arrastar pode vir aqui */}
+          {/* <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.iconButton}>
+            <MaterialCommunityIcons name="drag-horizontal-variant" size={24} color={theme.colors.placeholder} />
+          </TouchableOpacity> */}
         </View>
-      </ListItem>
-    </TouchableOpacity>
+      )}
+    </View>
   );
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-        Contatos Relacionados
-      </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || '#999' }]}>
-        Adicione contatos relacionados a este evento (clientes, testemunhas, etc).
-      </Text>
+    <View style={styles.container}>
+      <Input
+        label="Cliente Principal (Nome)"
+        placeholder="Nome do cliente associado ao evento"
+        value={formData.clienteNome || ''}
+        onChangeText={(text) => updateField('clienteNome', text)}
+        error={errors.clienteNome} // Assumindo que pode haver erro para este campo
+        editable={!isReadOnly}
+        containerStyle={{ marginBottom: theme.spacing.md }}
+      />
+      {/* Poderia adicionar um Input para clienteId se for selecionável de uma lista */}
 
-      <View style={[styles.formCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <Text style={[styles.label, styles.formTitle, { color: theme.colors.text }]}>
-          {editingContactId ? 'Editar Contato' : 'Adicionar Novo Contato'}
+      <View style={styles.listHeader}>
+        <Text style={[styles.listTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+          Contactos Adicionais
         </Text>
-
-        <Input
-          placeholder="Nome do contato *"
-          value={newContact.nome || ''}
-          onChangeText={(value) => setNewContact({ ...newContact, nome: value })}
-          containerStyle={styles.inputGroup}
-          inputStyle={{ color: theme.colors.text }}
-          accessibilityLabel="Nome do contato"
-          returnKeyType="next"
-        />
-
-        <Input
-          placeholder="Telefone"
-          value={newContact.telefone || ''}
-          onChangeText={(value) => setNewContact({ ...newContact, telefone: value })}
-          containerStyle={styles.inputGroup}
-          inputStyle={{ color: theme.colors.text }}
-          keyboardType="phone-pad"
-          accessibilityLabel="Telefone do contato"
-          returnKeyType="next"
-        />
-
-        <Input
-          placeholder="Email"
-          value={newContact.email || ''}
-          onChangeText={(value) => setNewContact({ ...newContact, email: value })}
-          containerStyle={styles.inputGroup}
-          inputStyle={{ color: theme.colors.text }}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          accessibilityLabel="Email do contato"
-          returnKeyType="done"
-          onSubmitEditing={handleSaveContact}
-        />
-
-        <View style={styles.formActionsContainer}>
-          {editingContactId && (
-            <Button
-              title="Cancelar"
-              type="outline"
-              buttonStyle={[styles.formButton, { borderColor: theme.colors.border || '#e0e0e0' }]}
-              titleStyle={{ color: theme.colors.text }}
-              onPress={handleCancelEdit}
-              accessibilityLabel="Cancelar edição do contato"
-              containerStyle={styles.cancelButtonContainer}
-            />
-          )}
-
+        {!isReadOnly && (
           <Button
-            title={editingContactId ? "Atualizar Contato" : "Adicionar Contato"}
-            buttonStyle={[styles.formButton, { backgroundColor: theme.colors.primary }]}
-            titleStyle={{ color: theme.colors.onPrimary }}
-            onPress={handleSaveContact}
-            disabled={!newContact.nome || newContact.nome.trim() === ''}
-            accessibilityLabel={editingContactId ? "Atualizar contato" : "Adicionar contato"}
-            containerStyle={[styles.saveButtonContainer, editingContactId && styles.saveButtonEditingContainer]}
-            icon={editingContactId ? undefined : <Icon name="add" color={theme.colors.onPrimary} />}
+            title="Adicionar Contacto"
+            onPress={handleAddNewContact}
+            type="outline"
+            size="sm"
+            icon="plus"
           />
-        </View>
-      </View>
-
-      <View style={styles.contactsListSection}>
-        <Text style={[styles.label, styles.contactsListTitle, { color: theme.colors.text }]}>
-          Contatos Adicionados ({contacts.length})
-        </Text>
-
-        {contacts.length > 0 ? (
-          <DraggableFlatList<Contact>
-            data={contacts}
-            renderItem={renderContactItem}
-            keyExtractor={(item) => item.id}
-            onDragEnd={({ data }) => { setContacts(data); onUpdate({ ...data, contatos: data }); console.log('New contacts order:', data); }}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
-        ) : (
-          <View style={styles.emptyListContainer}>
-            <Icon name="people-outline" type="material" size={48} color={theme.colors.textSecondary || '#999'} />
-            <Text style={[styles.emptyListText, { color: theme.colors.textSecondary || '#999' }]}>
-              Nenhum contato adicionado ainda.
-            </Text>
-          </View>
         )}
       </View>
-    </ScrollView>
+
+      {/* <DraggableFlatList
+        data={contacts}
+        renderItem={renderItemDraggable} // ou renderContactItem se não for draggable
+        keyExtractor={(item) => item.id}
+        onDragEnd={({ data: newOrder }) => updateField('contacts', newOrder)}
+        ListEmptyComponent={
+          <Text style={[styles.emptyListText, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+            Nenhum contacto adicional.
+          </Text>
+        }
+        contentContainerStyle={{ paddingBottom: 20 }}
+      /> */}
+       <FlatList
+        data={contacts}
+        renderItem={renderContactItem}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <View style={styles.emptyComponentContainer}>
+            <Text style={[styles.emptyListText, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+              Nenhum contacto adicional.
+            </Text>
+          </View>
+        }
+        contentContainerStyle={contacts.length === 0 ? styles.emptyListContainer : styles.listContainer}
+      />
+
+
+      {/* Modal para Adicionar/Editar Contacto */}
+      {/* Usando um modal simples com Inputs. Poderia ser InputDialog se adaptado para múltiplos campos. */}
+      {isModalVisible && (
+        <Modal
+            transparent
+            visible={isModalVisible}
+            animationType="fade"
+            onRequestClose={() => setIsModalVisible(false)}
+        >
+            <View style={styles.modalOverlay}>
+                <View style={[styles.modalContent, { backgroundColor: theme.colors.card, borderRadius: theme.radii.lg }]}>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+                        {editingIndex !== null ? 'Editar Contacto' : 'Adicionar Novo Contacto'}
+                    </Text>
+                    <Input
+                        label="Nome *"
+                        value={contactName}
+                        onChangeText={setContactName}
+                        error={contactErrors.name}
+                        placeholder="Nome completo"
+                        containerStyle={styles.modalInput}
+                    />
+                    <Input
+                        label="Telefone"
+                        value={contactPhone}
+                        onChangeText={setContactPhone}
+                        error={contactErrors.phone}
+                        placeholder="(XX) XXXXX-XXXX"
+                        keyboardType="phone-pad"
+                        containerStyle={styles.modalInput}
+                    />
+                    <Input
+                        label="Email"
+                        value={contactEmail}
+                        onChangeText={setContactEmail}
+                        error={contactErrors.email}
+                        placeholder="email@exemplo.com"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        containerStyle={styles.modalInput}
+                    />
+                    <Input
+                        label="Papel/Função"
+                        value={contactRole}
+                        onChangeText={setContactRole}
+                        error={contactErrors.role}
+                        placeholder="Ex: Testemunha, Advogado da outra parte"
+                        containerStyle={styles.modalInput}
+                    />
+                    <View style={styles.modalButtonContainer}>
+                        <Button title="Cancelar" onPress={() => setIsModalVisible(false)} type="outline" buttonStyle={styles.modalButton} />
+                        <Button title={editingIndex !== null ? "Salvar Alterações" : "Adicionar"} onPress={handleSaveContact} type="solid" buttonStyle={styles.modalButton} />
+                    </View>
+                </View>
+            </View>
+        </Modal>
+      )}
+      {errors.contacts && typeof errors.contacts === 'string' && (
+          <Text style={[styles.errorTextBase, { color: theme.colors.error }]}>{errors.contacts}</Text>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  actionButton: {
-    marginLeft: 8,
-    padding: 8,
-  },
-  actionButtonsContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  cancelButtonContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
-  contactDetail: {
-  },
-  contactItem: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  contactName: {
-    fontWeight: 'bold',
-  },
-  contactsListSection: {
-  },
-  contactsListTitle: {
-    marginBottom: 12,
-    marginTop: 24,
-  },
   container: {
     flex: 1,
+    paddingVertical: 8,
   },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  emptyListContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyListText: {
-    fontSize: 16,
-    fontStyle: 'italic',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  formActionsContainer: {
+  listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
+    alignItems: 'center',
+    marginBottom: 12, // Usar theme.spacing.sm ou md
   },
-  formButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
+  listTitle: {
+    fontSize: 18, // Usar theme.typography.fontSize.lg
+    fontWeight: 'bold', // Usar theme.typography.fontFamily.bold
   },
-  formCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 24,
-    padding: 16,
+  contactItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12, // Usar theme.spacing.sm ou md
+    borderBottomWidth: 1,
+    marginBottom: 8, // Usar theme.spacing.sm
+    borderRadius: 8, // Usar theme.radii.md
   },
-  formTitle: {
-    marginBottom: 16,
-  },
-  inputGroup: {
-    marginBottom: 16,
-    paddingHorizontal: 0,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: '600',
-    // marginBottom: 8,
-  },
-  saveButtonContainer: {
+  contactDetails: {
     flex: 1,
   },
-  saveButtonEditingContainer: {
+  contactName: {
+    fontSize: 16, // Usar theme.typography.fontSize.md
+    marginBottom: 4,
+  },
+  contactInfo: {
+    fontSize: 14, // Usar theme.typography.fontSize.sm
+  },
+  contactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    padding: 8,
     marginLeft: 8,
   },
-  sectionDescription: {
-    fontSize: 15,
-    marginBottom: 24,
+  emptyListText: {
+    textAlign: 'center',
+    marginTop: 20, // Usar theme.spacing.lg
+    fontSize: 16, // Usar theme.typography.fontSize.md
   },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 8,
+  emptyComponentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
   },
-  separator: {
-    height: 10,
+  emptyListContainer: {
+    flexGrow: 1, // Para centralizar o ListEmptyComponent
+    justifyContent: 'center',
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  // Estilos do Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    padding: 20, // Usar theme.spacing.lg
+    // backgroundColor e borderRadius são dinâmicos
+  },
+  modalTitle: {
+    fontSize: 20, // Usar theme.typography.fontSize.xl
+    marginBottom: 16, // Usar theme.spacing.md
+    textAlign: 'center',
+  },
+  modalInput: {
+    marginBottom: 12, // Usar theme.spacing.sm
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around', // Ou flex-end
+    marginTop: 16, // Usar theme.spacing.md
+  },
+  modalButton: {
+    flex: 1, // Para os botões dividirem o espaço
+    marginHorizontal: 4, // Usar theme.spacing.xs
+  },
+   errorTextBase: {
+    fontSize: 12,
+    marginTop: 4,
+    // A cor é definida dinamicamente
   },
 });
 

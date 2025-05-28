@@ -1,87 +1,180 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Event, Contact } from '../types/event'; // Adicionado comentário para ESLint
+import { Event as EventType } from '../types/event'; // Importando o tipo Event de src/types/event
+import { parseISO, isSameDay, isValid } from 'date-fns'; // Para manipulação de datas
 
-interface EventCrudContextType {
-  events: Event[];
-  addEvent: (eventData: Omit<Event, 'id'>) => void;
-  updateEvent: (event: Event) => void;
-  deleteEvent: (eventId: string) => void;
-  getEventsByDate: (dateString: string) => Event[];
-  getEventById: (eventId: string) => Event | undefined;
+// Interface para os props do Contexto
+interface EventCrudContextProps {
+  events: EventType[];
+  addEvent: (event: Omit<EventType, 'id'>) => EventType; // Retorna o evento adicionado com ID
+  updateEvent: (event: EventType) => EventType | undefined; // Retorna o evento atualizado ou undefined se não encontrado
+  deleteEvent: (eventId: string) => boolean; // Retorna true se deletado com sucesso
+  getEventById: (eventId: string) => EventType | undefined;
+  getEventsByDate: (date: Date) => EventType[];
+  isLoading: boolean; // Adicionado para feedback de carregamento, se necessário
 }
 
-const EventCrudContext = createContext<EventCrudContextType | undefined>(undefined);
+// Valor padrão para o contexto
+const defaultEventCrudContextValue: EventCrudContextProps = {
+  events: [],
+  addEvent: () => {
+    throw new Error('addEvent function not implemented');
+  },
+  updateEvent: () => {
+    throw new Error('updateEvent function not implemented');
+  },
+  deleteEvent: () => {
+    throw new Error('deleteEvent function not implemented');
+  },
+  getEventById: () => undefined,
+  getEventsByDate: () => [],
+  isLoading: false,
+};
+
+export const EventCrudContext = createContext<EventCrudContextProps>(defaultEventCrudContextValue);
 
 interface EventCrudProviderProps {
   children: ReactNode;
+  initialEvents?: EventType[]; // Para testes ou inicialização com dados pré-existentes
 }
 
-export const EventCrudProvider: React.FC<EventCrudProviderProps> = ({ children }) => {
-  const [events, setEvents] = useState<Event[]>([]);
+export const EventCrudProvider: React.FC<EventCrudProviderProps> = ({ children, initialEvents = [] }) => {
+  const [events, setEvents] = useState<EventType[]>(initialEvents);
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Exemplo de estado de carregamento
 
-  const addEvent = useCallback((eventData: Omit<Event, 'id'>) => {
-    if (eventData.data && eventData.data instanceof Date) {
-      console.warn("EventCrudContext.addEvent: event.data deve ser uma string 'YYYY-MM-DD'.");
-      // Idealmente, a conversão ocorre antes desta função ser chamada.
-      // Exemplo de conversão, se absolutamente necessário aqui:
-      // eventData.data = eventData.data.toISOString().split('T')[0];
+  // Adicionar um novo evento
+  const addEvent = useCallback((eventData: Omit<EventType, 'id'>): EventType => {
+    // Validação da data e hora (devem ser strings no formato esperado)
+    if (typeof eventData.data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(eventData.data)) {
+      console.warn(`EventCrudContext: addEvent - Formato de data inválido: ${eventData.data}. Esperado YYYY-MM-DD.`);
+      // Poderia lançar um erro ou retornar um evento inválido, dependendo da política de erro.
+      // Por agora, vamos permitir, mas o ideal é que a validação ocorra antes.
+    }
+    if (eventData.hora && (typeof eventData.hora !== 'string' || !/^\d{2}:\d{2}$/.test(eventData.hora))) {
+      console.warn(`EventCrudContext: addEvent - Formato de hora inválido: ${eventData.hora}. Esperado HH:MM.`);
     }
 
-    const newEvent: Event = {
-      id: uuidv4(),
+    const newEvent: EventType = {
       ...eventData,
+      id: uuidv4(), // Gerar ID único
+      // Garanta que outros campos obrigatórios (se houver) tenham valores padrão aqui, se não vierem em eventData
     };
     setEvents(prevEvents => [...prevEvents, newEvent]);
+    console.log('EventCrudContext: Evento adicionado:', newEvent);
+    return newEvent;
   }, []);
 
-  const updateEvent = useCallback((updatedEvent: Event) => {
-    if (updatedEvent.data && updatedEvent.data instanceof Date) {
-      console.warn("EventCrudContext.updateEvent: event.data deve ser uma string 'YYYY-MM-DD'.");
-      // updatedEvent.data = updatedEvent.data.toISOString().split('T')[0];
+  // Atualizar um evento existente
+  const updateEvent = useCallback((updatedEventData: EventType): EventType | undefined => {
+    if (typeof updatedEventData.data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(updatedEventData.data)) {
+      console.warn(`EventCrudContext: updateEvent - Formato de data inválido: ${updatedEventData.data}. Esperado YYYY-MM-DD.`);
     }
+    if (updatedEventData.hora && (typeof updatedEventData.hora !== 'string' || !/^\d{2}:\d{2}$/.test(updatedEventData.hora))) {
+      console.warn(`EventCrudContext: updateEvent - Formato de hora inválido: ${updatedEventData.hora}. Esperado HH:MM.`);
+    }
+
+    let foundEvent: EventType | undefined;
     setEvents(prevEvents =>
-      prevEvents.map(event => (event.id === updatedEvent.id ? updatedEvent : event))
-    );
-  }, []);
-
-  const deleteEvent = useCallback((eventId: string) => {
-    setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
-  }, []);
-
-  const getEventsByDate = useCallback(
-    (dateString: string) => {
-      return events.filter(event => {
-        if (typeof event.data === 'string') {
-          return event.data === dateString;
+      prevEvents.map(event => {
+        if (event.id === updatedEventData.id) {
+          foundEvent = { ...event, ...updatedEventData };
+          return foundEvent;
         }
-        return false;
-      });
-    },
-    [events]
-  );
+        return event;
+      })
+    );
+    if (foundEvent) {
+      console.log('EventCrudContext: Evento atualizado:', foundEvent);
+    } else {
+      console.warn('EventCrudContext: updateEvent - Evento não encontrado para atualização, ID:', updatedEventData.id);
+    }
+    return foundEvent;
+  }, []);
 
+  // Deletar um evento
+  const deleteEvent = useCallback((eventId: string): boolean => {
+    let deleted = false;
+    setEvents(prevEvents =>
+      prevEvents.filter(event => {
+        if (event.id === eventId) {
+          deleted = true;
+          return false; // Não incluir o evento a ser deletado
+        }
+        return true;
+      })
+    );
+    if (deleted) {
+      console.log('EventCrudContext: Evento deletado, ID:', eventId);
+    } else {
+      console.warn('EventCrudContext: deleteEvent - Evento não encontrado para deleção, ID:', eventId);
+    }
+    return deleted;
+  }, []);
+
+  // Obter um evento pelo ID
   const getEventById = useCallback(
-    (eventId: string) => {
+    (eventId: string): EventType | undefined => {
       return events.find(event => event.id === eventId);
     },
     [events]
   );
 
+  // Obter eventos por data
+  // Esta função agora usa date-fns para uma comparação de datas mais robusta
+  const getEventsByDate = useCallback(
+    (date: Date): EventType[] => {
+      if (!isValid(date)) {
+        console.warn('EventCrudContext: getEventsByDate - Data fornecida é inválida.');
+        return [];
+      }
+      return events.filter(event => {
+        try {
+          // Assume que event.data é uma string 'YYYY-MM-DD'
+          const eventDate = parseISO(event.data);
+          return isValid(eventDate) && isSameDay(eventDate, date);
+        } catch (error) {
+          console.error(`EventCrudContext: Erro ao parsear data do evento "${event.title || event.id}": ${event.data}`, error);
+          return false;
+        }
+      });
+    },
+    [events]
+  );
+
+  // O valor do contexto que será fornecido aos componentes filhos
+  const contextValue = useMemo(() => ({
+    events,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    getEventById,
+    getEventsByDate,
+    isLoading, // Incluído no valor do contexto
+  }), [events, addEvent, updateEvent, deleteEvent, getEventById, getEventsByDate, isLoading]);
+
+
+  // Simulação de carregamento inicial (remover ou adaptar conforme necessário)
+  // useEffect(() => {
+  //   setIsLoading(true);
+  //   // Simular busca de dados
+  //   setTimeout(() => {
+  //     // setEvents(dadosCarregados); // Se você carregar eventos de uma API ou AsyncStorage
+  //     setIsLoading(false);
+  //   }, 1000);
+  // }, []);
+
   return (
-    <EventCrudContext.Provider
-      value={{ events, addEvent, updateEvent, deleteEvent, getEventsByDate, getEventById }}
-    >
+    <EventCrudContext.Provider value={contextValue}>
       {children}
     </EventCrudContext.Provider>
   );
 };
 
-export const useEvents = (): EventCrudContextType => {
+// Hook customizado para usar o contexto de eventos
+export const useEvents = (): EventCrudContextProps => {
   const context = useContext(EventCrudContext);
-  if (!context) {
-    throw new Error('useEvents must be used within an EventCrudProvider');
+  if (context === undefined) {
+    throw new Error('useEvents deve ser usado dentro de um EventCrudProvider');
   }
   return context;
 };

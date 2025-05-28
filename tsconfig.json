@@ -1,7 +1,76 @@
 {
+  "extends": "@tsconfig/react-native/tsconfig.json",
   "compilerOptions": {
-    "jsx": "react-native",
-    "esModuleInterop": true
+    /* Base Options: */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "esnext",
+    "verbatimModuleSyntax": false, // Recommended to be false for React Native
+    "allowJs": true, // Allow JavaScript files to be compiled
+    "resolveJsonModule": true, // Allows importing JSON files
+    "jsx": "react-native", // Correct JSX mode for React Native
+    "lib": ["esnext"], // Standard library features
+
+    /* Strictness */
+    "strict": true, // Enable all strict type-checking options
+    "noImplicitAny": true, // Raise error on expressions and declarations with an implied 'any' type.
+    "strictNullChecks": true, // In strict null checking mode, the null and undefined values are not in the domain of every type and are only assignable to themselves and any
+    "strictFunctionTypes": true, // Disable bivariant parameter checking for function types.
+    "strictBindCallApply": true, // Enable stricter checking of of the bind, call, and apply methods on functions.
+    "strictPropertyInitialization": true, // Ensure non-undefined class properties are initialized in the constructor.
+    "noImplicitThis": true, // Raise error on 'this' expressions with an implied 'any' type.
+    "useUnknownInCatchVariables": true, // Default catch clause variables to 'unknown' instead of 'any'.
+    "alwaysStrict": true, // Parse in strict mode and emit "use strict" for each source file.
+    "noUnusedLocals": true, // Report errors on unused local variables.
+    "noUnusedParameters": true, // Report errors on unused parameters.
+    "exactOptionalPropertyTypes": true, // Interpret optional property types as written, rather than adding undefined.
+    "noImplicitReturns": true, // Report error when not all code paths in function return a value.
+    "noFallthroughCasesInSwitch": true, // Report errors for fallthrough cases in switch statement.
+    "noUncheckedIndexedAccess": true, // Add 'undefined' to a type when accessed using an index.
+    // "noPropertyAccessFromIndexSignature": true, // Require undeclared properties to be accessed with an index signature. (Consider enabling later if needed)
+
+    /* Module Resolution Options */
+    "module": "esnext", // Specify module code generation
+    "moduleResolution": "node", // Classic module resolution strategy
+    "baseUrl": "./", // Base directory to resolve non-absolute module names.
+    "paths": { // A series of entries which re-map imports to lookup locations relative to the 'baseUrl'.
+      "@components/*": ["src/components/*"],
+      "@screens/*": ["src/screens/*"],
+      "@navigation/*": ["src/navigation/*"],
+      "@contexts/*": ["src/contexts/*"],
+      "@services/*": ["src/services/*"],
+      "@utils/*": ["src/utils/*"],
+      "@theme/*": ["src/theme/*"],
+      "@types/*": ["src/types/*"],
+      "@constants": ["src/constants.ts"], // Note: .ts extension for single file alias
+      "@assets/*": ["assets/*"]
+    },
+    "allowSyntheticDefaultImports": true, // Allow default imports from modules with no default export. This does not affect code emit, just typechecking.
+    "isolatedModules": true, // Unconditionally emit imports for unresolved files
+
+    /* Experimental Options */
+    // "experimentalDecorators": true,
+    // "emitDecoratorMetadata": true,
+
+    /* Advanced Options */
+    "forceConsistentCasingInFileNames": true // Disallow inconsistently-cased references to the same file.
   },
-  "extends": "@tsconfig/react-native/tsconfig.json"
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js", // Include JS files if you have any in src
+    "index.js", // Or your main entry point if different
+    "App.tsx", // Include App.tsx
+    "babel.configc.js", // Include Babel config if needed for type checking
+    "metro.config.cjs", // Include Metro config
+    "jest.config.js" // Include Jest config
+  ],
+  "exclude": [
+    "node_modules",
+    "babel.configc.js", // Often excluded if not needed for TS to parse
+    "metro.config.cjs", // Often excluded
+    "jest.config.js", // Often excluded
+    "android", // Exclude native project folders
+    "ios" // Exclude native project folders
+  ]
 }

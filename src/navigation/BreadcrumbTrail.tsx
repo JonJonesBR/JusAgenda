@@ -1,140 +1,164 @@
+// src/navigation/BreadcrumbTrail.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Icon } from '@rneui/themed';
-import { isLargeDevice, isMediumDevice } from '../utils/responsiveUtils';
+import { View, Text, StyleSheet, TouchableOpacity, StyleProp, ViewStyle, TextStyle, Platform } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme, Theme } from '../contexts/ThemeContext';
+import { getResponsiveFontSize, getResponsiveSpacing } from '../utils/responsiveUtils'; // Assumindo que ainda usa
 
 interface BreadcrumbItem {
-  id: string;
   label: string;
-  onPress?: () => void;
+  // Adicionar outras propriedades se necessário, ex: rota para navegação direta
 }
 
 interface BreadcrumbTrailProps {
-  items: BreadcrumbItem[];
-  accessibilityLabel?: string;
+  steps: BreadcrumbItem[];
+  currentStepIndex: number; // Índice do passo atual (base 0)
+  onStepPress?: (stepIndex: number) => void; // Função para navegar para um passo específico
+  style?: StyleProp<ViewStyle>; // Estilo para o container principal
+  stepStyle?: StyleProp<ViewStyle>; // Estilo para cada item de passo individual
+  activeStepStyle?: StyleProp<ViewStyle>;
+  inactiveStepStyle?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
+  activeTextStyle?: StyleProp<TextStyle>;
+  inactiveTextStyle?: StyleProp<TextStyle>;
+  separatorStyle?: StyleProp<ViewStyle>; // Estilo para o separador
+  // Adicione outras props conforme necessário
 }
 
 const BreadcrumbTrail: React.FC<BreadcrumbTrailProps> = ({
-  items,
-  accessibilityLabel = 'Trilha de navegação',
+  steps,
+  currentStepIndex,
+  onStepPress,
+  style,
+  stepStyle,
+  activeStepStyle,
+  inactiveStepStyle,
+  textStyle,
+  activeTextStyle,
+  inactiveTextStyle,
+  separatorStyle,
 }) => {
-  const isTablet = isLargeDevice || isMediumDevice;
+  const { theme } = useTheme();
 
-  if (!items || items.length === 0) return null;
+  // Validação básica
+  if (!steps || steps.length === 0) {
+    return null;
+  }
+  const safeCurrentStepIndex = Math.max(0, Math.min(currentStepIndex, steps.length - 1));
 
-  const componentColors = {
-    containerBackground: '#fff',
-    containerBorder: '#e0e0e0',
-    textActive: '#6200ee',
-    textInactive: '#999',
-    separatorIconColor: '#ccc',
+  // Estilos baseados no tema
+  const themedSeparatorStyle: ViewStyle = {
+    marginHorizontal: getResponsiveSpacing(theme.spacing.xs / 2, 'width'), // Usa responsiveUtils ou theme.spacing
   };
 
-  // Estilos dinâmicos ordenados
-  const dynamicStyles = StyleSheet.create({
-    homeIconStyle: {
-      marginRight: 4,
-    },
-    itemTextLastStyle: {
-      color: componentColors.textActive,
-      fontWeight: 'bold',
-    },
-    itemTextNormalStyle: { // MOVIDO para antes de itemTextStyle
-      color: componentColors.textInactive,
-      fontWeight: 'normal',
-    },
-    itemTextStyle: {
-      fontSize: isTablet ? 16 : 14,
-      maxWidth: 120,
-    },
-    separatorStyle: {
-      color: componentColors.separatorIconColor,
-      marginHorizontal: 4,
-    }
-  });
+  const themedTextStyleBase: TextStyle = {
+    fontSize: getResponsiveFontSize(theme.typography.fontSize.sm), // Usa responsiveUtils ou theme.typography
+    fontFamily: theme.typography.fontFamily.regular,
+  };
 
   return (
-    <View
-      style={[styles.container, {
-        backgroundColor: componentColors.containerBackground,
-        borderBottomColor: componentColors.containerBorder,
-      }]}
-      accessible={true}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="header"
-    >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {items.map((item, index) => {
-          const isLast = index === items.length - 1;
-          const homeIconColor = isLast ? componentColors.textActive : componentColors.textInactive;
+    <View style={[styles.container, style]}>
+      {steps.map((step, index) => {
+        const isActive = index === safeCurrentStepIndex;
+        const isCompleted = index < safeCurrentStepIndex; // Passos anteriores são considerados concluídos
+        const isPressable = onStepPress && (isCompleted || isActive) && index !== safeCurrentStepIndex; // Permite clicar em passos concluídos para voltar
 
-          return (
-            <React.Fragment key={item.id}>
-              <TouchableOpacity
-                onPress={isLast ? undefined : item.onPress}
-                disabled={isLast || !item.onPress}
-                style={styles.itemContainer}
-                accessible={true}
-                accessibilityLabel={`${item.label}${isLast ? ', página atual' : ''}`}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: isLast || !item.onPress }}
-              >
-                {index === 0 && (
-                  <Icon
-                    name="home"
-                    type="material"
-                    size={isTablet ? 18 : 16}
-                    color={homeIconColor}
-                    style={dynamicStyles.homeIconStyle}
-                  />
-                )}
+        let currentStepSpecificStyle: StyleProp<ViewStyle> = {};
+        let currentTextSpecificStyle: StyleProp<TextStyle> = {};
 
-                <Text
-                  style={[
-                    dynamicStyles.itemTextStyle, // Mantém a ordem de aplicação aqui
-                    isLast ? dynamicStyles.itemTextLastStyle : dynamicStyles.itemTextNormalStyle,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
+        if (isActive) {
+          currentStepSpecificStyle = activeStepStyle || {};
+          currentTextSpecificStyle = activeTextStyle || { fontFamily: theme.typography.fontFamily.bold, color: theme.colors.primary };
+        } else if (isCompleted) {
+          currentStepSpecificStyle = {}; // Pode ter um estilo para 'completed'
+          currentTextSpecificStyle = inactiveTextStyle || { color: theme.colors.primary, opacity: 0.8 }; // Cor diferente para concluídos
+        } else { // Passos futuros
+          currentStepSpecificStyle = inactiveStepStyle || {};
+          currentTextSpecificStyle = inactiveTextStyle || { color: theme.colors.placeholder, opacity: 0.7 };
+        }
 
-              {!isLast && (
-                <Icon
-                  name="chevron-right"
-                  type="material"
-                  size={isTablet ? 22 : 18}
-                  style={dynamicStyles.separatorStyle} // A cor já está neste estilo
+        return (
+          <React.Fragment key={`breadcrumb-${index}`}>
+            <TouchableOpacity
+              style={[styles.stepItemBase, stepStyle, currentStepSpecificStyle]}
+              onPress={isPressable ? () => onStepPress(index) : undefined}
+              disabled={!isPressable}
+              activeOpacity={isPressable ? 0.7 : 1}
+            >
+              {/* Opcional: Ícone para passo concluído ou ativo */}
+              {isCompleted && !isActive && (
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={getResponsiveFontSize(theme.typography.fontSize.md)}
+                  color={theme.colors.primary}
+                  style={styles.stepIcon}
                 />
               )}
-            </React.Fragment>
-          );
-        })}
-      </ScrollView>
+              {isActive && (
+                 <MaterialCommunityIcons
+                  name="play-circle" // Ou "numeric-X-circle"
+                  size={getResponsiveFontSize(theme.typography.fontSize.md)}
+                  color={theme.colors.primary}
+                  style={styles.stepIcon}
+                />
+              )}
+              <Text
+                style={[
+                  styles.stepTextBase,
+                  themedTextStyleBase,
+                  textStyle,
+                  currentTextSpecificStyle,
+                ]}
+                numberOfLines={1}
+              >
+                {step.label}
+              </Text>
+            </TouchableOpacity>
+            {index < steps.length - 1 && (
+              <View style={[styles.separatorBase, themedSeparatorStyle, separatorStyle]}>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={getResponsiveFontSize(theme.typography.fontSize.lg)} // Tamanho do ícone separador
+                  color={theme.colors.border}
+                />
+              </View>
+            )}
+          </React.Fragment>
+        );
+      })}
     </View>
   );
 };
 
-// Estilos base ordenados
 const styles = StyleSheet.create({
   container: {
-    borderBottomWidth: 1,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  itemContainer: {
-    alignItems: 'center',
     flexDirection: 'row',
-    paddingVertical: 4,
-  },
-  scrollContent: {
     alignItems: 'center',
-    paddingRight: 10,
+    justifyContent: 'center', // Ou 'flex-start' se preferir
+    paddingVertical: 8, // Usar theme.spacing.sm
+    // backgroundColor: theme.colors.surface, // Opcional: cor de fundo para a trilha
+    // borderBottomWidth: StyleSheet.hairlineWidth, // Opcional: borda inferior
+    // borderBottomColor: theme.colors.border,
+  },
+  stepItemBase: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6, // Usar theme.spacing.xs
+    paddingVertical: 4,   // Usar theme.spacing.xs / 2
+    borderRadius: 12,     // Usar theme.radii.lg ou round
+    // backgroundColor: 'transparent', // Pode ser definido por active/inactiveStepStyle
+  },
+  stepIcon: {
+    marginRight: 4, // Usar theme.spacing.xs / 2
+  },
+  stepTextBase: {
+    // fontSize e color são definidos dinamicamente
+    textAlign: 'center',
+  },
+  separatorBase: {
+    // marginHorizontal é definido dinamicamente
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

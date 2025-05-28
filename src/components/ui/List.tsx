@@ -1,170 +1,178 @@
-import React from 'react';
+// src/components/ui/List.tsx
+import React, { ReactElement, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
-  TouchableOpacity,
-  ListRenderItem,
+  StyleSheet,
+  ActivityIndicator,
+  FlatListProps,
+  ListRenderItemInfo,
+  StyleProp,
   ViewStyle,
   TextStyle,
 } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Icon, IconProps } from '@rneui/themed';
 
+// Interface para os itens da lista, pode ser expandida ou tornada genérica
+// Se cada item tiver uma estrutura mais complexa, defina-a aqui ou importe.
 export interface ListItem {
-  id: string;
-  title: string;
+  id: string; // ID é geralmente obrigatório para keyExtractor
+  title?: string;
   subtitle?: string;
-  leftIcon?: IconProps;
-  rightIcon?: IconProps;
-  rightComponent?: React.ReactNode;
-  onPress?: (item: ListItem) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any; // Allows for additional, unspecified properties on list items
+  // Adicione outros campos que seus itens de lista possam ter
+  [key: string]: any; // Permite outros campos, mas com cuidado para type safety
 }
 
-interface ListProps {
-  items: ListItem[];
-  style?: ViewStyle;
-  itemStyle?: ViewStyle;
-  titleStyle?: TextStyle;
-  subtitleStyle?: TextStyle;
-  keyExtractor?: (item: ListItem, index: number) => string;
-  renderItem?: ListRenderItem<ListItem>;
-  // Using 'any' for props of these components is a common pattern for generic list components
-  // as the List component itself doesn't know or care about the specific props these might take.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ListFooterComponent?: React.ComponentType<any> | React.ReactElement | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ListEmptyComponent?: React.ComponentType<any> | React.ReactElement | null;
-  onEndReached?: (() => void) | null;
-  onEndReachedThreshold?: number | null;
-  refreshing?: boolean;
-  onRefresh?: (() => void) | null;
+// Props para o componente List
+// Usando genéricos para o tipo do item (TItem)
+interface ListProps<TItem extends ListItem> extends Omit<FlatListProps<TItem>, 'renderItem' | 'data'> {
+  data: TItem[] | null | undefined;
+  renderItem?: (info: ListRenderItemInfo<TItem>) => ReactElement | null; // renderItem é opcional, podemos ter um padrão
+  keyExtractor?: (item: TItem, index: number) => string;
+  isLoading?: boolean;
+  loadingIndicatorColor?: string;
+  ListEmptyComponent?: ReactElement | null;
+  emptyStateTitle?: string;
+  emptyStateMessage?: string;
+  emptyStateIcon?: ReactElement;
+  containerStyle?: StyleProp<ViewStyle>;
+  contentContainerStyle?: StyleProp<ViewStyle>; // Para o contentContainerStyle do FlatList
+  // Adicione outras props customizadas que seu List possa precisar
+  // Ex: onEndReachedThreshold, onRefresh, refreshing
 }
 
-const DefaultListEmptyComponent: React.FC = () => {
-    const { theme } = useTheme();
-    return (
-        <View style={componentStyles.emptyContainer}>
-            <Icon name="information-outline" type="material-community" size={48} color={theme.colors.textSecondary} />
-            <Text style={[componentStyles.emptyText, { color: theme.colors.textSecondary }]}>
-                Nenhum item para exibir.
-            </Text>
-        </View>
-    );
-};
+// Componente padrão para quando a lista está vazia
+const DefaultListEmptyComponent: React.FC<{
+  title?: string;
+  message?: string;
+  icon?: ReactElement;
+  textColor: string;
+  fontFamilyRegular: string;
+  fontFamilyBold: string;
+}> = ({ title = 'Nada para mostrar', message, icon, textColor, fontFamilyRegular, fontFamilyBold }) => (
+  <View style={styles.emptyContainer}>
+    {icon && <View style={styles.emptyIconContainer}>{icon}</View>}
+    <Text style={[styles.emptyTitle, { color: textColor, fontFamily: fontFamilyBold }]}>{title}</Text>
+    {message && <Text style={[styles.emptyMessage, { color: textColor, fontFamily: fontFamilyRegular }]}>{message}</Text>}
+  </View>
+);
 
-
-const List: React.FC<ListProps> = ({
-  items,
-  style,
-  itemStyle,
-  titleStyle: propTitleStyle,
-  subtitleStyle: propSubtitleStyle,
-  keyExtractor = (item) => item.id,
+// Componente List genérico
+function List<TItem extends ListItem>({
+  data,
   renderItem,
-  ListEmptyComponent = <DefaultListEmptyComponent />,
-  ...flatListProps
-}) => {
+  keyExtractor,
+  isLoading = false,
+  loadingIndicatorColor,
+  ListEmptyComponent: CustomEmptyComponent,
+  emptyStateTitle,
+  emptyStateMessage,
+  emptyStateIcon,
+  containerStyle,
+  contentContainerStyle,
+  ...flatListProps // Restante das props do FlatList
+}: ListProps<TItem>): ReactElement {
   const { theme } = useTheme();
 
-  const defaultRenderItem: ListRenderItem<ListItem> = ({ item }) => (
-    <TouchableOpacity
-      style={[
-        componentStyles.itemContainer,
-        { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border },
-        itemStyle,
-      ]}
-      onPress={() => item.onPress && item.onPress(item)}
-      disabled={!item.onPress}
-      activeOpacity={item.onPress ? 0.7 : 1}
-    >
-      {item.leftIcon && (
-        <Icon
-          containerStyle={componentStyles.iconContainer}
-          name={item.leftIcon.name}
-          type={item.leftIcon.type || 'material-community'}
-          size={item.leftIcon.size || 24}
-          color={item.leftIcon.color || theme.colors.textSecondary}
-          {...item.leftIcon}
-        />
-      )}
-      <View style={componentStyles.textContainer}>
-        <Text style={[componentStyles.title, { color: theme.colors.text }, propTitleStyle]}>
-          {item.title}
+  const defaultKeyExtractor = useCallback((item: TItem, index: number): string => {
+    if (item && typeof item.id === 'string') {
+      return item.id;
+    }
+    // console.warn(`List: Item no índice ${index} não possui um 'id' string. Usando índice como chave.`);
+    return index.toString();
+  }, []);
+
+  // Renderizador de item padrão simples (se nenhum for fornecido)
+  // Geralmente, o usuário do componente List fornecerá seu próprio renderItem.
+  const defaultRenderItem = ({ item }: ListRenderItemInfo<TItem>): ReactElement => (
+    <View style={{ padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
+      <Text style={{ color: theme.colors.text, fontSize: theme.typography.fontSize.md, fontFamily: theme.typography.fontFamily.regular }}>
+        {item.title || `Item ${item.id}`}
+      </Text>
+      {item.subtitle && (
+        <Text style={{ color: theme.colors.placeholder, fontSize: theme.typography.fontSize.sm, fontFamily: theme.typography.fontFamily.regular }}>
+          {item.subtitle}
         </Text>
-        {item.subtitle && (
-          <Text style={[componentStyles.subtitle, { color: theme.colors.textSecondary }, propSubtitleStyle]}>
-            {item.subtitle}
-          </Text>
-        )}
-      </View>
-      {item.rightComponent ? item.rightComponent : item.rightIcon && (
-         <Icon
-            containerStyle={componentStyles.iconContainer}
-            name={item.rightIcon.name}
-            type={item.rightIcon.type || 'material-community'}
-            size={item.rightIcon.size || 24}
-            color={item.rightIcon.color || theme.colors.textSecondary}
-            {...item.rightIcon}
-        />
       )}
-    </TouchableOpacity>
+    </View>
   );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, containerStyle]}>
+        <ActivityIndicator size="large" color={loadingIndicatorColor || theme.colors.primary} />
+      </View>
+    );
+  }
+
+  const finalRenderItem = renderItem || defaultRenderItem;
+  const finalKeyExtractor = keyExtractor || defaultKeyExtractor;
+
+  const EmptyComponentToRender = CustomEmptyComponent !== undefined // Se CustomEmptyComponent for explicitamente null, não renderiza nada
+    ? CustomEmptyComponent
+    : (
+        <DefaultListEmptyComponent
+          title={emptyStateTitle}
+          message={emptyStateMessage}
+          icon={emptyStateIcon}
+          textColor={theme.colors.text}
+          fontFamilyRegular={theme.typography.fontFamily.regular}
+          fontFamilyBold={theme.typography.fontFamily.bold}
+        />
+      );
+
 
   return (
-    <FlatList
-      data={items}
-      renderItem={renderItem || defaultRenderItem}
-      keyExtractor={keyExtractor}
-      style={[componentStyles.listContainer, style]}
-      ListEmptyComponent={ListEmptyComponent}
-      showsVerticalScrollIndicator={false}
-      {...flatListProps}
+    <FlatList<TItem> // Especificando o tipo TItem para FlatList
+      data={data || []} // Garante que data nunca seja null/undefined para FlatList
+      renderItem={finalRenderItem}
+      keyExtractor={finalKeyExtractor}
+      ListEmptyComponent={data === null || (data && data.length === 0) ? EmptyComponentToRender : null}
+      style={containerStyle} // Estilo para o container do FlatList em si
+      contentContainerStyle={[
+        (data === null || data?.length === 0) && styles.emptyContentContainer, // Centraliza o EmptyComponent se a lista estiver vazia
+        contentContainerStyle // Permite sobrescrever ou adicionar estilos ao contentContainer
+      ]}
+      {...flatListProps} // Passa as props restantes para o FlatList
     />
   );
-};
+}
 
-const componentStyles = StyleSheet.create({
-  emptyContainer: {
-    alignItems: 'center',
+const styles = StyleSheet.create({
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    padding: 32,
+    alignItems: 'center',
+    paddingVertical: 20,
   },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 16,
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    minHeight: 150, // Altura mínima para o container vazio
+  },
+  emptyContentContainer: { // Usado para centralizar o EmptyComponent
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyIconContainer: {
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18, // Ajustado via theme.typography
+    fontWeight: 'bold', // Ajustado via theme.typography
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyMessage: {
+    fontSize: 14, // Ajustado via theme.typography
     textAlign: 'center',
   },
-  iconContainer: {
-    marginRight: 16,
-  },
-  itemContainer: {
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  listContainer: {
-    flex: 1,
-  },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  textContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
+  // Estilos para o item padrão (defaultRenderItem) são inline para simplicidade,
+  // mas poderiam ser movidos para cá se ficassem mais complexos.
 });
 
 export default List;

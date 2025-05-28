@@ -1,120 +1,73 @@
-import { Theme as CalendarRNTheme } from 'react-native-calendars/src/types'; // Renomeado para evitar conflito com seu tipo Theme
-import { Theme as AppTheme } from '../contexts/ThemeContext'; // Importar seu tipo de tema principal
+// src/theme/calendarTheme.ts
+import { Theme as AppThemeType, useTheme } from '../contexts/ThemeContext'; // Importa o tipo do seu tema e o hook
+import { Theme as CalendarRNTheme } from 'react-native-calendars/src/types'; // Importa o tipo de tema do react-native-calendars
 
-/**
- * Gera um objeto de tema para react-native-calendars baseado no tema claro do aplicativo.
- * @param {AppTheme} appTheme - O objeto de tema principal do aplicativo (claro).
- * @returns {CalendarRNTheme} - O objeto de tema para react-native-calendars.
- */
-export const getCalendarLightTheme = (appTheme: AppTheme): CalendarRNTheme => {
-  // Usar cores do tema principal com fallbacks razoáveis
-  const primaryColor = appTheme.colors.primary || '#6200ee';
-  const textColor = appTheme.colors.text || '#2d4150';
-  const textSecondaryColor = appTheme.colors.textSecondary || '#b6c1cd';
-  const backgroundColor = appTheme.colors.background || '#ffffff';
-  const surfaceColor = appTheme.colors.card || '#ffffff'; // Usar cor do card ou background
-  const disabledColor = appTheme.colors.textSecondary || '#d9e1e8'; // Replaced disabled with textSecondary
-  const onPrimaryColor = appTheme.colors.onPrimary || '#ffffff';
+// Função para gerar o tema do calendário com base no tema da aplicação
+const getCalendarTheme = (appTheme: AppThemeType): CalendarRNTheme => {
+  const { colors, typography, isDark } = appTheme;
 
-  // Usar fontes do tema principal se disponíveis
-  // const textBase = { // Removido, pois não está sendo usado
-  //   // fontFamily: appTheme.typography?.fontFamily?.regular || undefined, // Descomente se tiver fontes no tema
-  // };
-  // const textBold = { // Removido, pois não está sendo usado
-  //   // fontFamily: appTheme.typography?.fontFamily?.bold || undefined, // Descomente se tiver fontes no tema
-  //   fontWeight: 'bold' as const, // Manter bold explícito
-  // };
-  //  const textMedium = { // Removido, pois não está sendo usado
-  //   // fontFamily: appTheme.typography?.fontFamily?.medium || undefined, // Descomente se tiver fontes no tema
-  //   fontWeight: '300' as const, // Manter como no original
-  // };
-  const baseFontSize = appTheme.typography?.fontSize?.md || 16; // Usar tamanho médio como base
+  // Define cores base para o calendário
+  const calendarColors = {
+    calendarBackground: colors.background,
+    textSectionTitleColor: colors.text, // Cor dos títulos da seção (dias da semana)
+    textSectionTitleDisabledColor: colors.disabled,
+    selectedDayBackgroundColor: colors.primary,
+    selectedDayTextColor: colors.white || '#ffffff', // Cor do texto no dia selecionado (geralmente branco sobre cor primária)
+    todayTextColor: colors.primary, // Cor do texto para o dia atual
+    dayTextColor: colors.text, // Cor do texto para os dias normais
+    textDisabledColor: colors.disabled, // Cor do texto para dias desabilitados (fora do mês)
+    dotColor: colors.primary, // Cor dos pontos/marcadores de evento
+    selectedDotColor: colors.white || '#ffffff', // Cor dos pontos no dia selecionado
+    arrowColor: colors.primary, // Cor das setas de navegação do mês
+    disabledArrowColor: colors.disabled,
+    monthTextColor: colors.text, // Cor do texto do nome do mês
+    indicatorColor: colors.primary, // Cor do indicador (ex: today)
+    // textDayFontFamily: typography.fontFamily.regular, // Removido, react-native-calendars não parece suportar diretamente via theme object
+    // textMonthFontFamily: typography.fontFamily.bold, // Removido
+    // textDayHeaderFontFamily: typography.fontFamily.regular, // Removido
+    textDayFontWeight: '400' as const, // Pesos de fonte precisam ser strings literais específicas
+    textMonthFontWeight: 'bold' as const,
+    textDayHeaderFontWeight: '500' as const, // Um pouco mais de peso para os cabeçalhos dos dias
 
-  return {
-    // Cores
-    backgroundColor: backgroundColor,
-    calendarBackground: surfaceColor, // Fundo do calendário pode ser a cor do card/surface
-    textSectionTitleColor: textSecondaryColor,
-    textSectionTitleDisabledColor: disabledColor,
-    selectedDayBackgroundColor: primaryColor,
-    selectedDayTextColor: onPrimaryColor,
-    todayTextColor: primaryColor,
-    dayTextColor: textColor,
-    textDisabledColor: disabledColor,
-    dotColor: primaryColor,
-    selectedDotColor: onPrimaryColor,
-    arrowColor: primaryColor,
-    disabledArrowColor: disabledColor,
-    monthTextColor: textColor, // Pode querer uma cor diferente (ex: primaryColor)
-    indicatorColor: primaryColor,
+    // Cores específicas para o tema escuro, se necessário um ajuste fino além do que já vem de `colors`
+    ...(isDark && {
+      textSectionTitleColor: colors.text, // Geralmente o mesmo que colors.text
+      todayTextColor: colors.primary, // Pode precisar de um tom mais vibrante no escuro
+      arrowColor: colors.primary,
+      // Adicione outros overrides específicos para o tema escuro se necessário
+    }),
 
-    // Fontes (baseado nos estilos originais)
-    // textDayFontFamily: textBase.fontFamily, // Descomente se tiver fontes no tema
-    textDayFontWeight: '300', // Mantido do original
-    textDayFontSize: baseFontSize,
-
-    // textMonthFontFamily: textBold.fontFamily, // Descomente se tiver fontes no tema
-    textMonthFontWeight: 'bold',
-    textMonthFontSize: baseFontSize,
-
-    // textDayHeaderFontFamily: textBase.fontFamily, // Descomente se tiver fontes no tema
-    textDayHeaderFontWeight: '300',
-    textDayHeaderFontSize: baseFontSize * 0.85, // Header um pouco menor
-
-    // agendaDayTextColor: // Para AgendaList
-    // agendaDayNumColor: // Para AgendaList
-    // agendaTodayColor: // Para AgendaList
-    // agendaKnobColor: // Para AgendaList
-    // todayBackgroundColor: // Fundo do dia atual (se diferente de apenas texto)
-    //reservationsBackgroundColor // Cor de fundo para a lista de eventos em AgendaList
-    // ... outras propriedades se necessário
+    // Agenda theme
+    agendaDayTextColor: colors.primary,
+    agendaDayNumColor: colors.primary,
+    agendaTodayColor: colors.appAccent || colors.secondary, // Cor para "Hoje" na agenda
+    agendaKnobColor: colors.primary,
+    reservationsBackgroundColor: colors.surface, // Cor de fundo para a lista de itens da agenda
   };
+
+  // Adicionando estilos de texto que o react-native-calendars aceita
+  // A biblioteca não aceita todas as propriedades de fontFamily diretamente no objeto de tema principal,
+  // mas algumas podem ser passadas para componentes específicos ou são inferidas.
+  // Os pesos de fonte são mais consistentemente suportados.
+
+  return calendarColors;
 };
 
 /**
- * Gera um objeto de tema para react-native-calendars baseado no tema escuro do aplicativo.
- * @param {AppTheme} appTheme - O objeto de tema principal do aplicativo (escuro).
- * @returns {CalendarRNTheme} - O objeto de tema para react-native-calendars.
+ * Hook para obter o tema do calendário dinamicamente com base no tema atual da aplicação.
+ * @returns CalendarRNTheme - O objeto de tema para react-native-calendars.
  */
-export const getCalendarDarkTheme = (appTheme: AppTheme): CalendarRNTheme => {
-   // Usar cores do tema principal escuro com fallbacks
-  const primaryColor = appTheme.colors.primary || '#BB86FC'; // Cor primária do tema escuro
-  const textColor = appTheme.colors.text || '#ffffff';
-  const textSecondaryColor = appTheme.colors.textSecondary || '#a0a0a0'; // Um cinza claro para secundário
-  const backgroundColor = appTheme.colors.background || '#121212';
-  const surfaceColor = appTheme.colors.card || '#1e1e1e'; // Cor de card/surface escura
-  // Cor desabilitada precisa ser visível no fundo escuro
-  const disabledColor = appTheme.colors.textSecondary || '#555555'; // Replaced disabled with textSecondary (darker fallback retained)
-  const onPrimaryColor = appTheme.colors.onPrimary || '#000000'; // Texto sobre o primário (pode ser preto ou branco dependendo do primário)
-
-  // Pegar o tema claro como base e sobrescrever
-  const baseTheme = getCalendarLightTheme(appTheme); // Chama a função do tema claro para obter fontes/tamanhos base
-
-  return {
-    ...baseTheme, // Herda fontes, tamanhos e outras props não sobrescritas
-
-    // Sobrescrever cores para modo escuro
-    backgroundColor: backgroundColor,
-    calendarBackground: surfaceColor,
-    textSectionTitleColor: textSecondaryColor, // Título da seção pode ser secundário
-    textSectionTitleDisabledColor: disabledColor,
-    selectedDayBackgroundColor: primaryColor,
-    selectedDayTextColor: onPrimaryColor, // Cor sobre o primário escuro
-    todayTextColor: primaryColor,
-    dayTextColor: textColor, // Cor de texto padrão escura
-    textDisabledColor: disabledColor, // Cor desabilitada escura
-    dotColor: primaryColor,
-    selectedDotColor: onPrimaryColor, // Cor sobre o primário escuro
-    arrowColor: primaryColor,
-    disabledArrowColor: disabledColor, // Cor desabilitada escura
-    monthTextColor: textColor, // Cor do mês escura
-    indicatorColor: primaryColor,
-    // Garantir que outras cores herdadas do lightTheme façam sentido ou sobrescrevê-las
-  };
+export const useCalendarTheme = (): CalendarRNTheme => {
+  const { theme } = useTheme(); // Obtém o tema atual da aplicação (light ou dark)
+  return getCalendarTheme(theme);
 };
 
-// Você também pode exportar um objeto que contém ambas as funções
-export const calendarThemes = {
-    light: getCalendarLightTheme,
-    dark: getCalendarDarkTheme,
-};
+
+// Você também pode exportar os temas gerados diretamente se precisar deles fora de um hook,
+// mas isso não seria dinâmico se o tema do app mudar em tempo de execução sem recarregar o componente.
+// Para uso estático ou inicialização:
+// import { lightTheme as appLightTheme, darkTheme as appDarkTheme } from '../contexts/ThemeContext';
+// export const staticLightCalendarTheme = getCalendarTheme(appLightTheme);
+// export const staticDarkCalendarTheme = getCalendarTheme(appDarkTheme);
+
+export default useCalendarTheme; // Exporta o hook como padrão

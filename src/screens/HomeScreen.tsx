@@ -1,298 +1,344 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+// src/screens/HomeScreen.tsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
   RefreshControl,
-  ActivityIndicator
+  Platform,
 } from 'react-native';
-import { Card, Icon } from '@rneui/themed';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack'; // Para tipar a navegação
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
 import { useTheme } from '../contexts/ThemeContext';
-import { Event } from '../types/event';
 import { useEvents } from '../contexts/EventCrudContext';
-import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
+import { Event as EventType } from '../types/event';
+import { HomeStackParamList } from '../navigation/stacks/HomeStack'; // Assumindo que tem esta tipagem
+import { formatDate, formatTime, parseISO, isDateValid, addDays, isSameDay, startOfDay, endOfDay } from '../utils/dateUtils';
+import { Card, Header, List, LoadingSkeleton } from '../components/ui'; // Usando componentes de UI atualizados
+import { ROUTES, getEventTypeLabel, getEventStatusLabel, PRIORIDADE_LABELS } from '../constants';
+import OptimizedFlatList from '../components/OptimizedFlatList'; // Usando a FlatList otimizada
 
-import { format, startOfDay, endOfDay, addDays, parseISO, isValid as isDateValid } from 'date-fns';
-import { formatDate as formatDateUtil } from '../utils/dateUtils';
+// Tipagem para a prop de navegação específica desta tela
+type HomeScreenNavigationProp = StackNavigationProp<HomeStackParamList, typeof ROUTES.HOME>;
 
-type HomeStackParamList = {
-  Home: undefined;
-  EventDetails: { eventId?: string; event?: Event };
-  EventView: { eventId: string };
-};
-type HomeScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
+// Interface para os itens da lista de próximos eventos
+interface UpcomingEventListItem extends EventType {
+  // Adicionar campos específicos para a lista, se necessário
+}
 
 const HomeScreen: React.FC = () => {
-  const navigation = useNavigation<HomeScreenNavigationProp>();
   const { theme } = useTheme();
-  const { events } = useEvents();
+  const { events: allEvents, isLoading: isLoadingEventsContext, getEventsByDate } = useEvents(); // Assumindo isLoading do contexto
+  const navigation = useNavigation<HomeScreenNavigationProp>();
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Loading local para dados iniciais da tela
+  const [refreshing, setRefreshing] = useState(false);
+  // const [todayEvents, setTodayEvents] = useState<EventType[]>([]); // Se quiser separar eventos de hoje
 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (events.length > 0 || !isLoading) {
-          setIsLoading(false);
-          return;
-      }
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setIsLoading(false);
-    };
-    loadInitialData();
-  }, [events, isLoading]);
-
-
-  const calculatedNextEvent = useMemo(() => {
-    if (!events || events.length === 0) return null;
-    try {
-      const sortedEvents = [...events]
-        .filter(e => e.data && typeof e.data === 'string' && isDateValid(parseISO(e.data)))
-        .map(e => ({ ...e, dateObj: parseISO(e.data) }))
-        .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
-
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      return sortedEvents.find(e => e.data >= todayStr) || null;
-    } catch (error) {
-      console.error("Error calculating next event:", error);
-      return null;
-    }
-  }, [events]);
-
-  const upcomingEvents = useMemo(() => {
-    if (!events || events.length === 0) return [];
-    try {
-      const today = startOfDay(new Date());
-      const sevenDaysLater = endOfDay(addDays(today, 7));
-
-      return events
-        .filter(e => {
-          if (!e.data || typeof e.data !== 'string') return false;
-          const eventDate = parseISO(e.data);
-          return isDateValid(eventDate) && eventDate >= today && eventDate <= sevenDaysLater;
-        })
-        .sort((a, b) => {
-            const dateA = parseISO(a.data!).getTime();
-            const dateB = parseISO(b.data!).getTime();
-            if (dateA !== dateB) return dateA - dateB;
-            if (a.hora && b.hora) {
-                return a.hora.localeCompare(b.hora);
-            }
-            return 0;
-        });
-    } catch (error) {
-      console.error("Error calculating upcoming events:", error);
-      return [];
-    }
-  }, [events]);
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    console.log("Pull to refresh acionado - atualizando UI com estado em memória.");
-    try {
-        await new Promise(resolve => setTimeout(resolve, 600));
-    } catch (error) {
-        console.error("Erro durante o refresh simulado:", error);
-        Toast.show({type: 'error', text1: 'Erro ao atualizar'});
-    } finally {
-        setIsRefreshing(false);
-    }
+  // Simulação de carregamento de dados específicos da tela ou adicionais
+  const loadInitialData = useCallback(async () => {
+    setIsLoading(true);
+    // console.log('HomeScreen: Carregando dados iniciais...');
+    // Aqui poderia buscar dados adicionais ou fazer alguma lógica específica da HomeScreen
+    // Por agora, vamos apenas simular um pequeno atraso.
+    // A lista de eventos já vem do EventCrudContext.
+    await new Promise(resolve => setTimeout(resolve, 300)); // Pequeno atraso para UX
+    setIsLoading(false);
+    // console.log('HomeScreen: Dados carregados.');
   }, []);
 
-  const navigateToEventDetails = (event: Event) => {
-    navigation.navigate('EventDetails', { eventId: event.id, event: event });
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      // console.log('HomeScreen: Tela focada, pode recarregar dados se necessário.');
+      // Se precisar recarregar eventos sempre que a tela focar:
+      // loadInitialData(); // Ou uma função de recarga mais específica
+    }, [])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // console.log('HomeScreen: Atualizando dados...');
+    // Adicione aqui a lógica para buscar/atualizar os eventos do contexto ou de uma API
+    // Ex: await refetchEventsFromContext();
+    await loadInitialData(); // Simplesmente recarrega os dados por agora
+    setRefreshing(false);
+    // console.log('HomeScreen: Dados atualizados.');
+  }, [loadInitialData]);
+
+
+  const today = useMemo(() => startOfDay(new Date()), []);
+
+  const upcomingEvents = useMemo(() => {
+    const sevenDaysFromNow = endOfDay(addDays(today, 7));
+    return allEvents
+      .filter(e => {
+        if (!e.data || typeof e.data !== 'string') return false;
+        try {
+          const eventDate = parseISO(e.data); // `e.data` deve ser 'YYYY-MM-DD'
+          return isDateValid(eventDate) && eventDate >= today && eventDate <= sevenDaysFromNow;
+        } catch (error) {
+          return false;
+        }
+      })
+      .sort((a, b) => {
+        const dateA = parseISO(a.data).getTime();
+        const dateB = parseISO(b.data).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        // Se as datas forem iguais, ordena pela hora (se existir)
+        const timeA = a.hora ? a.hora.replace(':', '') : '0000';
+        const timeB = b.hora ? b.hora.replace(':', '') : '0000';
+        return timeA.localeCompare(timeB);
+      });
+  }, [allEvents, today]);
+
+  const nextEvent = useMemo(() => {
+    return upcomingEvents.find(event => {
+        if (!event.data) return false;
+        const eventDate = parseISO(event.data);
+        // Considera o próximo evento como o primeiro de hoje ou de um dia futuro
+        return eventDate >= today;
+    }) || null;
+  }, [upcomingEvents, today]);
+
+
+  const navigateToEventDetails = (eventId?: string, initialDateString?: string) => {
+    navigation.navigate(ROUTES.EVENT_DETAILS, { eventId, initialDateString });
   };
 
-  if (isLoading) {
+  const navigateToEventView = (event: EventType) => {
+    navigation.navigate(ROUTES.EVENT_VIEW, { eventId: event.id, eventTitle: event.title });
+  };
+
+  const renderEventCard = (event: EventType, isNextEventCard: boolean = false) => {
+    if (!event) return null;
+
+    const eventDateObj = event.data ? parseISO(event.data) : null;
+    const displayDate = eventDateObj && isDateValid(eventDateObj) ? formatDate(eventDateObj, 'dd/MM/yyyy') : 'Data inválida';
+    const displayTime = event.hora || (event.isAllDay ? 'Dia Todo' : 'Hora não definida');
+
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, {color: theme.colors.text}]}>Carregando agenda...</Text>
+      <Card
+        key={event.id}
+        style={[styles.eventCard, isNextEventCard ? styles.nextEventCardHighlight : {}]}
+        onPress={() => navigateToEventView(event)}
+        elevation={isNextEventCard ? 'md' : 'sm'}
+      >
+        <Text style={[styles.eventTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+          {event.title}
+        </Text>
+        <View style={styles.eventDetailRow}>
+          <MaterialCommunityIcons name="calendar-month-outline" size={16} color={theme.colors.primary} style={styles.iconStyle} />
+          <Text style={[styles.eventDetailText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>
+            {displayDate} às {displayTime}
+          </Text>
+        </View>
+        {event.local && (
+          <View style={styles.eventDetailRow}>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color={theme.colors.primary} style={styles.iconStyle} />
+            <Text style={[styles.eventDetailText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>
+              {event.local}
+            </Text>
+          </View>
+        )}
+        {event.eventType && (
+          <View style={styles.eventDetailRow}>
+            <MaterialCommunityIcons name="tag-outline" size={16} color={theme.colors.primary} style={styles.iconStyle} />
+            <Text style={[styles.eventDetailText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>
+              {getEventTypeLabel(event.eventType)}
+            </Text>
+          </View>
+        )}
+         {event.prioridade && (
+          <View style={styles.eventDetailRow}>
+            <MaterialCommunityIcons name="priority-high" size={16} color={theme.colors.warning} style={styles.iconStyle} />
+            <Text style={[styles.eventDetailText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>
+              Prioridade: {PRIORIDADE_LABELS[event.prioridade] || event.prioridade}
+            </Text>
+          </View>
+        )}
+      </Card>
+    );
+  };
+
+  if (isLoading && !refreshing) { // Mostra skeleton apenas no carregamento inicial
+    return (
+      <View style={[styles.outerContainer, { backgroundColor: theme.colors.background }]}>
+        <Header title="JusAgenda" />
+        <ScrollView contentContainerStyle={styles.scrollViewContent}>
+          <LoadingSkeleton layout="custom" style={{ padding: theme.spacing.md }}>
+            {/* Skeleton para "Próximo Evento" */}
+            <View style={{ marginBottom: theme.spacing.lg }}>
+                <SkeletonPlaceholderItem width="60%" height={24} style={{ marginBottom: theme.spacing.sm }} />
+                <SkeletonPlaceholderItem width="100%" height={120} borderRadius={theme.radii.md} />
+            </View>
+            {/* Skeleton para "Próximos 7 Dias" */}
+            <SkeletonPlaceholderItem width="50%" height={22} style={{ marginBottom: theme.spacing.sm }} />
+            <SkeletonPlaceholderItem width="100%" height={80} borderRadius={theme.radii.md} style={{ marginBottom: theme.spacing.sm }}/>
+            <SkeletonPlaceholderItem width="100%" height={80} borderRadius={theme.radii.md} />
+          </LoadingSkeleton>
+        </ScrollView>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          colors={[theme.colors.primary]}
-          tintColor={theme.colors.primary}
-        />
-      }
-    >
-      {calculatedNextEvent ? (
-        <TouchableOpacity onPress={() => navigateToEventDetails(calculatedNextEvent)}>
-            <Card containerStyle={[styles.card, styles.nextEventCard, { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}>
-            <View style={styles.nextEventHeader}>
-                <Icon name="star" type="material-community" color={theme.colors.onPrimary} size={20} />
-                <Card.Title style={[styles.nextEventCardTitle, { color: theme.colors.onPrimary }]}>
-                    Próximo Evento
-                </Card.Title>
-            </View>
-            <Card.Divider color={theme.colors.onPrimary} style={styles.cardDividerWithOpacity} />
-            <Text style={[styles.nextEventTitle, { color: theme.colors.onPrimary }]}>
-                {calculatedNextEvent.title}
-            </Text>
-            <Text style={[styles.nextEventDetails, styles.nextEventDetailsOpacity, { color: theme.colors.onPrimary }]}>
-                {formatDateUtil(calculatedNextEvent.data, 'dd/MM/yyyy')}
-                {calculatedNextEvent.hora ? ` às ${calculatedNextEvent.hora}` : ''}
-            </Text>
-            {calculatedNextEvent.local && (
-                <Text style={[styles.nextEventDetails, styles.nextEventDetailsOpacity, { color: theme.colors.onPrimary }]}>
-                Local: {calculatedNextEvent.local}
+    <View style={[styles.outerContainer, { backgroundColor: theme.colors.background }]}>
+      <Header
+        title="JusAgenda"
+        // Exemplo de rightComponent
+        // rightComponent={
+        //   <TouchableOpacity onPress={() => navigation.navigate(ROUTES.SETTINGS)}>
+        //     <MaterialCommunityIcons name="cog-outline" size={24} color={theme.colors.text} />
+        //   </TouchableOpacity>
+        // }
+      />
+      <OptimizedFlatList<UpcomingEventListItem>
+        data={upcomingEvents} // Passa todos os eventos dos próximos 7 dias
+        renderItem={({ item }) => renderEventCard(item, item.id === nextEvent?.id)}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <>
+            {nextEvent ? (
+              <View style={{ paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.md }}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+                  Próximo Evento
                 </Text>
-            )}
-            </Card>
-        </TouchableOpacity>
-      ) : (
-        <Card containerStyle={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <View style={styles.emptyMessageContainerCentered}>
-                <Icon name="calendar-today" type="material-community" size={30} color={theme.colors.textSecondary} />
-                <Text style={[styles.emptyMessage, { color: theme.colors.textSecondary, marginTop: theme.spacing.sm }]}>
-                    Nenhum evento próximo agendado.
-                </Text>
-            </View>
-        </Card>
-      )}
-
-      <Text style={[
-            styles.sectionTitle,
-            { color: theme.colors.text, marginTop: theme.spacing.lg }
-      ]}>
-        Eventos nos Próximos 7 Dias
-      </Text>
-      {upcomingEvents.length > 0 ? (
-        upcomingEvents.map(event => (
-          <TouchableOpacity
-            key={event.id}
-            onPress={() => navigateToEventDetails(event)}
-            style={styles.eventTouchable}
-          >
-            <Card containerStyle={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-              <Text style={[styles.eventItemTitle, { color: theme.colors.text }]}>{event.title}</Text>
-              <Text style={[styles.eventItemDetails, { color: theme.colors.textSecondary }]}>
-                {formatDateUtil(event.data, 'EEEE, dd/MM/yyyy')}
-                {event.hora ? ` - ${event.hora}` : ''}
-              </Text>
-              {event.local && (
-                <Text style={[styles.eventItemDetails, styles.eventItemLocalText, { color: theme.colors.textSecondary }]}>
-                  <Icon name="map-marker-outline" type="material-community" size={14} color={theme.colors.textSecondary} /> {event.local}
-                </Text>
-              )}
-            </Card>
-          </TouchableOpacity>
-        ))
-      ) : ( // O erro de parsing estava aqui, o parêntese extra foi removido.
-            <View style={styles.emptyMessageContainer}>
-                <Icon name="calendar-check-outline" type="material-community" size={48} color={theme.colors.textSecondary} />
-                <Text style={[styles.emptyMessage, { color: theme.colors.textSecondary }]}>
+                {/* O próximo evento já será renderizado como o primeiro item da lista se a lógica estiver correta */}
+              </View>
+            ) : (
+              !isLoadingEventsContext && upcomingEvents.length === 0 && ( // Mostra apenas se não estiver carregando e não houver eventos
+                <View style={[styles.centeredMessageContainer, { padding: theme.spacing.md }]}>
+                  <MaterialCommunityIcons name="calendar-check-outline" size={48} color={theme.colors.placeholder} />
+                  <Text style={[styles.noEventsText, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
                     Nenhum evento agendado para os próximos 7 dias.
-                </Text>
+                  </Text>
+                </View>
+              )
+            )}
+            {upcomingEvents.length > 0 && (
+                 <View style={{ paddingHorizontal: theme.spacing.md, paddingTop: nextEvent ? theme.spacing.sm : theme.spacing.md, paddingBottom: theme.spacing.xs }}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+                        {nextEvent ? 'Outros Eventos (Próximos 7 Dias)' : 'Eventos (Próximos 7 Dias)'}
+                    </Text>
+                </View>
+            )}
+          </>
+        }
+        ListEmptyComponent={ // Será mostrado se `upcomingEvents` estiver vazio E `nextEvent` for null
+          !isLoadingEventsContext && !nextEvent && ( // Condição duplicada, mas garante
+            <View style={[styles.centeredMessageContainer, { padding: theme.spacing.md, marginTop: theme.spacing.xl }]}>
+               <MaterialCommunityIcons name="calendar-alert" size={48} color={theme.colors.placeholder} />
+              <Text style={[styles.noEventsText, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+                Parece que sua agenda está livre!
+              </Text>
             </View>
-        // O parêntese extra foi removido daqui.
+          )
+        }
+        contentContainerStyle={styles.scrollViewContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+        // Outras props do OptimizedFlatList, se necessário
+      />
+
+      {/* Botão Flutuante para Adicionar Evento */}
+      {!isReadOnly && ( // Supondo que isReadOnly possa vir de algum lugar, ou remover esta condição
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+          onPress={() => navigateToEventDetails(undefined, today.toISOString().split('T')[0])} // Passa a data de hoje para novo evento
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="plus" size={28} color={theme.colors.white || '#ffffff'} />
+        </TouchableOpacity>
       )}
-        <View style={{ height: theme.spacing.xxl }} />
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 12,
-  },
-  cardDividerWithOpacity: {
-    opacity: 0.5,
-  },
-  container: {
+  outerContainer: {
     flex: 1,
   },
-  contentContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 16,
-  },
-  emptyMessage: {
-    fontSize: 16,
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  emptyMessageContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.8,
-    paddingVertical: 50,
-  },
-  emptyMessageContainerCentered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-  },
-  eventItemDetails: {
-    fontSize: 14,
-  },
-  eventItemLocalText: {
-    fontSize: 13,
-  },
-  eventItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 3,
-  },
-  eventTouchable: {
-    // Estilos para o TouchableOpacity se necessário
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 10,
-  },
-  nextEventCard: {
-    // Estilos específicos
-  },
-  nextEventCardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  nextEventDetails: {
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  nextEventDetailsOpacity: {
-    opacity: 0.9,
-  },
-  nextEventHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  nextEventTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
+  scrollViewContent: {
+    paddingBottom: 80, // Espaço para o FAB não sobrepor o último item
+    paddingHorizontal: Platform.OS === 'web' ? 16 : 0, // Padding horizontal apenas na web
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    fontSize: 20, // Usar theme.typography
+    // fontWeight e fontFamily são dinâmicos
+    // marginBottom e paddingHorizontal são dinâmicos
+  },
+  eventCard: {
+    marginHorizontal: 16, // Usar theme.spacing.md
+    marginVertical: 8,   // Usar theme.spacing.sm
+  },
+  nextEventCardHighlight: {
+    borderColor: Platform.OS === 'android' ? undefined : '#FFD700', // Destaque para Android pode ser com elevation
+    borderWidth: Platform.OS === 'android' ? 1 : 2, // Borda mais sutil no Android se elevation estiver presente
+    // backgroundColor: theme.colors.surface, // Pode querer um fundo ligeiramente diferente
+  },
+  eventTitle: {
+    fontSize: 18, // Usar theme.typography
+    // fontWeight e fontFamily são dinâmicos
+    marginBottom: 8, // Usar theme.spacing.sm
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4, // Usar theme.spacing.xs
+  },
+  iconStyle: {
+    marginRight: 8, // Usar theme.spacing.sm
+  },
+  eventDetailText: {
+    fontSize: 14, // Usar theme.typography
+    // fontFamily é dinâmico
+    flexShrink: 1, // Para quebrar linha se o texto for longo
+  },
+  centeredMessageContainer: {
+    flex: 1, // Para centralizar se for o único item (via ListEmptyComponent)
+    justifyContent: 'center',
+    alignItems: 'center',
+    // padding é dinâmico
+    minHeight: 200, // Altura mínima para o container da mensagem
+  },
+  noEventsText: {
+    fontSize: 16, // Usar theme.typography
+    marginTop: 16, // Usar theme.spacing.md
+    textAlign: 'center',
+    // fontFamily é dinâmico
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16, // Usar theme.spacing.md
+    right: 0,
+    bottom: 0,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6, // Sombra para Android
+    shadowColor: '#000', // Sombra para iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
 });
 

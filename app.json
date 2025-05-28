@@ -1,38 +1,79 @@
 {
-    "expo": {
-      "name": "JusAgenda",
-      "slug": "JusAgenda",
-      "version": "1.0.0",
-      "orientation": "portrait",
-      "icon": "./assets/icon.png",
-      "splash": {
-        "image": "./assets/splash.png",
-        "resizeMode": "contain",
+  "expo": {
+    "name": "JusAgenda",
+    "slug": "JusAgenda",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jonjonesbr.jusagenda",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "JusAgenda precisa de acesso aos seus calendários para adicionar e gerir eventos.",
+        "NSRemindersUsageDescription": "JusAgenda precisa de acesso aos seus lembretes para agendar notificações de eventos.",
+        "NSContactsUsageDescription": "JusAgenda precisa de acesso aos seus contactos para associá-los a eventos e clientes.",
+        "NSCameraUsageDescription": "Permitir que JusAgenda use a câmara para anexar fotos a eventos ou clientes (funcionalidade futura).",
+        "NSPhotoLibraryUsageDescription": "Permitir que JusAgenda aceda à sua galeria para anexar imagens (funcionalidade futura).",
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "updates": {
-        "fallbackToCacheTimeout": 0
-      },
-      "assetBundlePatterns": [
-        "**/*"
+      "package": "com.jonjonesbr.jusagenda", 
+      "versionCode": 1,
+      "permissions": [ 
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.READ_CONTACTS",
+        "android.permission.VIBRATE",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WRITE_EXTERNAL_STORAGE" 
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"      
+    },
+    "plugins": [      
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6200ee"          
+        }
       ],
-      "ios": {
-        "supportsTablet": true,
-        "bundleIdentifier": "com.jonjonesbr.jusagenda"
-      },
-      "android": {
-        "adaptiveIcon": {
-          "foregroundImage": "./assets/adaptive-icon.png",
-          "backgroundColor": "#FFFFFF"
-        },
-        "package": "com.jonjonesbr.jusagenda"
-      },
-      "web": {
-        "favicon": "./assets/favicon.png"
-      },
-      "androidStatusBar": {
-        "backgroundColor": "#2196F3",
-        "barStyle": "light-content"
-      }
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Permitir que JusAgenda aceda e modifique os seus calendários."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Permitir que JusAgenda aceda aos seus contactos."
+        }
+      ],
+      "expo-localization",
+      "expo-splash-screen",
+      "expo-asset"      
+    ],    
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
+}

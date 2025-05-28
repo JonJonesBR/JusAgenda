@@ -1,338 +1,310 @@
+// src/components/ClientWizard/ClientAddressStep.tsx
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text } from 'react-native';
-import { Input, Button } from '@rneui/themed';
-import { useTheme } from '../../contexts/ThemeContext';
-import { Client, ClientAddress } from '../../types/client';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Input, Button } from '../ui'; // Seus componentes de UI
+import { ClientWizardFormData } from '../../screens/ClientWizardScreen';
+import { Theme } from '../../contexts/ThemeContext';
+import { ClientAddress } from '../../types/client';
 import MaskInput from 'react-native-mask-input';
-import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
+import { APP_CONFIG } from '../../constants';
+import { Toast } from '../ui/Toast';
 
 interface ClientAddressStepProps {
-  data: Partial<Client>;
-  onUpdate: (data: Partial<Client>) => void;
-  readOnly?: boolean;
+  formData: ClientWizardFormData;
+  // updateField: (field: keyof ClientWizardFormData, value: any) => void; // Não usado diretamente para endereços aqui
+  onAddressUpdate: (index: number, field: keyof ClientAddress, value: string) => void;
+  onAddAddress: () => void;
+  onRemoveAddress: (index: number) => void;
+  errors: Partial<Record<string, string>>; // Erros podem ser 'enderecos.0.cep', etc.
+  isReadOnly: boolean;
+  theme: Theme;
 }
 
+interface ViaCepResponse {
+  cep: string;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string; // Cidade
+  uf: string; // Estado
+  ibge: string;
+  gia: string;
+  ddd: string;
+  siafi: string;
+  erro?: boolean;
+}
+
+
 const ClientAddressStep: React.FC<ClientAddressStepProps> = ({
-  data,
-  onUpdate,
-  readOnly = false,
+  formData,
+  onAddressUpdate,
+  onAddAddress,
+  onRemoveAddress,
+  errors,
+  isReadOnly,
+  theme,
 }) => {
-  const { theme } = useTheme();
-  const [loadingCep, setLoadingCep] = useState(false);
+  const [loadingCep, setLoadingCep] = useState<number | null>(null); // Armazena o índice do endereço com CEP a carregar
 
-  const buscarCep = async () => {
-    const cepInput = data.endereco?.cep;
-    if (!cepInput) {
-        Toast.show({ type: 'info', text1: 'CEP não informado' });
-        return;
-    }
-    const cep = cepInput.replace(/\D/g, '');
+  const enderecos = formData.enderecos || [{ cep: '', logradouro: '', numero: '', bairro: '', cidade: '', estado: '' }];
 
-    if (!cep || cep.length !== 8) {
-      Toast.show({
-        type: 'error',
-        text1: 'CEP inválido',
-        text2: 'Digite um CEP válido com 8 dígitos.',
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+  const buscarCep = async (cep: string, index: number) => {
+    const cepLimpo = cep.replace(/\D/g, ''); // Remove não dígitos
+    if (cepLimpo.length !== 8) {
+      Toast.show({ type: 'error', text1: 'CEP Inválido', text2: 'O CEP deve conter 8 dígitos.' });
       return;
     }
 
-    setLoadingCep(true);
+    setLoadingCep(index);
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      const enderecoData = await response.json();
+      const response = await fetch(APP_CONFIG.VIA_CEP_URL(cepLimpo));
+      const data: ViaCepResponse = await response.json();
 
-      if (enderecoData.erro) {
-        Toast.show({
-          type: 'error',
-          text1: 'CEP não encontrado',
-          text2: 'Verifique o CEP digitado.',
-        });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      if (data.erro) {
+        Toast.show({ type: 'error', text1: 'CEP Não Encontrado', text2: 'Verifique o CEP digitado.' });
       } else {
-        onUpdate({
-          ...data,
-          endereco: {
-            ...(data.endereco || {}),
-            logradouro: enderecoData.logradouro || data.endereco?.logradouro || '',
-            bairro: enderecoData.bairro || data.endereco?.bairro || '',
-            cidade: enderecoData.localidade || data.endereco?.cidade || '',
-            estado: enderecoData.uf || data.endereco?.estado || '',
-            cep: cepInput,
-            numero: data.endereco?.numero || '',
-            complemento: data.endereco?.complemento || '',
-          } as ClientAddress,
-        });
-        Toast.show({
-          type: 'success',
-          text1: 'CEP Encontrado!',
-          text2: 'Endereço preenchido automaticamente.',
-        });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        onAddressUpdate(index, 'logradouro', data.logradouro || '');
+        onAddressUpdate(index, 'bairro', data.bairro || '');
+        onAddressUpdate(index, 'cidade', data.localidade || '');
+        onAddressUpdate(index, 'estado', data.uf || '');
+        // Opcional: focar no campo 'numero' após preencher
+        Toast.show({ type: 'success', text1: 'CEP Encontrado!', text2: 'Endereço preenchido.' });
       }
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
-      Toast.show({
-        type: 'error',
-        text1: 'Erro ao buscar CEP',
-        text2: 'Verifique sua conexão com a internet.',
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      Toast.show({ type: 'error', text1: 'Erro de Rede', text2: 'Não foi possível buscar o CEP.' });
     } finally {
-      setLoadingCep(false);
+      setLoadingCep(null);
     }
   };
 
-  const updateAddressField = (field: keyof ClientAddress, value: string) => {
-    if (readOnly) return;
-    onUpdate({
-      ...data,
-      endereco: {
-        ...(data.endereco || {}),
-        [field]: value,
-      } as ClientAddress,
-    });
-  };
-
-  const currentAddress: ClientAddress = data.endereco || {
-    logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '',
-  };
+  const cepMask = [/\d/, /\d/, /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/]; // 00000-000
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-        Endereço
-      </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || '#86939e' }]}>
-        {data.tipo === 'pessoaFisica'
-          ? 'Informe o endereço residencial do cliente.'
-          : 'Informe o endereço da empresa.'}
-      </Text>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>CEP</Text>
-        <View style={styles.cepContainer}>
-          <Input
-            placeholder="00000-000"
-            containerStyle={styles.cepInputContainer}
-            inputContainerStyle={styles.inputSubContainer}
-            inputStyle={{ color: theme.colors.text }}
-            keyboardType="numeric"
-            accessibilityLabel="CEP"
-            returnKeyType={readOnly ? "done" : "search"}
-            editable={!readOnly}
-            InputComponent={(props: any) => (
-              <MaskInput
-                {...props}
-                value={currentAddress.cep}
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                onChangeText={(masked, _unmasked) => { // Adicionado comentário para desabilitar a regra nesta linha
-                  updateAddressField('cep', masked);
-                }}
-                mask={'[0-9]{5}-[0-9]{3}'}
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContentContainer} keyboardShouldPersistTaps="handled">
+      {enderecos.map((endereco, index) => (
+        <View key={`address-${index}`} style={[styles.addressBlock, { borderColor: theme.colors.border }]}>
+          <View style={styles.addressHeader}>
+            <Text style={[styles.addressTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
+              Endereço {enderecos.length > 1 ? index + 1 : ''}
+            </Text>
+            {enderecos.length > 1 && !isReadOnly && (
+              <Button
+                title="Remover"
+                onPress={() => onRemoveAddress(index)}
+                type="clear"
+                size="sm"
+                icon="delete-outline"
+                titleStyle={{ color: theme.colors.error }}
+                iconColor={theme.colors.error}
               />
             )}
+          </View>
+
+          <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+            CEP *
+          </Text>
+          <View style={styles.cepRow}>
+            <View style={[
+                styles.maskedInputContainer,
+                {
+                    borderColor: errors[`enderecos.${index}.cep`] ? theme.colors.error : theme.colors.border,
+                    backgroundColor: theme.colors.surface,
+                    borderRadius: theme.radii.md,
+                    flex: 1,
+                    marginBottom: errors[`enderecos.${index}.cep`] ? 0 : theme.spacing.md,
+                }
+            ]}>
+                <MaskInput
+                    value={endereco.cep || ''}
+                    onChangeText={(masked, unmasked) => onAddressUpdate(index, 'cep', unmasked)}
+                    mask={cepMask}
+                    placeholder="00000-000"
+                    keyboardType="numeric"
+                    editable={!isReadOnly}
+                    style={[styles.maskedInput, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}
+                    placeholderTextColor={theme.colors.placeholder}
+                />
+            </View>
+            {!isReadOnly && (
+                <Button
+                    onPress={() => buscarCep(endereco.cep || '', index)}
+                    disabled={loadingCep === index || !endereco.cep || (endereco.cep.replace(/\D/g, '').length !== 8)}
+                    loading={loadingCep === index}
+                    icon="magnify"
+                    type="outline"
+                    size="md" // Tamanho consistente com altura do input
+                    buttonStyle={styles.cepButton}
+                />
+            )}
+          </View>
+          {errors[`enderecos.${index}.cep`] && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors[`enderecos.${index}.cep`]}</Text>}
+
+
+          <Input
+            label="Logradouro (Rua, Av.) *"
+            value={endereco.logradouro || ''}
+            onChangeText={(text) => onAddressUpdate(index, 'logradouro', text)}
+            error={errors[`enderecos.${index}.logradouro`]}
+            editable={!isReadOnly}
+            placeholder="Ex: Avenida Paulista"
           />
-          {!readOnly && (
-            <Button
-              title="Buscar"
-              onPress={buscarCep}
-              buttonStyle={[styles.cepButton, { backgroundColor: theme.colors.primary }]}
-              titleStyle={{color: theme.colors.onPrimary}}
-              loading={loadingCep}
-              disabled={loadingCep || readOnly}
-              accessibilityLabel="Buscar endereço pelo CEP"
+          <View style={styles.row}>
+            <Input
+              label="Número *"
+              value={endereco.numero || ''}
+              onChangeText={(text) => onAddressUpdate(index, 'numero', text)}
+              error={errors[`enderecos.${index}.numero`]}
+              editable={!isReadOnly}
+              keyboardType="numeric"
+              containerStyle={styles.flexInputShort}
+              placeholder="Ex: 123"
             />
-          )}
-        </View>
-      </View>
-
-      {/* Restante dos campos de Input como antes */}
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Logradouro</Text>
-        <Input
-          placeholder="Rua, Avenida, etc."
-          value={currentAddress.logradouro}
-          onChangeText={(value) => updateAddressField('logradouro', value)}
-          containerStyle={styles.inputContainer}
-          inputContainerStyle={styles.inputSubContainer}
-          inputStyle={{ color: theme.colors.text }}
-          autoCapitalize="words"
-          accessibilityLabel="Logradouro"
-          returnKeyType="next"
-          editable={!readOnly}
-        />
-      </View>
-
-      <View style={styles.rowContainer}>
-        <View style={[styles.formGroup, styles.smallInput]}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Número</Text>
+            <Input
+              label="Complemento"
+              value={endereco.complemento || ''}
+              onChangeText={(text) => onAddressUpdate(index, 'complemento', text)}
+              error={errors[`enderecos.${index}.complemento`]}
+              editable={!isReadOnly}
+              containerStyle={styles.flexInputLong}
+              placeholder="Ex: Apto 10, Bloco B"
+            />
+          </View>
           <Input
-            placeholder="Nº"
-            value={currentAddress.numero}
-            onChangeText={(value) => updateAddressField('numero', value)}
-            containerStyle={styles.inputContainer}
-            inputContainerStyle={styles.inputSubContainer}
-            inputStyle={{ color: theme.colors.text }}
-            keyboardType="numeric"
-            accessibilityLabel="Número"
-            returnKeyType="next"
-            editable={!readOnly}
+            label="Bairro *"
+            value={endereco.bairro || ''}
+            onChangeText={(text) => onAddressUpdate(index, 'bairro', text)}
+            error={errors[`enderecos.${index}.bairro`]}
+            editable={!isReadOnly}
+            placeholder="Ex: Bela Vista"
           />
+          <View style={styles.row}>
+            <Input
+              label="Cidade *"
+              value={endereco.cidade || ''}
+              onChangeText={(text) => onAddressUpdate(index, 'cidade', text)}
+              error={errors[`enderecos.${index}.cidade`]}
+              editable={!isReadOnly}
+              containerStyle={styles.flexInputLong}
+              placeholder="Ex: São Paulo"
+            />
+            <Input
+              label="Estado (UF) *"
+              value={endereco.estado || ''}
+              onChangeText={(text) => onAddressUpdate(index, 'estado', text.toUpperCase())}
+              error={errors[`enderecos.${index}.estado`]}
+              editable={!isReadOnly}
+              maxLength={2}
+              autoCapitalize="characters"
+              containerStyle={styles.flexInputShort}
+              placeholder="Ex: SP"
+            />
+          </View>
+           {/* Opcional: Switch para Endereço Principal */}
+           {/* <View style={[styles.switchRow, { marginVertical: theme.spacing.md }]}>
+                <Text style={[styles.label, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular, flex:1, marginBottom: 0 }]}>
+                    Endereço Principal?
+                </Text>
+                <Switch
+                    trackColor={{ false: theme.colors.disabled, true: theme.colors.primary }}
+                    thumbColor={endereco.isPrincipal ? theme.colors.surface : theme.colors.surface}
+                    ios_backgroundColor={theme.colors.disabled}
+                    onValueChange={(value) => onAddressUpdate(index, 'isPrincipal', value)}
+                    value={!!endereco.isPrincipal}
+                    disabled={isReadOnly}
+                />
+            </View> */}
         </View>
+      ))}
 
-        <View style={[styles.formGroup, styles.largeInput]}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Complemento</Text>
-          <Input
-            placeholder="Apto, Bloco, etc."
-            value={currentAddress.complemento}
-            onChangeText={(value) => updateAddressField('complemento', value)}
-            containerStyle={styles.inputContainer}
-            inputContainerStyle={styles.inputSubContainer}
-            inputStyle={{ color: theme.colors.text }}
-            accessibilityLabel="Complemento"
-            returnKeyType="next"
-            editable={!readOnly}
-          />
-        </View>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Bairro</Text>
-        <Input
-          placeholder="Bairro"
-          value={currentAddress.bairro}
-          onChangeText={(value) => updateAddressField('bairro', value)}
-          containerStyle={styles.inputContainer}
-          inputContainerStyle={styles.inputSubContainer}
-          inputStyle={{ color: theme.colors.text }}
-          autoCapitalize="words"
-          accessibilityLabel="Bairro"
-          returnKeyType="next"
-          editable={!readOnly}
+      {!isReadOnly && (
+        <Button
+          title="Adicionar Outro Endereço"
+          onPress={onAddAddress}
+          type="outline"
+          icon="plus-circle-outline"
+          buttonStyle={styles.addAddressButton}
         />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Cidade</Text>
-        <Input
-          placeholder="Cidade"
-          value={currentAddress.cidade}
-          onChangeText={(value) => updateAddressField('cidade', value)}
-          containerStyle={styles.inputContainer}
-          inputContainerStyle={styles.inputSubContainer}
-          inputStyle={{ color: theme.colors.text }}
-          autoCapitalize="words"
-          accessibilityLabel="Cidade"
-          returnKeyType="next"
-          editable={!readOnly}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Estado (UF)</Text>
-        <Input
-          placeholder="UF"
-          value={currentAddress.estado}
-          onChangeText={(value) => updateAddressField('estado', value.toUpperCase())}
-          containerStyle={styles.inputContainer}
-          inputContainerStyle={styles.inputSubContainer}
-          inputStyle={{ color: theme.colors.text }}
-          autoCapitalize="characters"
-          maxLength={2}
-          accessibilityLabel="Estado (UF)"
-          returnKeyType="done"
-          editable={!readOnly}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Ponto de Referência</Text>
-        <Input
-          placeholder="Ponto de referência (opcional)"
-          value={data.pontoReferencia || ''}
-          onChangeText={(value) => onUpdate({ ...data, pontoReferencia: value })}
-          containerStyle={styles.inputContainer}
-          inputContainerStyle={styles.inputSubContainerMultiline}
-          inputStyle={{ color: theme.colors.text }}
-          multiline
-          numberOfLines={2}
-          textAlignVertical="top"
-          accessibilityLabel="Ponto de referência"
-          editable={!readOnly}
-        />
-      </View>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  cepButton: {
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  cepContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  cepInputContainer: {
-    flex: 1,
-    marginRight: 10,
-    paddingHorizontal: 0,
-  },
   container: {
     flex: 1,
   },
-  contentContainer: {
+  scrollContentContainer: {
+    paddingVertical: 8,
     paddingBottom: 20,
-    paddingHorizontal: 5,
   },
-  formGroup: {
-    marginBottom: 20,
-  },
-  inputContainer: {
-    paddingHorizontal: 0,
-  },
-  inputSubContainer: {
+  addressBlock: {
+    marginBottom: 24, // Usar theme.spacing.lg
+    paddingBottom: 16, // Usar theme.spacing.md
     borderBottomWidth: 1,
-    paddingBottom: 2,
+    // borderColor é dinâmico
   },
-  inputSubContainerMultiline: {
-    borderBottomWidth: 1,
-    minHeight: 60,
-    paddingBottom: 2,
+  addressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12, // Usar theme.spacing.sm ou md
+  },
+  addressTitle: {
+    fontSize: 18, // Usar theme.typography.fontSize.lg
+    // Cor e fontFamily são dinâmicas
   },
   label: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  largeInput: {
-    flex: 2,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-  },
-  sectionDescription: {
     fontSize: 14,
-    marginBottom: 24,
+    marginBottom: 6,
+    // Cor e fontFamily são dinâmicas
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
     marginBottom: 8,
+    // Cor é dinâmica
   },
-  smallInput: {
-    flex: 1,
-    marginRight: 10,
+  cepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start', // Alinha o botão com o topo do input
+    // marginBottom: 16, // Gerenciado pelo MaskInput ou erro
+  },
+  cepButton: {
+    marginLeft: 8, // Usar theme.spacing.sm
+    height: 50, // Altura consistente com o input de CEP
+    paddingHorizontal: 12, // Ajuste para o ícone
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  flexInputShort: {
+    flex: 1, // Ou um valor menor como 0.3
+    marginRight: 4, // Usar theme.spacing.xs
+  },
+  flexInputLong: {
+    flex: 2, // Ou um valor maior como 0.7
+    marginLeft: 4, // Usar theme.spacing.xs
+  },
+  addAddressButton: {
+    marginTop: 16, // Usar theme.spacing.md
+  },
+  maskedInputContainer: { // Duplicado de ClientDocumentsStep, pode ser globalizado
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    minHeight: Platform.OS === 'ios' ? 48 : 50,
+    justifyContent: 'center',
+  },
+  maskedInput: { // Duplicado de ClientDocumentsStep
+    fontSize: 16,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 0,
+  },
+   switchRow: { // Duplicado de ClientBasicInfoStep
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });
 

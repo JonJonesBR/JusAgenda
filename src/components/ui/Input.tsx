@@ -1,164 +1,198 @@
-import React, { useState } from 'react';
+// src/components/ui/Input.tsx
+import React, { useState, ReactElement, forwardRef } from 'react';
 import {
   View,
   TextInput,
   Text,
-  StyleSheet,
   TouchableOpacity,
-  TextInputProps,
+  StyleSheet,
+  StyleProp,
   ViewStyle,
   TextStyle,
+  TextInputProps,
   Platform,
-  NativeSyntheticEvent,
-  TextInputFocusEventData
 } from 'react-native';
-import { Icon } from '@rneui/themed';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 
-interface CustomInputProps extends TextInputProps {
+interface InputProps extends TextInputProps {
   label?: string;
-  error?: string;
-  leftIconName?: string;
-  leftIconType?: string;
-  rightIconName?: string;
-  rightIconType?: string;
+  labelStyle?: StyleProp<TextStyle>;
+  containerStyle?: StyleProp<ViewStyle>; // Estilo para o container geral (label + input)
+  inputContainerStyle?: StyleProp<ViewStyle>; // Estilo para o container que envolve o input e os ícones
+  inputStyle?: StyleProp<TextStyle>; // Estilo para o próprio TextInput
+  error?: string | null | false; // Mensagem de erro ou false para nenhum erro
+  errorStyle?: StyleProp<TextStyle>;
+  leftIcon?: ReactElement;
+  rightIcon?: ReactElement;
+  isPassword?: boolean; // Se é um campo de senha, adiciona o ícone de visibilidade
+  onLeftIconPress?: () => void;
   onRightIconPress?: () => void;
-  isPassword?: boolean;
-  containerStyle?: ViewStyle;
-  inputStyle?: TextStyle;
-  labelStyle?: TextStyle;
-  errorStyle?: TextStyle;
-  disabled?: boolean;
+  // Adicione outras props que seu Input possa precisar
+  // Ex: onFocus, onBlur (já são parte de TextInputProps, mas podem ser explicitadas se necessário)
+  // touched?: boolean; // Para lógica de erro mais avançada (ex: mostrar erro só após tocar)
 }
 
-const CustomInput: React.FC<CustomInputProps> = ({
-  label,
-  error,
-  leftIconName,
-  leftIconType,
-  rightIconName,
-  rightIconType,
-  onRightIconPress,
-  isPassword,
-  containerStyle,
-  inputStyle: propInputStyle,
-  labelStyle: propLabelStyle,
-  errorStyle: propErrorStyle,
-  disabled,
-  style,
-  ...restOfProps
-}) => {
-  const { theme } = useTheme();
-  const [isFocused, setIsFocused] = useState(false);
-  const [showPassword, setShowPassword] = useState(!isPassword);
+const Input = forwardRef<TextInput, InputProps>(
+  (
+    {
+      label,
+      labelStyle,
+      containerStyle,
+      inputContainerStyle,
+      inputStyle,
+      error,
+      errorStyle,
+      leftIcon,
+      rightIcon,
+      isPassword,
+      onLeftIconPress,
+      onRightIconPress,
+      style, // Pega o style de TextInputProps para aplicar ao TextInput
+      ...restOfProps // Outras props do TextInput
+    },
+    ref
+  ) => {
+    const { theme } = useTheme();
+    const [isFocused, setIsFocused] = useState(false);
+    const [isPasswordVisible, setIsPasswordVisible] = useState(!isPassword);
 
-  const handleFocus = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
-    setIsFocused(true);
-    if (restOfProps.onFocus) {
-      restOfProps.onFocus(e);
-    }
-  };
-  const handleBlur = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
-    setIsFocused(false);
-    if (restOfProps.onBlur) {
-      restOfProps.onBlur(e);
-    }
-  };
+    const handleFocus = (e: any) => {
+      setIsFocused(true);
+      if (restOfProps.onFocus) {
+        restOfProps.onFocus(e);
+      }
+    };
 
-  const toggleShowPassword = () => {
-    if (!disabled) {
-      setShowPassword(!showPassword);
-    }
-  };
+    const handleBlur = (e: any) => {
+      setIsFocused(false);
+      if (restOfProps.onBlur) {
+        restOfProps.onBlur(e);
+      }
+    };
 
-  const componentStyles = StyleSheet.create({
-    errorText: {
-      color: theme.colors.error,
+    const togglePasswordVisibility = () => {
+      setIsPasswordVisible(prev => !prev);
+    };
+
+    const hasError = Boolean(error);
+
+    // Estilos base dinâmicos
+    const baseLabelStyle: TextStyle = {
+      color: hasError ? theme.colors.error : (isFocused ? theme.colors.primary : theme.colors.placeholder),
+      fontSize: theme.typography.fontSize.sm,
+      marginBottom: theme.spacing.xs,
       fontFamily: theme.typography.fontFamily.regular,
-      fontSize: theme.typography.fontSize.xs,
-      marginTop: theme.spacing.xs,
-    },
-    icon: {
-      marginHorizontal: theme.spacing.xs,
-    },
-    inputWrapper: {
+    };
+
+    const baseInputContainerStyle: ViewStyle = {
+      flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: disabled ? theme.colors.disabledInputBackground : theme.colors.inputBackground,
-      borderColor: error ? theme.colors.error : (isFocused ? theme.colors.primary : theme.colors.border),
+      backgroundColor: theme.colors.surface, // Cor de fundo para o container do input
       borderRadius: theme.radii.md,
       borderWidth: 1,
-      flexDirection: 'row',
-      minHeight: theme.components.input.height,
+      borderColor: hasError
+        ? theme.colors.error
+        : isFocused
+        ? theme.colors.primary
+        : theme.colors.border,
       paddingHorizontal: theme.spacing.sm,
-    },
-    label: { // Corrected order: 'label' before 'outerContainer'
-      color: error ? theme.colors.error : (isFocused ? theme.colors.primary : theme.colors.textSecondary),
-      fontFamily: theme.typography.fontFamily.medium,
-      fontSize: theme.typography.fontSize.sm,
-      fontWeight: theme.typography.fontWeight.medium,
-      marginBottom: theme.spacing.xs,
-    },
-    outerContainer: {
-      marginBottom: theme.spacing.md,
-      width: '100%',
-    },
-    textInput: {
-      color: disabled ? theme.colors.disabledInputText : theme.colors.text,
+      // Adicionar uma leve sombra quando focado, se desejado
+      ...(isFocused && Platform.OS === 'ios' && theme.shadows.xs), // Sombra sutil no iOS
+      ...(isFocused && Platform.OS === 'android' && { elevation: theme.shadows.xs.elevation }), // Elevação no Android
+    };
+
+    const baseTextInputStyle: TextStyle = {
       flex: 1,
-      fontFamily: theme.typography.fontFamily.regular,
+      paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm + 2 : theme.spacing.sm, // Ajuste de padding vertical para iOS
+      paddingHorizontal: theme.spacing.xs,
+      color: theme.colors.text,
       fontSize: theme.typography.fontSize.md,
-      paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm : theme.spacing.xs + 2,
-    },
-  });
+      fontFamily: theme.typography.fontFamily.regular,
+    };
 
-  return (
-    <View style={[componentStyles.outerContainer, containerStyle]}>
-      {label && <Text style={[componentStyles.label, propLabelStyle]}>{label}</Text>}
-      <View style={componentStyles.inputWrapper}>
-        {leftIconName && (
-          <Icon
-            name={leftIconName}
-            type={leftIconType || 'material-community'}
-            color={isFocused ? theme.colors.primary : theme.colors.textSecondary}
-            size={20}
-            style={componentStyles.icon}
+    const iconColor = hasError ? theme.colors.error : (isFocused ? theme.colors.primary : theme.colors.placeholder);
+
+    let finalRightIcon = rightIcon;
+    if (isPassword) {
+      finalRightIcon = (
+        <TouchableOpacity onPress={togglePasswordVisibility} style={styles.iconButton}>
+          <MaterialCommunityIcons
+            name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+            size={22}
+            color={iconColor}
           />
-        )}
-        <TextInput
-          style={[componentStyles.textInput, style, propInputStyle]}
-          placeholderTextColor={theme.colors.textSecondary}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          secureTextEntry={isPassword && !showPassword}
-          editable={!disabled}
-          {...restOfProps}
-        />
-        {isPassword && (
-          <TouchableOpacity onPress={toggleShowPassword} disabled={disabled} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Icon
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              type="material-community"
-              color={theme.colors.textSecondary}
-              size={22}
-              style={componentStyles.icon}
-            />
-          </TouchableOpacity>
-        )}
-        {rightIconName && !isPassword && (
-          <TouchableOpacity onPress={onRightIconPress} disabled={disabled || !onRightIconPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Icon
-              name={rightIconName}
-              type={rightIconType || 'material-community'}
-              color={theme.colors.textSecondary}
-              size={22}
-              style={componentStyles.icon}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-      {error && <Text style={[componentStyles.errorText, propErrorStyle]}>{error}</Text>}
-    </View>
-  );
-};
+        </TouchableOpacity>
+      );
+    } else if (rightIcon && onRightIconPress) {
+        finalRightIcon = (
+            <TouchableOpacity onPress={onRightIconPress} style={styles.iconButton}>
+                {React.cloneElement(rightIcon, { color: iconColor, size: 22 })}
+            </TouchableOpacity>
+        );
+    } else if (rightIcon) {
+        finalRightIcon = React.cloneElement(rightIcon, { color: iconColor, size: 22 });
+    }
 
-export default CustomInput;
+
+    let finalLeftIcon = leftIcon;
+    if (leftIcon && onLeftIconPress) {
+        finalLeftIcon = (
+            <TouchableOpacity onPress={onLeftIconPress} style={styles.iconButton}>
+                {React.cloneElement(leftIcon, { color: iconColor, size: 22 })}
+            </TouchableOpacity>
+        );
+    } else if (leftIcon) {
+        finalLeftIcon = React.cloneElement(leftIcon, { color: iconColor, size: 22 });
+    }
+
+
+    return (
+      <View style={[styles.outerContainer, containerStyle]}>
+        {label && <Text style={[baseLabelStyle, labelStyle]}>{label}</Text>}
+        <View style={[styles.inputRowContainer, baseInputContainerStyle, inputContainerStyle]}>
+          {finalLeftIcon && <View style={styles.iconContainer}>{finalLeftIcon}</View>}
+          <TextInput
+            ref={ref}
+            style={[baseTextInputStyle, inputStyle, style]} // `style` de TextInputProps é aplicado aqui
+            placeholderTextColor={theme.colors.placeholder}
+            secureTextEntry={!isPasswordVisible && isPassword} // Aplica secureTextEntry se for senha e não estiver visível
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            autoCapitalize={restOfProps.autoCapitalize || "sentences"} // Padrão "sentences" se não especificado
+            {...restOfProps} // Passa o restante das props para o TextInput
+          />
+          {finalRightIcon && <View style={styles.iconContainer}>{finalRightIcon}</View>}
+        </View>
+        {hasError && error && <Text style={[styles.errorTextBase, { color: theme.colors.error }, errorStyle]}>{error}</Text>}
+      </View>
+    );
+  }
+);
+
+Input.displayName = 'Input'; // Para melhor depuração
+
+const styles = StyleSheet.create({
+  outerContainer: {
+    width: '100%', // Ocupa toda a largura por padrão
+    marginBottom: 16, // Espaçamento inferior padrão
+  },
+  inputRowContainer: {
+    // Estilos já definidos em baseInputContainerStyle
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4, // Pequeno espaçamento para o ícone
+  },
+  iconButton: {
+    padding: 4, // Área de toque para ícones clicáveis
+  },
+  errorTextBase: {
+    marginTop: 4,
+    fontSize: 12, // Tamanho padrão para texto de erro
+    // A cor é definida dinamicamente
+  },
+});
+
+export default Input;

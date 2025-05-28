@@ -1,66 +1,85 @@
-import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+// src/components/ui/Section.tsx
+import React, { ReactNode } from 'react';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface SectionProps {
   title?: string;
-  children: React.ReactNode;
-  style?: ViewStyle;
-  titleStyle?: TextStyle;
-  contentStyle?: ViewStyle;
-  noPadding?: boolean;
-  addSeparator?: boolean;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>; // Estilo para o container da seção principal
+  titleStyle?: StyleProp<TextStyle>; // Estilo para o texto do título
+  contentStyle?: StyleProp<ViewStyle>; // Estilo para o container do conteúdo (children)
+  noHorizontalPadding?: boolean; // Para remover o padding horizontal padrão do conteúdo
+  noVerticalPadding?: boolean; // Para remover o padding vertical padrão do conteúdo
+  showSeparator?: boolean; // Para mostrar um separador abaixo do título
+  // Adicione outras props que sua Section possa precisar
+  // Ex: rightHeaderComponent para um ícone ou botão ao lado do título
 }
 
 const Section: React.FC<SectionProps> = ({
   title,
   children,
   style,
-  titleStyle: propTitleStyle,
+  titleStyle,
   contentStyle,
-  noPadding = false,
-  addSeparator = false,
+  noHorizontalPadding = false,
+  noVerticalPadding = false,
+  showSeparator = false,
 }) => {
   const { theme } = useTheme();
 
-  const componentStyles = StyleSheet.create({
-    container: {
-      marginBottom: theme.spacing.lg,
-    },
-    contentWrapper: {
-      // Padding applied dynamically
-    },
-    separator: { // Corrected order: 'separator' before 'titleText'
-      backgroundColor: theme.colors.border, // Corrected order: 'backgroundColor' before 'height'
-      height: 1,
-      marginBottom: theme.spacing.md,
-    },
-    titleText: {
-      color: theme.colors.text, // Corrected order: 'color' before 'fontFamily'
-      fontFamily: theme.typography.fontFamily.bold,
-      fontSize: theme.typography.fontSize.lg,
-      fontWeight: theme.typography.fontWeight.bold,
-      marginBottom: title ? (addSeparator ? theme.spacing.xs : theme.spacing.sm) : 0,
-    },
-  });
+  // Estilos dinâmicos baseados no tema
+  const themedSectionStyle: ViewStyle = {
+    // marginBottom: theme.spacing.lg, // Espaçamento padrão abaixo de cada seção
+    // O espaçamento entre seções é melhor controlado pelo layout que as utiliza.
+  };
+
+  const themedTitleStyle: TextStyle = {
+    fontSize: theme.typography.fontSize.xl, // Tamanho de fonte maior para títulos de seção
+    fontWeight: 'bold', // Ou theme.typography.fontFamily.bold se definido
+    fontFamily: theme.typography.fontFamily.bold,
+    color: theme.colors.text,
+    marginBottom: title ? theme.spacing.md : 0, // Espaçamento abaixo do título apenas se houver título
+    paddingHorizontal: noHorizontalPadding ? 0 : theme.spacing.md, // Padding horizontal para o título
+  };
+
+  const themedContentStyle: ViewStyle = {
+    paddingHorizontal: noHorizontalPadding ? 0 : theme.spacing.md,
+    paddingVertical: noVerticalPadding ? 0 : theme.spacing.md,
+  };
+
+  const separatorStyle: ViewStyle = {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+    marginHorizontal: noHorizontalPadding ? 0 : theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  };
 
   return (
-    <View style={[componentStyles.container, style]}>
-      {title && (
-        <>
-          <Text style={[componentStyles.titleText, propTitleStyle]}>{title}</Text>
-          {addSeparator && <View style={componentStyles.separator} />}
-        </>
-      )}
-      <View style={[
-        componentStyles.contentWrapper,
-        !noPadding && { paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
-        contentStyle
-      ]}>
+    <View style={[styles.container, themedSectionStyle, style]}>
+      {title && <Text style={[styles.titleBase, themedTitleStyle, titleStyle]}>{title}</Text>}
+      {title && showSeparator && <View style={separatorStyle} />}
+      <View style={[themedContentStyle, contentStyle]}>
         {children}
       </View>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    // Estilos base para o container da seção
+    // backgroundColor: 'transparent', // Geralmente transparente, a cor vem do fundo da tela
+  },
+  titleBase: {
+    // Estilos base para o título que não dependem do tema
+  },
+  // contentContainer: { // Renomeado para themedContentStyle e aplicado diretamente
+  //   // Estilos base para o container de conteúdo
+  // },
+  // separator: { // Renomeado para separatorStyle e aplicado diretamente
+  //   // Estilos base para o separador
+  // },
+});
 
 export default Section;

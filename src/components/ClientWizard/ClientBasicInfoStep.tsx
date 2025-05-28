@@ -1,289 +1,251 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, Platform } from 'react-native';
-import { Input, Button, CheckBox } from '@rneui/themed';
-import { useTheme } from '../../contexts/ThemeContext';
-import { Client } from '../../types/client';
+// src/components/ClientWizard/ClientBasicInfoStep.tsx
+import React from 'react';
+import { View, Text, StyleSheet, Switch, Platform } from 'react-native';
+import { Picker } from '@react-native-picker/picker'; // Usando o Picker da comunidade
+import { Input, Section } from '../ui';
 import CustomDateTimePicker, { CustomDateTimePickerEvent } from '../CustomDateTimePicker';
-import { format, parse, isValid as isDateValid } from 'date-fns';
-import { formatDate as formatDateUtil } from '../../utils/dateUtils';
-import MaskInput from 'react-native-mask-input';
+import { ClientWizardFormData } from '../../screens/ClientWizardScreen'; // Tipo dos dados do formulário
+import { Theme } from '../../contexts/ThemeContext'; // Tipo do tema
+import MaskInput from 'react-native-mask-input'; // Para máscara de telefone
 
 interface ClientBasicInfoStepProps {
-  data: Partial<Client>;
-  onUpdate: (data: Partial<Client>) => void;
-  readOnly?: boolean;
+  formData: ClientWizardFormData;
+  updateField: (field: keyof ClientWizardFormData, value: any) => void;
+  errors: Partial<Record<keyof ClientWizardFormData, string>>;
+  isReadOnly: boolean;
+  theme: Theme;
 }
 
 const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
-  data,
-  onUpdate,
-  readOnly = false,
+  formData,
+  updateField,
+  errors,
+  isReadOnly,
+  theme,
 }) => {
-  const { theme } = useTheme();
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const handleDateChange = (event: CustomDateTimePickerEvent, selectedDate?: Date) => {
-    if (event.type === "set" && selectedDate && isDateValid(selectedDate)) {
-      onUpdate({ ...data, dataNascimento: format(selectedDate, 'yyyy-MM-dd') });
+  const handleDateChange = (field: 'dataNascimento' | 'dataFundacao', event: CustomDateTimePickerEvent, selectedDate?: Date) => {
+    if (event.type === 'set' && selectedDate) {
+      updateField(field, selectedDate);
+    } else if (event.type === 'dismissed') {
+      // Opcional: limpar o campo se o picker for cancelado e não houver data anterior
+      // updateField(field, null);
     }
-    setShowDatePicker(false);
   };
 
-  let initialDateForPicker: Date | undefined = undefined;
-  if (data.dataNascimento) {
-    const parsedDate = parse(data.dataNascimento, 'yyyy-MM-dd', new Date());
-    if (isDateValid(parsedDate)) {
-      initialDateForPicker = parsedDate;
-    }
-  }
-  if (!initialDateForPicker) {
-    const fallbackDate = new Date();
-    fallbackDate.setFullYear(fallbackDate.getFullYear() - 18);
-    initialDateForPicker = fallbackDate;
-  }
+  const tipoClienteOptions = [
+    { label: 'Pessoa Física', value: 'pessoaFisica' },
+    { label: 'Pessoa Jurídica', value: 'pessoaJuridica' },
+  ];
+
+  // Estilos para o Picker
+  const pickerContainerStyle = (hasError?: boolean) => ({
+    borderColor: hasError ? theme.colors.error : theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surface,
+    marginBottom: hasError ? 0 : theme.spacing.md,
+    minHeight: Platform.OS === 'ios' ? undefined : 50,
+    justifyContent: 'center',
+  });
+
+  const pickerStyle = {
+    color: theme.colors.text,
+    fontFamily: theme.typography.fontFamily.regular,
+  };
 
   return (
-    <ScrollView
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-    >
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-        Informações Básicas
+    <View style={styles.container}>
+      <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+        Tipo de Cliente *
       </Text>
-      <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary || '#86939e' }]}>
-        Preencha os dados principais do cliente.
-      </Text>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Tipo de Cliente</Text>
-        <View style={styles.radioContainer}>
-          <CheckBox
-            title="Pessoa Física"
-            checked={data.tipo === 'pessoaFisica'}
-            onPress={() => !readOnly && onUpdate({ ...data, tipo: 'pessoaFisica', cnpj: undefined, nomeFantasia: undefined })}
-            checkedIcon="dot-circle-o"
-            uncheckedIcon="circle-o"
-            containerStyle={[styles.checkboxContainer, { backgroundColor: theme.colors.transparent }]} // Aplicando via tema
-            textStyle={{ color: theme.colors.text }}
-            disabled={readOnly}
-          />
-          <CheckBox
-            title="Pessoa Jurídica"
-            checked={data.tipo === 'pessoaJuridica'}
-            onPress={() => !readOnly && onUpdate({ ...data, tipo: 'pessoaJuridica', cpf: undefined, dataNascimento: undefined })}
-            checkedIcon="dot-circle-o"
-            uncheckedIcon="circle-o"
-            containerStyle={[styles.checkboxContainer, { backgroundColor: theme.colors.transparent }]} // Aplicando via tema
-            textStyle={{ color: theme.colors.text }}
-            disabled={readOnly}
-          />
-        </View>
+      <View style={pickerContainerStyle(!!errors.tipo)}>
+        <Picker
+          selectedValue={formData.tipo}
+          onValueChange={(itemValue) => updateField('tipo', itemValue as 'pessoaFisica' | 'pessoaJuridica')}
+          enabled={!isReadOnly}
+          style={pickerStyle}
+          dropdownIconColor={theme.colors.placeholder}
+          prompt="Selecione o tipo de cliente"
+        >
+          {tipoClienteOptions.map(option => (
+            <Picker.Item key={option.value} label={option.label} value={option.value} />
+          ))}
+        </Picker>
       </View>
+      {errors.tipo && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.tipo}</Text>}
 
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>
-          {data.tipo === 'pessoaFisica' ? 'Nome Completo' : 'Razão Social'}
-        </Text>
+      <Input
+        label={formData.tipo === 'pessoaFisica' ? 'Nome Completo *' : 'Razão Social *'}
+        placeholder={formData.tipo === 'pessoaFisica' ? 'Nome completo do cliente' : 'Razão social da empresa'}
+        value={formData.nome || ''}
+        onChangeText={(text) => updateField('nome', text)}
+        error={errors.nome}
+        editable={!isReadOnly}
+        containerStyle={styles.inputSpacing}
+      />
+
+      {formData.tipo === 'pessoaJuridica' && (
         <Input
-          placeholder={data.tipo === 'pessoaFisica' ? 'Nome completo do cliente' : 'Razão Social da empresa'}
-          value={data.nome}
-          onChangeText={(value) => onUpdate({ ...data, nome: value })}
-          inputStyle={{ color: theme.colors.text }}
-          containerStyle={styles.inputContainer}
-          inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-          autoCapitalize="words"
-          editable={!readOnly}
+          label="Nome Fantasia"
+          placeholder="Nome fantasia da empresa"
+          value={formData.nomeFantasia || ''}
+          onChangeText={(text) => updateField('nomeFantasia', text)}
+          error={errors.nomeFantasia}
+          editable={!isReadOnly}
+          containerStyle={styles.inputSpacing}
+        />
+      )}
+
+      <Input
+        label="Email Principal"
+        placeholder="email@exemplo.com"
+        value={formData.email || ''}
+        onChangeText={(text) => updateField('email', text)}
+        error={errors.email}
+        editable={!isReadOnly}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        containerStyle={styles.inputSpacing}
+      />
+
+      {/* Telefone com Máscara */}
+      <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
+        Telefone Principal
+      </Text>
+      <View style={[
+          styles.maskedInputContainer,
+          {
+            borderColor: errors.telefonePrincipal ? theme.colors.error : theme.colors.border,
+            backgroundColor: theme.colors.surface,
+            borderRadius: theme.radii.md,
+          }
+      ]}>
+        <MaskInput
+          value={formData.telefonePrincipal || ''}
+          onChangeText={(masked, unmasked) => updateField('telefonePrincipal', masked)} // Salva o valor mascarado
+          mask={['(', /\d/, /\d/, ')', ' ', /\d/, /\d/, /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/, /\d/]} // (99) 99999-9999
+          placeholder="(XX) XXXXX-XXXX"
+          keyboardType="phone-pad"
+          editable={!isReadOnly}
+          style={[styles.maskedInput, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}
+          placeholderTextColor={theme.colors.placeholder}
         />
       </View>
+      {errors.telefonePrincipal && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.telefonePrincipal}</Text>}
 
-      {data.tipo === 'pessoaJuridica' && (
-        <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Nome Fantasia</Text>
+
+      {formData.tipo === 'pessoaFisica' && (
+        <>
+          <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular, marginTop: theme.spacing.md }]}>
+            Data de Nascimento
+          </Text>
+          <CustomDateTimePicker
+            value={formData.dataNascimento || new Date()} // Garante que não seja null para o picker
+            mode="date"
+            display={Platform.OS === 'ios' ? 'compact' : 'default'}
+            onChange={(event, date) => handleDateChange('dataNascimento', event, date)}
+            disabled={isReadOnly}
+            maximumDate={new Date()} // Não pode nascer no futuro
+          />
+          {errors.dataNascimento && <Text style={[styles.errorText, { color: theme.colors.error, marginTop: theme.spacing.xs }]}>{errors.dataNascimento}</Text>}
+           <View style={{ marginBottom: (errors.dataNascimento) ? 0 : theme.spacing.md }} />
+
+
           <Input
-            placeholder="Nome fantasia da empresa"
-            value={data.nomeFantasia || ''}
-            onChangeText={(value) => onUpdate({ ...data, nomeFantasia: value })}
-            inputStyle={{ color: theme.colors.text }}
-            containerStyle={styles.inputContainer}
-            inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-            autoCapitalize="words"
-            editable={!readOnly}
+            label="Profissão"
+            placeholder="Profissão do cliente"
+            value={formData.profissao || ''}
+            onChangeText={(text) => updateField('profissao', text)}
+            error={errors.profissao}
+            editable={!isReadOnly}
+            containerStyle={styles.inputSpacing}
           />
+          {/* Poderia adicionar Estado Civil como Picker aqui */}
+        </>
+      )}
+
+      {formData.tipo === 'pessoaJuridica' && (
+        <>
+          <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular, marginTop: theme.spacing.md }]}>
+            Data de Fundação
+          </Text>
+          <CustomDateTimePicker
+            value={formData.dataFundacao || new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'compact' : 'default'}
+            onChange={(event, date) => handleDateChange('dataFundacao', event, date)}
+            disabled={isReadOnly}
+            maximumDate={new Date()}
+          />
+          {errors.dataFundacao && <Text style={[styles.errorText, { color: theme.colors.error, marginTop: theme.spacing.xs }]}>{errors.dataFundacao}</Text>}
+          <View style={{ marginBottom: (errors.dataFundacao) ? 0 : theme.spacing.md }} />
+
+          <Input
+            label="Ramo de Atividade"
+            placeholder="Ramo de atividade da empresa"
+            value={(formData as ClientWizardFormData & { ramoAtividade?: string }).ramoAtividade || ''} // Type assertion para campo não obrigatório
+            onChangeText={(text) => updateField('ramoAtividade' as any, text)} // 'as any' para campos não estritamente em ClientWizardFormData
+            error={errors.ramoAtividade}
+            editable={!isReadOnly}
+            containerStyle={styles.inputSpacing}
+          />
+        </>
+      )}
+
+        <View style={[styles.switchRow, { marginVertical: theme.spacing.md }]}>
+            <Text style={[styles.label, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular, flex:1, marginBottom: 0 }]}>
+            Cliente Ativo?
+            </Text>
+            <Switch
+            trackColor={{ false: theme.colors.disabled, true: theme.colors.primary }}
+            thumbColor={formData.ativo ? theme.colors.surface : theme.colors.surface}
+            ios_backgroundColor={theme.colors.disabled}
+            onValueChange={(value) => updateField('ativo', value)}
+            value={!!formData.ativo}
+            disabled={isReadOnly}
+            />
         </View>
-      )}
 
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>E-mail (Opcional)</Text>
-        <Input
-          placeholder="email@example.com"
-          value={data.email || ''}
-          onChangeText={(value) => onUpdate({ ...data, email: value })}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          inputStyle={{ color: theme.colors.text }}
-          containerStyle={styles.inputContainer}
-          inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-          editable={!readOnly}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Telefone (Opcional)</Text>
-         <Input
-            placeholder="(00) 00000-0000"
-            containerStyle={styles.inputContainer}
-            inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-            inputStyle={{ color: theme.colors.text }}
-            keyboardType="phone-pad"
-            accessibilityLabel="Telefone"
-            editable={!readOnly}
-            InputComponent={(props: any) => (
-                <MaskInput
-                    {...props}
-                    value={data.telefone || ''}
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    onChangeText={(masked, _unmasked) => {
-                        onUpdate({ ...data, telefone: masked });
-                    }}
-                    mask={['(', /\d/, /\d/, ')', ' ', /\d/, /\d/, /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/, /\d/]}
-                />
-            )}
-        />
-      </View>
-
-      {data.tipo === 'pessoaFisica' && (
-        <>
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Data de Nascimento (Opcional)</Text>
-            <Button
-              title={data.dataNascimento ? formatDateUtil(data.dataNascimento, 'dd/MM/yyyy') : 'Selecionar Data'}
-              onPress={() => !readOnly && setShowDatePicker(true)}
-              icon={{ name: 'calendar', type: 'font-awesome', color: theme.colors.onPrimary }}
-              buttonStyle={[styles.dateButton, { backgroundColor: theme.colors.primary }]}
-              titleStyle={{color: theme.colors.onPrimary}}
-              disabled={readOnly}
-            />
-          </View>
-
-          {showDatePicker && (
-            <CustomDateTimePicker
-              value={initialDateForPicker || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-              onClose={() => setShowDatePicker(false)}
-              maximumDate={new Date()}
-            />
-          )}
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Profissão (Opcional)</Text>
-            <Input
-              placeholder="Profissão do cliente"
-              value={data.profissao || ''}
-              onChangeText={(value) => onUpdate({ ...data, profissao: value })}
-              inputStyle={{ color: theme.colors.text }}
-              containerStyle={styles.inputContainer}
-              inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-              autoCapitalize="words"
-              editable={!readOnly}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Estado Civil (Opcional)</Text>
-            <Input
-              placeholder="Ex: Solteiro(a), Casado(a)"
-              value={data.estadoCivil || ''}
-              onChangeText={(value) => onUpdate({ ...data, estadoCivil: value })}
-              inputStyle={{ color: theme.colors.text }}
-              containerStyle={styles.inputContainer}
-              inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-              autoCapitalize="words"
-              editable={!readOnly}
-            />
-          </View>
-        </>
-      )}
-       {data.tipo === 'pessoaJuridica' && (
-        <>
-            <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: theme.colors.text }]}>Ramo de Atividade (Opcional)</Text>
-                <Input
-                    placeholder="Ex: Comércio, Serviços, Indústria"
-                    value={data.ramoAtividade || ''}
-                    onChangeText={(value) => onUpdate({ ...data, ramoAtividade: value })}
-                    inputStyle={{ color: theme.colors.text }}
-                    containerStyle={styles.inputContainer}
-                    inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-                    autoCapitalize="words"
-                    editable={!readOnly}
-                />
-            </View>
-            <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: theme.colors.text }]}>Responsável Legal (Opcional)</Text>
-                <Input
-                    placeholder="Nome do responsável pela empresa"
-                    value={data.responsavelLegal || ''}
-                    onChangeText={(value) => onUpdate({ ...data, responsavelLegal: value })}
-                    inputStyle={{ color: theme.colors.text }}
-                    containerStyle={styles.inputContainer}
-                    inputContainerStyle={[styles.inputSubContainer, {borderColor: theme.colors.border}]}
-                    autoCapitalize="words"
-                    editable={!readOnly}
-                />
-            </View>
-        </>
-      )}
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  checkboxContainer: {
-    // Removido backgroundColor: 'transparent' daqui
-    borderWidth: 0,
-    marginLeft: 0,
-    marginRight: 0,
-    padding: 0,
-  },
   container: {
-    flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
-  dateButton: {
-    alignSelf: 'flex-start',
-  },
-  formGroup: {
-    marginBottom: 20,
-  },
-  inputContainer: {
-    paddingHorizontal: 0,
-  },
-  inputSubContainer: {
-    borderBottomWidth: 1,
-    paddingBottom: 2,
+  inputSpacing: {
+    // marginBottom: 16, // O Input já tem marginBottom
   },
   label: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  radioContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
-  },
-  sectionDescription: {
     fontSize: 14,
-    marginBottom: 24,
+    marginBottom: 6,
+    // Cor e fontFamily são dinâmicas
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8, // Espaço extra após erro
+    // Cor é dinâmica
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  maskedInputContainer: {
+    borderWidth: 1,
+    // borderColor, backgroundColor, borderRadius são dinâmicos
+    paddingHorizontal: 12, // theme.spacing.sm
+    minHeight: Platform.OS === 'ios' ? 48 : 50, // Altura consistente com Input
+    justifyContent: 'center',
+    marginBottom: 16, // theme.spacing.md
+  },
+  maskedInput: {
+    fontSize: 16, // theme.typography.fontSize.md
+    // color, fontFamily são dinâmicos
+    paddingVertical: Platform.OS === 'ios' ? 12 : 0, // Ajuste para iOS
   },
 });
 

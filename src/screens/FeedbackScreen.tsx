@@ -1,198 +1,235 @@
-import React, { useState } from 'react';
+// src/screens/FeedbackScreen.tsx
+import React, { useState, useEffect } from 'react';
 import {
+  View,
+  Text,
+  ScrollView,
   StyleSheet,
   Alert,
-  Keyboard,
-  ScrollView,
-  Text,
-  Platform,
   KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { Button, Input, Card, Icon } from '@rneui/themed'; // Added Icon
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import * as Yup from 'yup';
 import * as MailComposer from 'expo-mail-composer';
-import * as yup from 'yup';
-import { useTheme } from '../contexts/ThemeContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Formik, FormikHelpers } from 'formik'; // Usando Formik para gestão do formulário
 
-const feedbackSchema = yup.object().shape({
-  email: yup.string().email('E-mail inválido').trim().nullable().transform(v => v === '' ? null : v),
-  feedback: yup.string().trim().required('O feedback não pode ficar em branco.'),
+import { useTheme } from '../contexts/ThemeContext';
+import { Header, Input, Button } from '../components/ui';
+import { Toast } from '../components/ui/Toast';
+import { ROUTES } from '../constants';
+// Assumindo que FeedbackScreen pode estar em qualquer stack, ou numa stack de "Mais" ou "Perfil"
+// Por agora, usaremos uma ParamList genérica ou específica se soubermos onde ela reside.
+// import { RootStackParamList } from '../navigation/AppNavigator'; // Exemplo
+type FeedbackScreenNavigationProp = StackNavigationProp<any, typeof ROUTES.FEEDBACK>; // Use any por agora
+
+interface FeedbackFormValues {
+  name: string;
+  email: string; // Email do remetente (opcional, mas bom para resposta)
+  subject: string;
+  feedback: string;
+  appVersion?: string; // Opcional: incluir versão do app
+}
+
+const feedbackSchema = Yup.object().shape({
+  name: Yup.string().required('O seu nome é obrigatório.'),
+  email: Yup.string().email('Email inválido.').required('O seu email é obrigatório para que possamos responder.'),
+  subject: Yup.string().required('O assunto é obrigatório.').min(5, 'Assunto muito curto.'),
+  feedback: Yup.string().required('A sua mensagem de feedback é obrigatória.').min(10, 'Mensagem de feedback muito curta.'),
+  appVersion: Yup.string().optional(),
 });
 
-// Define default design system values locally
-const defaultDs = {
-  spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
-  typography: {
-    fontSize: { sm: 14, md: 16, lg: 18, xl: 22 },
-    fontFamily: { regular: 'System', medium: 'System', bold: 'System' }
-  },
-  radii: { md: 8 },
-};
+// Email de destino para o feedback
+const FEEDBACK_RECIPIENT_EMAIL = 'suporte@jusagenda.com.br'; // SUBSTITUA PELO SEU EMAIL REAL
 
 const FeedbackScreen: React.FC = () => {
-  const [feedback, setFeedback] = useState('');
-  const [email, setEmail] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<FeedbackScreenNavigationProp>();
+  const [isMailAvailable, setIsMailAvailable] = useState(false);
+  const [isCheckingMail, setIsCheckingMail] = useState(true);
 
-  // Use local defaults as theme structure for these is not as expected or might be missing
-  const ds = {
-    spacing: defaultDs.spacing,
-    typography: defaultDs.typography,
-    radii: defaultDs.radii,
+  useEffect(() => {
+    const checkMail = async () => {
+      setIsCheckingMail(true);
+      const available = await MailComposer.isAvailableAsync();
+      setIsMailAvailable(available);
+      setIsCheckingMail(false);
+      if (!available && Platform.OS !== 'web') { // Na web, mailto: pode funcionar mesmo assim
+        Alert.alert(
+          'Cliente de Email Indisponível',
+          'Não foi possível encontrar um aplicativo de email configurado no seu dispositivo. Por favor, configure um para enviar feedback.'
+        );
+      }
+    };
+    checkMail();
+  }, []);
+
+  const initialFormValues: FeedbackFormValues = {
+    name: '',
+    email: '',
+    subject: 'Feedback sobre o App JusAgenda',
+    feedback: '',
+    appVersion: Platform.OS === 'ios' ? '1.0.0 (iOS)' : '1.0.0 (Android)', // Obter dinamicamente
   };
 
-  const handleSend = async () => {
-    Keyboard.dismiss();
-    setIsSending(true);
+  const handleSubmitFeedback = async (
+    values: FeedbackFormValues,
+    formikActions: FormikHelpers<FeedbackFormValues>
+  ) => {
+    if (!isMailAvailable && Platform.OS !== 'web') {
+      Alert.alert('Cliente de Email Indisponível', 'Configure um cliente de email para enviar feedback.');
+      formikActions.setSubmitting(false);
+      return;
+    }
 
-    const sanitized = {
-      email: email.trim() || undefined,
-      feedback: feedback.trim(),
+    const mailOptions: MailComposer.MailComposerOptions = {
+      recipients: [FEEDBACK_RECIPIENT_EMAIL],
+      subject: `[Feedback JusAgenda] ${values.subject}`,
+      body: `Nome: ${values.name}\nEmail para Contato: ${values.email}\n\nFeedback:\n${values.feedback}\n\n------------------\nVersão do App: ${values.appVersion}\nPlataforma: ${Platform.OS}`,
+      // isHtml: false, // Opcional
     };
 
     try {
-      await feedbackSchema.validate(sanitized, { abortEarly: false });
-
-      const isAvailable = await MailComposer.isAvailableAsync();
-      if (!isAvailable) {
-          Alert.alert('Erro', 'Não há um cliente de e-mail configurado neste dispositivo.');
-          setIsSending(false);
-          return;
+      const result = await MailComposer.composeAsync(mailOptions);
+      // console.log('MailComposer result:', result);
+      if (result.status === MailComposer.MailComposerStatus.SENT) {
+        Toast.show({ type: 'success', text1: 'Feedback Enviado!', text2: 'Obrigado pela sua contribuição.' });
+        navigation.goBack();
+      } else if (result.status === MailComposer.MailComposerStatus.SAVED) {
+        Toast.show({ type: 'info', text1: 'Rascunho Salvo', text2: 'O seu feedback foi salvo como rascunho no seu app de email.' });
+      } else if (result.status === MailComposer.MailComposerStatus.CANCELLED) {
+        Toast.show({ type: 'info', text1: 'Envio Cancelado', text2: 'O envio do feedback foi cancelado.' });
       }
-
-      const result = await MailComposer.composeAsync({
-        recipients: ['jusagenda@suporte.com'],
-        subject: 'Feedback - App JusAgenda',
-        body: `Feedback do Usuário:\n--------------------\n${sanitized.feedback}\n--------------------\n\nEmail (opcional): ${sanitized.email || 'Não informado'}`,
-      });
-
-      if (result.status === 'sent' || result.status === 'saved') {
-         Alert.alert('Feedback Enviado!', 'Obrigado pela sua contribuição.');
-         setFeedback('');
-         setEmail('');
-      } else if (result.status === 'cancelled') {
-         // Optional: console.log('Envio de feedback cancelado pelo usuário.');
-      } else {
-         Alert.alert('Status Desconhecido', 'Não foi possível determinar se o email foi enviado.');
-      }
-
-    } catch (err) {
-      if (err instanceof yup.ValidationError) {
-        Alert.alert('Campos Inválidos', err.errors.join('\n'));
-      } else {
-        console.error("Erro ao enviar feedback:", err);
-        Alert.alert('Erro', 'Não foi possível abrir o cliente de e-mail. Verifique suas configurações.');
-      }
+      // MailComposer.MailComposerStatus.UNDETERMINED (iOS) ou se o app de email não retornar status
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error("FeedbackScreen: Erro ao compor email:", error);
+      Toast.show({ type: 'error', text1: 'Erro ao Enviar', text2: `Não foi possível abrir o cliente de email: ${message}` });
     } finally {
-      setIsSending(false);
+      formikActions.setSubmitting(false);
     }
   };
 
+  if (isCheckingMail) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={[styles.kavContainer, { backgroundColor: theme.colors.background }]}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <Header title="Enviar Feedback" onBackPress={() => navigation.goBack()} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0} // Ajuste conforme altura do header
+      >
         <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + ds.spacing.lg }]}
-            keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.scrollContainer, { padding: theme.spacing.md }]}
+          keyboardShouldPersistTaps="handled"
         >
-            <Text style={[styles.title, { color: theme.colors.text, fontSize: ds.typography.fontSize.xl, fontFamily: ds.typography.fontFamily.bold, marginBottom: ds.spacing.lg }]}>
-                Envie seu Feedback
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontSize: ds.typography.fontSize.md, fontFamily: ds.typography.fontFamily.regular, marginBottom: ds.spacing.xl }]}>
-                Sua opinião é importante para nós! Use o campo abaixo para enviar sugestões, relatar problemas ou fazer comentários sobre o JusAgenda.
-            </Text>
+          <Text style={[styles.introText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular, marginBottom: theme.spacing.lg }]}>
+            A sua opinião é muito importante para nós! Use o formulário abaixo para enviar sugestões, reportar problemas ou simplesmente partilhar a sua experiência.
+          </Text>
 
-            <Card containerStyle={[styles.card, { backgroundColor: theme.colors.card, borderRadius: ds.radii.md }]}>
+          <Formik
+            initialValues={initialFormValues}
+            validationSchema={feedbackSchema}
+            onSubmit={handleSubmitFeedback}
+          >
+            {({ handleChange, handleBlur, handleSubmit, values, errors, touched, isSubmitting, dirty, isValid }) => (
+              <>
                 <Input
-                    placeholder="Seu e-mail (opcional)"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    containerStyle={styles.inputContainer}
-                    inputContainerStyle={styles.inputContainerStyleBorderless}
-                    inputStyle={{ color: theme.colors.text, fontSize: ds.typography.fontSize.md }}
-                    placeholderTextColor={theme.colors.textSecondary || componentColors.defaultPlaceholderText}
-                    leftIcon={<Icon name="email-outline" type="material-community" color={theme.colors.textSecondary} />}
-                    disabled={isSending}
+                  label="Seu Nome *"
+                  placeholder="Como podemos chamar você?"
+                  value={values.name}
+                  onChangeText={handleChange('name')}
+                  onBlur={handleBlur('name')}
+                  error={touched.name && errors.name}
+                  containerStyle={styles.inputSpacing}
                 />
-
                 <Input
-                    placeholder="Digite seu feedback aqui... *"
-                    value={feedback}
-                    onChangeText={setFeedback}
-                    multiline
-                    numberOfLines={6}
-                    containerStyle={styles.inputContainer}
-                    inputContainerStyle={styles.multilineInputContainerStyle}
-                    inputStyle={[styles.multilineInput, { color: theme.colors.text, fontSize: ds.typography.fontSize.md }]}
-                    placeholderTextColor={theme.colors.textSecondary || componentColors.defaultPlaceholderText}
-                    disabled={isSending}
+                  label="Seu Email para Contato *"
+                  placeholder="Para podermos responder, se necessário"
+                  value={values.email}
+                  onChangeText={handleChange('email')}
+                  onBlur={handleBlur('email')}
+                  error={touched.email && errors.email}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  containerStyle={styles.inputSpacing}
                 />
-            </Card>
-
-            <Button
-                title="Enviar Feedback"
-                onPress={handleSend}
-                buttonStyle={{ backgroundColor: theme.colors.primary, borderRadius: ds.radii.md }}
-                containerStyle={{ marginTop: ds.spacing.xl }}
-                loading={isSending}
-                disabled={isSending}
-                icon={<Icon name="send-outline" type="material-community" color={componentColors.white} />}
-                iconRight
-            />
+                <Input
+                  label="Assunto *"
+                  placeholder="Sobre o que é o seu feedback?"
+                  value={values.subject}
+                  onChangeText={handleChange('subject')}
+                  onBlur={handleBlur('subject')}
+                  error={touched.subject && errors.subject}
+                  containerStyle={styles.inputSpacing}
+                />
+                <Input
+                  label="Sua Mensagem de Feedback *"
+                  placeholder="Descreva aqui a sua opinião..."
+                  value={values.feedback}
+                  onChangeText={handleChange('feedback')}
+                  onBlur={handleBlur('feedback')}
+                  error={touched.feedback && errors.feedback}
+                  multiline
+                  numberOfLines={5}
+                  inputStyle={{ height: 120, textAlignVertical: 'top' }}
+                  containerStyle={styles.inputSpacing}
+                />
+                <Button
+                  title="Enviar Feedback"
+                  onPress={() => handleSubmit()} // handleSubmit do Formik
+                  loading={isSubmitting}
+                  disabled={isSubmitting || !dirty || !isValid || (!isMailAvailable && Platform.OS !== 'web')}
+                  type="solid"
+                  icon="email-send-outline"
+                  buttonStyle={{ marginTop: theme.spacing.md }}
+                />
+                {!isMailAvailable && Platform.OS !== 'web' && (
+                    <Text style={[styles.warningText, {color: theme.colors.warning, fontFamily: theme.typography.fontFamily.regular}]}>
+                        Cliente de email não disponível. Por favor, configure um app de email.
+                    </Text>
+                )}
+              </>
+            )}
+          </Formik>
         </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
-const componentColors = {
-    white: '#FFFFFF',
-    defaultPlaceholderText: '#A9A9A9', // Added for placeholder fallback
-};
-
 const styles = StyleSheet.create({
-  card: {
-      borderWidth: 0,
-      elevation: 1,
-      marginHorizontal: 0,
-      padding: 10,
-      shadowOpacity: 0.05,
-  },
-  inputContainer: {
-    marginBottom: 8,
-    paddingHorizontal: 0,
-  },
-  inputContainerStyleBorderless: { // For email input
-    borderBottomWidth: 0,
-  },
-  kavContainer: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  multilineInput: {
-    height: 150,
-    textAlignVertical: 'top',
+  scrollContainer: {
+    flexGrow: 1, // Para o ScrollView ocupar o espaço e o KeyboardAvoidingView funcionar bem
+    // padding é definido dinamicamente
   },
-  multilineInputContainerStyle: { // For feedback input
-    borderBottomWidth: 0,
-    height: 150,
+  introText: {
+    fontSize: 15, // Usar theme.typography
+    lineHeight: 22, // Usar theme.typography
+    textAlign: 'left',
+    // marginBottom e color são dinâmicos
   },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 16,
+  inputSpacing: {
+    // marginBottom: 16, // O Input já tem marginBottom
   },
-  subtitle: {
-      lineHeight: 22,
-      textAlign: 'center',
-  },
-  title: {
+  warningText: {
+    fontSize: 13, // Usar theme.typography.fontSize.xs
     textAlign: 'center',
+    marginTop: 12, // Usar theme.spacing.sm
   },
 });
 

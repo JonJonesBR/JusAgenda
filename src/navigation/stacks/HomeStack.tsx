@@ -1,120 +1,90 @@
-import React from "react";
-// import { TextStyle, StyleProp } from "react-native"; // Removido TextStyle, StyleProp
-import HomeScreen from "../../screens/HomeScreen";
-import EventDetailsScreen from "../../screens/EventDetailsScreen";
-import EventViewScreen from "../../screens/EventViewScreen";
-import ExportScreen from "../../screens/ExportScreen";
-import SettingsScreen from "../../screens/SettingsScreen";
-import { Stack, navigationConfig } from "../navigationConfig";
-import { useTheme } from "../../contexts/ThemeContext";
-import { RouteProp } from '@react-navigation/native'; // Import RouteProp
-import { Event } from "../../types/event"; // Importar tipo Event para params
+// src/navigation/stacks/HomeStack.tsx
+import React from 'react';
+import { Platform } from 'react-native';
+import { Stack, getStackScreenOptions } from '../navigationConfig'; // Usando Stack e getStackScreenOptions
+import { useTheme } from '../../contexts/ThemeContext';
+import { ROUTES } from '../../constants';
 
-// Definindo tipo para os parâmetros das rotas que os recebem
-type HomeStackParamList = {
-  HomeScreen: undefined;
-  EventView: { eventId: string }; // Exemplo: precisa de ID para buscar o evento
-  EventDetails: { event?: Event; editMode?: boolean }; // Recebe evento opcional e modo
-  Export: undefined;
-  Settings: undefined;
-  // Adicione outras telas se necessário
+// Importar as telas que pertencem a esta stack
+import HomeScreen from '../../screens/HomeScreen';
+import EventDetailsScreen from '../../screens/EventDetailsScreen';
+import EventViewScreen from '../../screens/EventViewScreen';
+import SettingsScreen from '../../screens/SettingsScreen';
+import ClientWizardScreen from '../../screens/ClientWizardScreen'; // Adicionando ClientWizard se acessível daqui
+import { Event as EventType } from '../../types/event'; // Para tipar params
+import { Client as ClientType } from '../../types/client'; // Para tipar params
+
+// Defina a ParamList para a HomeStack
+// Isto é crucial para a segurança de tipos com React Navigation
+export type HomeStackParamList = {
+  [ROUTES.HOME]: undefined; // Tela inicial não recebe parâmetros diretos ao ser chamada pela tab
+  [ROUTES.EVENT_DETAILS]: { eventId?: string; initialDateString?: string }; // Para adicionar/editar evento
+  [ROUTES.EVENT_VIEW]: { eventId: string; eventTitle?: string; event?: EventType }; // Para visualizar evento
+  [ROUTES.SETTINGS]: undefined;
+  [ROUTES.CLIENT_WIZARD]: { // Se ClientWizard for acessível a partir da HomeStack
+    clientId?: string;
+    isEditMode?: boolean;
+    readOnly?: boolean;
+    // clientData?: ClientType; // Opcional, se passar o objeto cliente completo
+  };
+  // Adicione outras telas que podem ser navegadas a partir da HomeStack
 };
 
-/**
- * Stack de navegação principal iniciada na HomeScreen
- */
-const HomeStack: React.FC = () => {
+const HomeStackNavigator: React.FC = () => {
   const { theme } = useTheme();
 
-  // Estilo comum para o título do cabeçalho - opcional, pois está em screenOptions
-  // const commonHeaderTitleStyle: StyleProp<TextStyle> = {
-  //   color: theme.colors.onPrimary || "#FFFFFF",
-  // };
-
-  // Configurações padrão para as telas desta stack
-  const stackScreenOptions = {
-    ...navigationConfig,
-    headerStyle: {
-      backgroundColor: theme.colors.primary,
-    },
-    headerTintColor: theme.colors.onPrimary || "#FFFFFF",
-    headerTitleStyle: {
-      fontWeight: "bold" as const, // 'bold' também funciona
-      fontSize: 18,
-      color: theme.colors.onPrimary || "#FFFFFF",
-    },
-    // contentStyle: { // Remover se não for válido
-    //   backgroundColor: theme.colors.background,
-    // },
-  };
+  // Obtém as opções de ecrã para a stack, baseadas no tema atual
+  const stackScreenOptions = getStackScreenOptions(theme);
 
   return (
-    // Envolver com Provider apenas se necessário especificamente para esta Stack
-    <Stack.Navigator
-        // initialRouteName="HomeScreen" // Definir rota inicial explicitamente
-        screenOptions={stackScreenOptions} // Aplicar opções padrão
-    >
-      {/* Tela Home */}
+    // Tipando o Stack.Navigator com a HomeStackParamList
+    <Stack.Navigator initialRouteName={ROUTES.HOME} screenOptions={stackScreenOptions}>
       <Stack.Screen
-        name="HomeScreen"
+        name={ROUTES.HOME}
         component={HomeScreen}
-        options={{ headerShown: false }} // Header customizado na tela
-      />
-      {/* Tela de Visualização de Evento */}
-      <Stack.Screen
-        name="EventView"
-        component={EventViewScreen}
         options={{
-          title: "Detalhes do Compromisso",
-          // headerTitleStyle: commonHeaderTitleStyle, // Não necessário se igual ao padrão
+          headerShown: false, // A HomeScreen pode já ter um Header customizado ou não precisar de um da stack
+          // title: 'JusAgenda Início', // Ou obter o título do componente Header interno
         }}
-        // Você pode querer buscar o evento aqui baseado em route.params.eventId e
-        // passar para o componente ou deixar o componente buscar.
       />
-      {/* Tela de Edição/Criação de Evento */}
       <Stack.Screen
-        name="EventDetails"
+        name={ROUTES.EVENT_DETAILS}
         component={EventDetailsScreen}
-        options={({ route }: { route: RouteProp<HomeStackParamList, 'EventDetails'> }) => {
-          const params = route.params; // params are now correctly typed
-          const isEdit = params?.editMode;
-          const hasEvent = !!params?.event; // Verifica se um evento foi passado (pode ser edição ou visualização inicial)
-
-          let title = "Novo Compromisso"; // Default para criação
-          if (hasEvent) {
-              title = isEdit ? "Editar Compromisso" : "Detalhes do Compromisso";
-          }
-          // Se 'isEditMode' for true mas 'event' for undefined (criar novo), mantém "Novo Compromisso"
-
-          return {
-            title: title,
-            // headerTitleStyle: commonHeaderTitleStyle, // Não necessário se igual ao padrão
-            // Considerar adicionar botão Salvar/Cancelar no header para modo edição/criação
-            // headerRight: () => (isEdit || !hasEvent ? <Button title="Salvar" onPress={() => { /* Lógica de salvar */ }} /> : null),
-            // headerLeft: () => ( ... botão cancelar ...),
-          };
-        }}
+        options={({ route }) => ({
+          // O título será definido dinamicamente dentro de EventDetailsScreen (Novo/Editar Evento)
+          // title: route.params?.eventId ? 'Editar Evento' : 'Novo Evento',
+          presentation: Platform.OS === 'ios' ? 'modal' : 'card', // Modal no iOS para adicionar/editar
+          // headerBackTitle: 'Cancelar', // Exemplo
+        })}
       />
-      {/* Tela de Exportação */}
       <Stack.Screen
-        name="Export"
-        component={ExportScreen}
-        options={{
-          title: "Exportar Compromissos",
-          // headerTitleStyle: commonHeaderTitleStyle, // Não necessário
-        }}
+        name={ROUTES.EVENT_VIEW}
+        component={EventViewScreen}
+        options={({ route }) => ({
+          // O título será definido dinamicamente dentro de EventViewScreen com base no evento
+          // title: route.params?.eventTitle || 'Detalhes do Evento',
+          presentation: 'card',
+        })}
       />
-      {/* Tela de Configurações */}
       <Stack.Screen
-        name="Settings"
+        name={ROUTES.SETTINGS}
         component={SettingsScreen}
         options={{
-          title: "Configurações",
-          // headerTitleStyle: commonHeaderTitleStyle, // Não necessário
+          title: 'Configurações',
+          presentation: Platform.OS === 'ios' ? 'modal' : 'card',
         }}
       />
+      {/* Exemplo de como ClientWizardScreen poderia ser incluído se acessível daqui */}
+      {/* <Stack.Screen
+        name={ROUTES.CLIENT_WIZARD}
+        component={ClientWizardScreen}
+        options={{
+          // O título será definido dinamicamente dentro de ClientWizardScreen
+          presentation: Platform.OS === 'ios' ? 'modal' : 'card',
+        }}
+      /> */}
     </Stack.Navigator>
   );
 };
 
-export default HomeStack;
+export default HomeStackNavigator;
