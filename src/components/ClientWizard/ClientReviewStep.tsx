@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Divider, Button, Icon } from '@rneui/themed';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Client } from '../../screens/ClientWizardScreen';
+import Client from '../../screens/ClientWizardScreen';
 import moment from 'moment';
 import * as Haptics from 'expo-haptics';
 
@@ -13,7 +13,7 @@ const componentColors = {
 };
 
 interface ClientReviewStepProps {
-  data: Partial<Client>;
+  data: Partial<typeof Client>;
   onEditStep: (stepIndex: number) => void;
 }
 

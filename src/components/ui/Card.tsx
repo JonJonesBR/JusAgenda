@@ -1,13 +1,19 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, Platform } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
-// import designSystem from '../../theme/designSystem'; // REMOVIDO
+import { View, StyleSheet, ViewStyle, Platform, Text, TouchableOpacity, TextStyle } from 'react-native'; // TextStyle imported
+// Icon and IconProps were removed in previous versions as they were not directly used.
+// If they are needed for a specific use case within this generic Card, they would be passed as props/children.
+import { useTheme, ShadowStyle, DesignSystemProps } from '../../contexts/ThemeContext';
 
 interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
-  elevationName?: 'small' | 'medium' | 'large' | 'none';
+  elevationName?: keyof DesignSystemProps['shadows'] | 'none';
   noPadding?: boolean;
+  title?: string;
+  titleStyle?: ViewStyle; // Style for the title's container View
+  titleTextStyle?: TextStyle; // Style for the title Text component
+  headerRight?: React.ReactNode;
+  onPress?: () => void;
 }
 
 const Card: React.FC<CardProps> = ({
@@ -15,68 +21,95 @@ const Card: React.FC<CardProps> = ({
   style,
   elevationName = 'medium',
   noPadding = false,
+  title,
+  titleStyle,
+  titleTextStyle: propTitleTextStyle,
+  headerRight,
+  onPress,
 }) => {
   const { theme } = useTheme();
-  // AGORA spacing, radii, shadows vêm do 'theme'
-  // Certifique-se de que seu ThemeContext e o objeto 'theme' forneçam essas propriedades
-  const spacing = theme.spacing || { sm: 8, md: 16, lg: 24 }; // Fallbacks
-  const radii = theme.radii || { sm: 4, md: 8, lg: 12 };       // Fallbacks
-  const shadows = theme.shadows || {                           // Fallbacks
-      small: { elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.18, shadowRadius: 1.00 },
-      medium: { elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.22, shadowRadius: 2.22 },
-      large: { elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-      none: { elevation: 0 }
-  };
+  const { spacing, radii, shadows, colors, typography } = theme;
 
+  const getElevationStyle = (): ShadowStyle => {
+    const validElevationName = elevationName as keyof DesignSystemProps['shadows'];
 
-  const getElevationStyle = () => {
-    if (elevationName === 'none') {
-        return Platform.OS === 'android' ? { elevation: 0 } : {};
+    if (elevationName === 'none' || !shadows[validElevationName]) {
+      return Platform.OS === 'android'
+        ? { elevation: 0 }
+        : { shadowColor: colors.transparent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0 };
     }
-    const selectedShadow = shadows[elevationName] || shadows.medium;
-    return Platform.OS === 'android'
-      ? { elevation: selectedShadow.elevation || shadows.medium.elevation }
-      : {
-          shadowColor: selectedShadow.shadowColor || '#000',
-          shadowOffset: selectedShadow.shadowOffset || { width: 0, height: 2 },
-          shadowOpacity: selectedShadow.shadowOpacity || 0.22,
-          shadowRadius: selectedShadow.shadowRadius || 2.22,
-        };
+    const selectedShadow = shadows[validElevationName];
+    return {
+        ...selectedShadow,
+        shadowColor: selectedShadow.shadowColor || colors.defaultShadowColor,
+    };
   };
 
-  const cardStyles: ViewStyle[] = [
-    styles.baseCard,
-    {
-      backgroundColor: theme.colors.surface,
-      borderColor: theme.colors.border,
-      borderRadius: radii.lg, // Usando radii do theme
-      // borderWidth: StyleSheet.hairlineWidth, // Adicionar se a borda for padrão
+  const componentSpecificStyles = StyleSheet.create({
+    container: {
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+      borderRadius: radii.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      overflow: Platform.OS === 'ios' ? 'visible' : 'hidden',
     },
-    getElevationStyle(),
-    noPadding ? styles.noPadding : { padding: spacing.md }, // Usando spacing do theme
+    contentContainer: {
+      // Base styles for the content area
+    },
+    defaultPadding: { // Corrected order: 'defaultPadding' before 'noPaddingStyle'
+      padding: spacing.md,
+    },
+    headerContainer: {
+      alignItems: 'center',
+      borderBottomColor: colors.border,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    noPaddingStyle: { // Corrected order: 'noPaddingStyle' after 'defaultPadding'
+      padding: 0,
+    },
+    titleText: {
+      color: colors.text,
+      fontFamily: typography.fontFamily.bold,
+      fontSize: typography.fontSize.lg,
+      fontWeight: typography.fontWeight.bold,
+    },
+  });
+
+  const cardComputedStyle: ViewStyle[] = [
+    componentSpecificStyles.container,
+    getElevationStyle() as ViewStyle,
     style,
   ];
 
-  return <View style={cardStyles}>{children}</View>;
-};
+  const contentPaddingStyle = noPadding ? componentSpecificStyles.noPaddingStyle : componentSpecificStyles.defaultPadding;
 
-const styles = StyleSheet.create({
-  baseCard: {
-    // marginVertical é agora dinâmico ou você pode fixá-lo aqui se não vier do theme.spacing
-    // Se theme.spacing.sm for usado, aplique-o dinamicamente ou defina um valor fixo.
-    // Ex: marginVertical: 8, (se não for buscar de theme.spacing.sm dinamicamente)
-    // overflow: 'hidden', // Mesma observação sobre sombras e overflow
-    ...(Platform.OS === 'ios' && { overflow: 'visible' }),
-  },
-  noPadding: {
-    padding: 0,
+  const CardContent = (
+    <View style={cardComputedStyle}>
+      {(title || headerRight) && (
+        <View style={[componentSpecificStyles.headerContainer, titleStyle]}>
+          {title && <Text style={[componentSpecificStyles.titleText, propTitleTextStyle]}>{title}</Text>}
+          {headerRight && <View>{headerRight}</View>}
+        </View>
+      )}
+      <View style={[componentSpecificStyles.contentContainer, contentPaddingStyle]}>
+        {children}
+      </View>
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+        {CardContent}
+      </TouchableOpacity>
+    );
   }
-  // Se designSystem.spacing.sm e designSystem.radii.lg fossem fixos e não do tema,
-  // você poderia definir mais estilos base aqui:
-  // baseCard: {
-  //   borderRadius: 12, // Exemplo de valor fixo
-  //   marginVertical: 8, // Exemplo de valor fixo
-  // },
-});
+
+  return CardContent;
+};
 
 export default Card;

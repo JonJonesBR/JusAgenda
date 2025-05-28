@@ -1,182 +1,113 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Platform } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, TextStyle, Platform, StatusBar } from 'react-native';
+import { Icon } from '@rneui/themed'; // IconProps removido, pois não é usado diretamente aqui
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon } from '@rneui/themed';
-
-type HeaderNavigationProp = NavigationProp<Record<string, object | undefined>>;
 
 interface HeaderProps {
   title: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
-  onLeftPress?: () => void;
-  onRightPress?: () => void;
-  showBackButton?: boolean;
-  transparent?: boolean;
+  titleStyle?: TextStyle;
+  containerStyle?: ViewStyle;
+  leftComponent?: React.ReactNode;
+  onLeftComponentPress?: () => void;
+  rightComponent?: React.ReactNode;
+  onRightComponentPress?: () => void;
 }
-
-const DEFAULT_HEADER_HEIGHT = 56;
-const defaultSpacing = { xs: 4, sm: 8, md: 16, lg: 24 };
-const defaultTypography = {
-  fontSize: { sm: 12, md: 14, lg: 18, xl: 22 },
-  fontFamily: { regular: 'System', medium: 'System', bold: 'System' }
-};
-const defaultShadows = {
-  small: Platform.OS === 'android'
-      ? { elevation: 2 }
-      : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.18, shadowRadius: 1.00 },
-};
 
 const Header: React.FC<HeaderProps> = ({
   title,
-  leftIcon,
-  rightIcon,
-  onLeftPress,
-  onRightPress,
-  showBackButton = false,
-  transparent = false,
+  titleStyle: propTitleStyle,
+  containerStyle: propContainerStyle,
+  leftComponent,
+  onLeftComponentPress,
+  rightComponent,
+  onRightComponentPress,
 }) => {
-  const navigation = useNavigation<HeaderNavigationProp>();
-  const { theme } = useTheme(); // Removed isDarkMode from destructuring
+  const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Using local defaults as theme structure for these is unclear
-  const spacing = defaultSpacing;
-  const typography = defaultTypography;
-  const shadows = defaultShadows;
-  const surfaceColor = theme.colors.background || '#FFFFFF'; // Using background as fallback
+  const HEADER_HEIGHT = Platform.OS === 'ios' ? 44 : 56;
 
-  const handleBackPress = () => {
-    if (onLeftPress) {
-      onLeftPress();
-    } else if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
-  };
-
-  const headerHeight = DEFAULT_HEADER_HEIGHT + insets.top;
-  const paddingTop = insets.top;
-
-  const containerStyles = [
-    styles.baseContainer,
-    {
-      height: headerHeight,
-      paddingTop: paddingTop,
-      backgroundColor: transparent ? 'transparent' : surfaceColor,
-      borderBottomColor: transparent ? 'transparent' : theme.colors.border,
-      paddingHorizontal: spacing.md,
+  const componentStyles = StyleSheet.create({
+    centerContainer: { // Ordem corrigida: 'centerContainer' antes de 'container' e 'title'
+      alignItems: 'center', // Ordem corrigida: 'alignItems' antes de 'flex'
+      flex: 1,
+      justifyContent: 'center',
     },
-    !transparent && shadows.small,
-  ];
-
-  const titleStyles = [
-    styles.baseTitle,
-    {
-      color: theme.colors.text,
-      fontSize: typography.fontSize.lg,
-      fontFamily: typography.fontFamily.medium,
+    container: {
+      alignItems: 'center',
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      height: HEADER_HEIGHT + insets.top,
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.md,
+      paddingTop: insets.top,
+      ...theme.shadows.small,
     },
-  ];
-
-  const defaultBackIcon = (
-    <Icon
-      name={Platform.OS === 'ios' ? 'chevron-left' : 'arrow-left'}
-      type="material-community"
-      color={theme.colors.primary}
-      size={28}
-    />
-  );
+    sideComponentContainer: {
+      alignItems: 'center',
+      height: HEADER_HEIGHT,
+      justifyContent: 'center',
+      minWidth: HEADER_HEIGHT,
+    },
+    title: { // Ordem corrigida: 'title' depois de 'centerContainer'
+      color: theme.colors.onPrimary,
+      fontFamily: theme.typography.fontFamily.bold,
+      fontSize: theme.typography.fontSize.lg,
+      fontWeight: theme.typography.fontWeight.bold,
+      textAlign: 'center',
+    },
+  });
 
   return (
     <>
       <StatusBar
-        barStyle={'dark-content'} // Defaulting barStyle
-        backgroundColor={transparent ? 'transparent' : surfaceColor}
-        translucent={transparent || Platform.OS === 'ios'}
+        barStyle={isDark ? 'light-content' : (Platform.OS === 'ios' ? 'dark-content' : 'light-content')}
+        backgroundColor={theme.colors.primary}
+        translucent={false}
       />
-      <View style={containerStyles}>
-        <View style={styles.leftComponentContainer}>
-          {showBackButton ? (
-            <TouchableOpacity style={[styles.iconButton, { padding: spacing.xs }]} onPress={handleBackPress} accessibilityLabel="Voltar">
-              {leftIcon || defaultBackIcon}
+      <View style={[componentStyles.container, propContainerStyle]}>
+        <View style={componentStyles.sideComponentContainer}>
+          {leftComponent && onLeftComponentPress ? (
+            <TouchableOpacity onPress={onLeftComponentPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              {leftComponent}
             </TouchableOpacity>
-          ) : leftIcon ? (
-            <TouchableOpacity
-              style={[styles.iconButton, { padding: spacing.xs }]}
-              onPress={onLeftPress}
-              disabled={!onLeftPress}
-              accessibilityLabel="Ação esquerda"
-            >
-              {leftIcon}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.iconPlaceholder} />
-          )}
+          ) : leftComponent ? (
+            leftComponent
+          ) : null}
         </View>
 
-        <View style={styles.titleContainer}>
-            <Text style={titleStyles} numberOfLines={1} ellipsizeMode="tail">
+        <View style={componentStyles.centerContainer}>
+          <Text style={[componentStyles.title, propTitleStyle]} numberOfLines={1}>
             {title}
-            </Text>
+          </Text>
         </View>
 
-        <View style={styles.rightComponentContainer}>
-          {rightIcon ? (
-            <TouchableOpacity
-              style={[styles.iconButton, { padding: spacing.xs }]}
-              onPress={onRightPress}
-              disabled={!onRightPress}
-              accessibilityLabel="Ação direita"
-            >
-              {rightIcon}
+        <View style={componentStyles.sideComponentContainer}>
+          {rightComponent && onRightComponentPress ? (
+            <TouchableOpacity onPress={onRightComponentPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              {rightComponent}
             </TouchableOpacity>
-          ) : (
-            <View style={styles.iconPlaceholder} />
-          )}
+          ) : rightComponent ? (
+            rightComponent
+          ) : null}
         </View>
       </View>
     </>
   );
 };
 
-const styles = StyleSheet.create({
-  baseContainer: {
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-  },
-  baseTitle: {
-    fontWeight: Platform.OS === 'ios' ? '600' : '500',
-    textAlign: 'center',
-  },
-  iconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 40,
-    minWidth: 40,
-  },
-  iconPlaceholder: {
-    height: 40,
-    width: 40,
-  },
-  leftComponentContainer: {
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    width: 50,
-  },
-  rightComponentContainer: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    width: 50,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    marginHorizontal: 4,
-  },
-});
+export const HeaderBackButton: React.FC<{ onPress: () => void; tintColor?: string }> = ({ onPress, tintColor }) => {
+    const { theme } = useTheme();
+    return (
+        <Icon
+            name={Platform.OS === 'ios' ? 'chevron-left' : 'arrow-left'}
+            type="material-community"
+            color={tintColor || theme.colors.onPrimary}
+            size={28}
+            onPress={onPress}
+        />
+    );
+};
 
 export default Header;

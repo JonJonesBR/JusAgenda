@@ -1,13 +1,21 @@
 import * as Notifications from 'expo-notifications';
-import { Alert, Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
+import Toast from 'react-native-toast-message';
+import * as Linking from 'expo-linking';
 
-/**
- * Placeholder function for configuring notifications.
- * Actual implementation will require requesting permissions and setting up handlers.
- */
-export const configureNotifications = async (): Promise<boolean> => {
-  console.log("Placeholder: configureNotifications called. Implement actual notification logic here.");
+// Configura o manipulador de notificações para quando o app está em primeiro plano
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: Platform.OS === 'ios' ? true : undefined,
+    shouldShowList: Platform.OS === 'ios' ? true : undefined,
+  }),
+});
 
+export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  // ... (código existente da função registerForPushNotificationsAsync)
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
@@ -21,54 +29,149 @@ export const configureNotifications = async (): Promise<boolean> => {
   let finalStatus = existingStatus;
 
   if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+            allowCriticalAlerts: false,
+        }
+    });
     finalStatus = status;
   }
 
   if (finalStatus !== 'granted') {
-    Alert.alert('Permissão Necessária', 'Não foi possível obter permissão para notificações push!');
-    return false;
+    Alert.alert(
+      'Permissão de Notificação Necessária',
+      'Para receber lembretes e atualizações, por favor, habilite as notificações nas configurações do seu dispositivo.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Abrir Configurações', onPress: () => Linking.openSettings() }
+      ]
+    );
+    return null;
   }
-  
-  // console.log('Notification permissions granted.');
-  return true;
-};
+  return 'permission_granted_for_local_notifications';
+}
 
-// Example of how you might schedule a local notification (not used by SettingsScreen directly)
-export const scheduleLocalNotification = async (title: string, body: string, data: Record<string, unknown>, trigger: Notifications.NotificationTriggerInput) => {
+interface ScheduleNotificationParams {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+  trigger: Notifications.NotificationTriggerInput;
+}
+export async function scheduleLocalNotification({ title, body, data, trigger }: ScheduleNotificationParams): Promise<string | undefined> {
+  // ... (código existente da função scheduleLocalNotification)
   try {
-    await Notifications.scheduleNotificationAsync({
+    const identifier = await Notifications.scheduleNotificationAsync({
       content: {
-        title,
-        body,
-        data, // optional data to pass with the notification
-        sound: 'default', // plays the default sound
+        title: title,
+        body: body,
+        data: data,
+        sound: 'default',
       },
-      trigger, // e.g., { seconds: 60, repeats: true } or a date
+      trigger: trigger,
     });
-    console.log('Notification scheduled successfully');
+    console.log('Notificação agendada com ID:', identifier);
+    Toast.show({
+        type: 'success',
+        text1: 'Lembrete Agendado!',
+        text2: title,
+    });
+    return identifier;
   } catch (error) {
-    console.error('Error scheduling notification:', error);
+    console.error('Erro ao agendar notificação:', error);
+    Toast.show({
+        type: 'error',
+        text1: 'Erro ao Agendar Lembrete',
+        text2: 'Não foi possível agendar o lembrete.',
+    });
+    return undefined;
   }
+}
+
+// Função para calcular um gatilho de intervalo de tempo
+// MODIFICADO: Usando 'any' como contorno para o tipo de retorno se o TS não resolver corretamente.
+// Idealmente, seria Notifications.TimeIntervalNotificationTriggerInput
+const calculateExampleTrigger = (secondsFromNow: number): any => { // Ou Notifications.NotificationTriggerInput
+  // Acessando o enum NotificationTriggerType corretamente através do namespace Notifications
+  // Se Notifications.NotificationTriggerType.TimeInterval ainda der erro, usar a string literal como último recurso.
+  const triggerType = (Notifications as any).NotificationTriggerType?.TimeInterval || 'timeInterval';
+
+  if (secondsFromNow <= 0) {
+    return { type: triggerType, seconds: 1, repeats: false };
+  }
+  return { type: triggerType, seconds: secondsFromNow, repeats: false };
 };
 
-// Example of how to cancel all scheduled notifications
-export const cancelAllScheduledNotifications = async () => {
-    try {
-        await Notifications.cancelAllScheduledNotificationsAsync();
-        console.log('All scheduled notifications cancelled.');
-    } catch (error) {
-        console.error('Error cancelling scheduled notifications:', error);
-    }
-};
+export async function scheduleTestNotificationHandler() {
+  // ... (código existente da função scheduleTestNotificationHandler)
+  const permission = await registerForPushNotificationsAsync();
+  if (!permission) {
+    return;
+  }
 
-// It's also good practice to set a notification handler for when notifications are received while the app is foregrounded
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true, // Added for iOS 14+
-    shouldShowList: true,   // Added for iOS 14+
-  }),
-});
+  const title = "Lembrete de Teste JusAgenda";
+  const body = "Este é um lembrete de teste agendado!";
+  const data = { testData: "algum_dado_util_aqui" };
+  const trigger = calculateExampleTrigger(10);
+
+  await scheduleLocalNotification({title, body, data, trigger});
+}
+
+// ... (restante das funções cancelScheduledNotification, cancelAllScheduledNotifications, setupNotificationListeners)
+export async function cancelScheduledNotification(identifier: string) {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(identifier);
+    console.log('Notificação cancelada:', identifier);
+    Toast.show({
+        type: 'info',
+        text1: 'Lembrete Cancelado',
+    });
+  } catch (error) {
+    console.error('Erro ao cancelar notificação:', error);
+     Toast.show({
+        type: 'error',
+        text1: 'Erro ao Cancelar',
+        text2: 'Não foi possível cancelar o lembrete.',
+    });
+  }
+}
+
+export async function cancelAllScheduledNotifications() {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    console.log('Todas as notificações agendadas foram canceladas.');
+    Toast.show({
+        type: 'info',
+        text1: 'Lembretes Cancelados',
+        text2: 'Todos os lembretes foram removidos.',
+    });
+  } catch (error) {
+    console.error('Erro ao cancelar todas as notificações:', error);
+    Toast.show({
+        type: 'error',
+        text1: 'Erro ao Cancelar',
+        text2: 'Não foi possível remover todos os lembretes.',
+    });
+  }
+}
+
+export const setupNotificationListeners = () => {
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('Notificação tocada - Resposta recebida:', response);
+        const notificationData = response.notification.request.content.data as Record<string, unknown> | undefined;
+        if (notificationData && typeof notificationData.eventId === 'string') {
+            console.log('Navegar para o evento ID:', notificationData.eventId);
+        }
+    });
+
+    const receivedListener = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notificação recebida em primeiro plano:', notification);
+    });
+
+    return () => {
+        Notifications.removeNotificationSubscription(responseListener);
+        Notifications.removeNotificationSubscription(receivedListener);
+    };
+};

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Input, Text } from '@rneui/themed'; // @rneui/base não é necessário aqui se não usar componentes específicos dele
 import { useTheme } from '../../contexts/ThemeContext';
-import { Client } from '../../screens/ClientWizardScreen'; // Reintroduzido Client para tipagem
+import Client from '../../screens/ClientWizardScreen'; // Reintroduzido Client para tipagem
 
 // Tente instalar @types/react-native-masked-text
 // Se instalado, o @ts-ignore pode não ser mais necessário.
@@ -10,8 +10,8 @@ import { Client } from '../../screens/ClientWizardScreen'; // Reintroduzido Clie
 import MaskInput from 'react-native-mask-input';
 
 interface ClientDocumentsStepProps {
-  data: Partial<Client>; // Usando Partial<Client>
-  onUpdate: (data: Partial<Client>) => void;
+  data: Partial<typeof Client>; // Usando Partial<typeof Client>
+  onUpdate: (data: Partial<typeof Client>) => void;
   // isEditMode?: boolean; // Removido, pois não está sendo usado
 }
 
@@ -59,7 +59,7 @@ const ClientDocumentsStep: React.FC<ClientDocumentsStepProps> = ({
               keyboardType="numeric"
               accessibilityLabel="CPF do cliente"
               returnKeyType="next"
-              InputComponent={(props) => (
+              InputComponent={(props: any) => (
                 <MaskInput
                   {...props}
                   mask={'[0-9]{3}.[0-9]{3}.[0-9]{3}-[0-9]{2}'}

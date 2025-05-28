@@ -1,81 +1,66 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
-// import designSystem from '../../theme/designSystem'; // Removed
-import Card from './Card';
-
-// Define default design system values directly here for StyleSheet, or pass theme to styles
-const defaultDS = {
-  spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
-  typography: {
-    fontSize: { xs: 12, sm: 14, md: 16, lg: 18 },
-    fontFamily: { regular: 'System', medium: 'System', bold: 'System' }
-  },
-};
 
 interface SectionProps {
-  title: string;
+  title?: string;
   children: React.ReactNode;
-  action?: {
-    label: string;
-    onPress: () => void;
-  };
+  style?: ViewStyle;
+  titleStyle?: TextStyle;
+  contentStyle?: ViewStyle;
+  noPadding?: boolean;
+  addSeparator?: boolean;
 }
 
-const Section: React.FC<SectionProps> = ({ title, children, action }) => {
+const Section: React.FC<SectionProps> = ({
+  title,
+  children,
+  style,
+  titleStyle: propTitleStyle,
+  contentStyle,
+  noPadding = false,
+  addSeparator = false,
+}) => {
   const { theme } = useTheme();
 
-  const titleStyles = [
-    styles.sectionTitle,
-    {
-      color: theme.colors.text, // Replaced textPrimary
+  const componentStyles = StyleSheet.create({
+    container: {
+      marginBottom: theme.spacing.lg,
     },
-  ];
-
-  const actionStyles = [
-    styles.actionText,
-    {
-      color: theme.colors.primary,
+    contentWrapper: {
+      // Padding applied dynamically
     },
-  ];
+    separator: { // Corrected order: 'separator' before 'titleText'
+      backgroundColor: theme.colors.border, // Corrected order: 'backgroundColor' before 'height'
+      height: 1,
+      marginBottom: theme.spacing.md,
+    },
+    titleText: {
+      color: theme.colors.text, // Corrected order: 'color' before 'fontFamily'
+      fontFamily: theme.typography.fontFamily.bold,
+      fontSize: theme.typography.fontSize.lg,
+      fontWeight: theme.typography.fontWeight.bold,
+      marginBottom: title ? (addSeparator ? theme.spacing.xs : theme.spacing.sm) : 0,
+    },
+  });
 
   return (
-    <View style={styles.sectionContainer}>
-      <View style={styles.sectionHeader}>
-        <Text style={titleStyles}>{title}</Text>
-        {action && (
-          <TouchableOpacity onPress={action.onPress}>
-            <Text style={actionStyles}>{action.label}</Text>
-          </TouchableOpacity>
-        )}
+    <View style={[componentStyles.container, style]}>
+      {title && (
+        <>
+          <Text style={[componentStyles.titleText, propTitleStyle]}>{title}</Text>
+          {addSeparator && <View style={componentStyles.separator} />}
+        </>
+      )}
+      <View style={[
+        componentStyles.contentWrapper,
+        !noPadding && { paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
+        contentStyle
+      ]}>
+        {children}
       </View>
-      {/* O Card agora envolve apenas os children, como no arquivo original */}
-      <Card>{children}</Card>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  actionText: {
-    fontFamily: defaultDS.typography.fontFamily.medium,
-    fontSize: defaultDS.typography.fontSize.sm,
-  },
-  sectionContainer: {
-    marginBottom: defaultDS.spacing.md,
-  },
-  sectionHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: defaultDS.spacing.xs,
-    // Adicionado paddingHorizontal aqui, como no arquivo original,
-    // para garantir espaçamento correto do título e ação.
-    paddingHorizontal: defaultDS.spacing.md,
-  },
-  sectionTitle: {
-    fontFamily: defaultDS.typography.fontFamily.bold,
-    fontSize: defaultDS.typography.fontSize.md,
-  },
-});
 
 export default Section;

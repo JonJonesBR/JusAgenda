@@ -31,7 +31,7 @@
         "favicon": "./assets/favicon.png"
       },
       "androidStatusBar": {
-        "backgroundColor": "#6200EE",
+        "backgroundColor": "#2196F3",
         "barStyle": "light-content"
       }
     }

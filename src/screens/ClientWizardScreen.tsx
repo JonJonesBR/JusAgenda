@@ -1,139 +1,135 @@
-import React, { useState, useCallback, useEffect } from 'react'; // Added useEffect
-import { View, StyleSheet, StatusBar, Alert } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, StyleSheet, StatusBar, Alert, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
-import BreadcrumbTrail from '../navigation/BreadcrumbTrail'; // Corrected path
+import BreadcrumbTrail from '../navigation/BreadcrumbTrail';
 import * as yup from 'yup';
 
-// Passos do wizard para clientes
+import { Client, ClientAddress } from '../types/client';
+
 import ClientBasicInfoStep from '../components/ClientWizard/ClientBasicInfoStep';
 import ClientDocumentsStep from '../components/ClientWizard/ClientDocumentsStep';
 import ClientAddressStep from '../components/ClientWizard/ClientAddressStep';
 import ClientReviewStep from '../components/ClientWizard/ClientReviewStep';
-// Corrected paths for wizard components
 import ProgressIndicator from '../components/EventWizard/ProgressIndicator';
 import NavigationButtons from '../components/EventWizard/NavigationButtons';
 
-// --- Tipo Cliente ---
-export interface Client {
-  id: string;
-  nome: string;
-  nomeFantasia?: string;
-  email?: string;
-  telefone?: string;
-  cpf?: string;
-  cnpj?: string;
-  rg?: string;
-  orgaoEmissor?: string;
-  estadoCivil?: string;
-  profissao?: string;
-  inscricaoEstadual?: string;
-  inscricaoMunicipal?: string;
-  ramoAtividade?: string;
-  responsavelLegal?: string;
-  documentosAdicionais?: string;
-  pontoReferencia?: string;
-  dataNascimento?: string;
-  endereco?: {
-    logradouro?: string;
-    numero?: string;
-    complemento?: string;
-    bairro?: string;
-    cidade?: string;
-    estado?: string;
-    cep?: string;
-  };
-  observacoes?: string;
-  tipo: 'pessoaFisica' | 'pessoaJuridica';
-}
-
-// --- Tipos de Navegação ---
 type ClientStackParamList = {
   Home: undefined;
   ClientList: undefined;
   ClientWizard: { client?: Partial<Client>; isEditMode?: boolean; readOnly?: boolean };
 };
 
-type NavigationProp = NativeStackNavigationProp<ClientStackParamList, 'ClientWizard'>;
-type ClientWizardRouteProp = RouteProp<ClientStackParamList, 'ClientWizard'>;
+type NavigationPropType = NativeStackNavigationProp<ClientStackParamList, 'ClientWizard'>;
+type ClientWizardRoutePropType = RouteProp<ClientStackParamList, 'ClientWizard'>;
 
 const clientSchema = yup.object().shape({
-  tipo: yup.string().oneOf(['pessoaFisica', 'pessoaJuridica']).required('Tipo de cliente obrigatório'),
+  tipo: yup.string().oneOf(['pessoaFisica', 'pessoaJuridica'], 'Tipo de cliente inválido').required('Tipo de cliente obrigatório'),
   nome: yup.string().trim().required('Nome ou Razão Social obrigatório'),
   nomeFantasia: yup.string().trim().when('tipo', {
-      is: 'pessoaJuridica',
-      then: (schema) => schema.required('Nome Fantasia é obrigatório para Pessoa Jurídica'),
-      otherwise: (schema) => schema.nullable(),
-  }),
-  email: yup.string().email('E-mail inválido').trim().nullable().transform(v => v === '' ? null : v),
-  telefone: yup.string().trim().nullable().transform(v => v === '' ? null : v),
-  cpf: yup.string().trim().when('tipo', {
-    is: 'pessoaFisica',
-    then: (schema) => schema.required('CPF obrigatório para Pessoa Física')
-                          .matches(/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/, 'CPF inválido'),
-    otherwise: (schema) => schema.nullable(),
-  }),
-  rg: yup.string().trim().when('tipo', { is: 'pessoaFisica', then: (schema) => schema.nullable() }),
-  orgaoEmissor: yup.string().trim().when('tipo', { is: 'pessoaFisica', then: (schema) => schema.nullable() }),
-  estadoCivil: yup.string().trim().when('tipo', { is: 'pessoaFisica', then: (schema) => schema.nullable() }),
-  profissao: yup.string().trim().when('tipo', { is: 'pessoaFisica', then: (schema) => schema.nullable() }),
-  dataNascimento: yup.string().trim().when('tipo', { is: 'pessoaFisica', then: (schema) => schema.nullable() }),
-  cnpj: yup.string().trim().when('tipo', {
     is: 'pessoaJuridica',
-    then: (schema) => schema.required('CNPJ obrigatório para Pessoa Jurídica')
-                           .matches(/^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/, 'CNPJ inválido'),
-    otherwise: (schema) => schema.nullable(),
+    then: (schema) => schema.required('Nome Fantasia é obrigatório para Pessoa Jurídica'),
+    otherwise: (schema) => schema.nullable().optional(),
   }),
-  inscricaoEstadual: yup.string().trim().when('tipo', { is: 'pessoaJuridica', then: (schema) => schema.nullable() }),
-  inscricaoMunicipal: yup.string().trim().when('tipo', { is: 'pessoaJuridica', then: (schema) => schema.nullable() }),
-  ramoAtividade: yup.string().trim().when('tipo', { is: 'pessoaJuridica', then: (schema) => schema.nullable() }),
-  responsavelLegal: yup.string().trim().when('tipo', { is: 'pessoaJuridica', then: (schema) => schema.nullable() }),
+  email: yup.string().email('E-mail inválido').trim().nullable().optional(),
+  telefone: yup.string().trim().nullable().optional(),
+  cpf: yup.string().when('tipo', {
+    is: 'pessoaFisica',
+    then: (schema) => schema
+      .transform(value => (value ? String(value).replace(/\D/g, '') : value))
+      .required('CPF obrigatório para Pessoa Física')
+      .matches(/^\d{11}$/, 'CPF inválido. Deve conter 11 dígitos.'),
+    otherwise: (schema) => schema.nullable().optional(),
+  }),
+  rg: yup.string().trim().nullable().optional(),
+  orgaoEmissor: yup.string().trim().nullable().optional(),
+  estadoCivil: yup.string().trim().nullable().optional(),
+  profissao: yup.string().trim().nullable().optional(),
+  dataNascimento: yup.string().trim().nullable().optional(),
+  cnpj: yup.string().when('tipo', {
+    is: 'pessoaJuridica',
+    then: (schema) => schema
+      .transform(value => (value ? String(value).replace(/\D/g, '') : value))
+      .required('CNPJ obrigatório para Pessoa Jurídica')
+      .matches(/^\d{14}$/, 'CNPJ inválido. Deve conter 14 dígitos.'),
+    otherwise: (schema) => schema.nullable().optional(),
+  }),
+  inscricaoEstadual: yup.string().trim().nullable().optional(),
+  inscricaoMunicipal: yup.string().trim().nullable().optional(),
+  ramoAtividade: yup.string().trim().nullable().optional(),
+  responsavelLegal: yup.string().trim().nullable().optional(),
   endereco: yup.object().shape({
-    cep: yup.string().trim().nullable().matches(/^\d{5}-?\d{3}$/, 'CEP inválido'),
-    logradouro: yup.string().trim().nullable(),
-    numero: yup.string().trim().nullable(),
-    complemento: yup.string().trim().nullable(),
-    bairro: yup.string().trim().nullable(),
-    cidade: yup.string().trim().nullable(),
-    estado: yup.string().trim().nullable().max(2, 'UF inválida'),
-  }).nullable(),
-  observacoes: yup.string().trim().nullable(),
-  pontoReferencia: yup.string().trim().nullable(),
-  documentosAdicionais: yup.string().trim().nullable(),
-  id: yup.string().required(),
+    cep: yup.string().trim().nullable().optional()
+        .transform(value => (value ? String(value).replace(/\D/g, '') : value))
+        .matches(/^\d{8}$/, 'CEP inválido. Deve conter 8 dígitos.'),
+    logradouro: yup.string().trim().nullable().optional(),
+    numero: yup.string().trim().nullable().optional(),
+    complemento: yup.string().trim().nullable().optional(),
+    bairro: yup.string().trim().nullable().optional(),
+    cidade: yup.string().trim().nullable().optional(),
+    estado: yup.string().trim().nullable().optional().max(2, 'UF inválida. Use a sigla com 2 letras.'),
+  }).nullable().optional(),
+  observacoes: yup.string().trim().nullable().optional(),
+  pontoReferencia: yup.string().trim().nullable().optional(),
+  documentosAdicionais: yup.string().trim().nullable().optional(),
+  id: yup.string().required('ID do cliente é obrigatório'),
 });
 
+
 const ClientWizardScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp>();
-  const route = useRoute<ClientWizardRouteProp>();
+  const navigation = useNavigation<NavigationPropType>();
+  const route = useRoute<ClientWizardRoutePropType>();
   const { client: initialClientData, isEditMode = false, readOnly = false } = route.params ?? {};
-  const { theme, isDark } = useTheme(); // Used isDark
+  const { theme, isDark } = useTheme();
   const [step, setStep] = useState(1);
 
-  const [client, setClient] = useState<Partial<Client>>(
-    () => initialClientData || {
-      id: isEditMode ? undefined : Date.now().toString(),
+  const [client, setClient] = useState<Partial<Client>>(() => {
+    const defaultAddress: ClientAddress = {
+      logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '',
+    };
+    const baseClientData = initialClientData || {
+      id: Date.now().toString(),
       nome: '',
       tipo: 'pessoaFisica',
-      endereco: undefined,
-    }
-  );
+      email: '',
+      telefone: '',
+      observacoes: '',
+      pontoReferencia: '',
+      documentosAdicionais: '',
+    };
+    return {
+      ...baseClientData,
+      endereco: {
+        ...defaultAddress,
+        ...(initialClientData?.endereco || {}),
+      },
+    };
+  });
 
   useEffect(() => {
-      if (initialClientData && initialClientData.id !== client.id) {
-          setClient(initialClientData);
-          setStep(1);
-      }
+    if (initialClientData && initialClientData.id !== client.id) {
+      const defaultAddress: ClientAddress = {
+        logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '',
+      };
+      setClient({
+        ...initialClientData,
+        endereco: {
+          ...defaultAddress,
+          ...(initialClientData.endereco || {}),
+        },
+      });
+      setStep(1);
+    }
   }, [initialClientData, client.id]);
 
   const breadcrumbs = [
     { id: 'home', label: 'Início', onPress: () => navigation.navigate('Home') },
     { id: 'clients', label: 'Clientes', onPress: () => navigation.navigate('ClientList') },
-    { id: 'wizard', label: readOnly ? 'Visualizar Cliente' : (isEditMode ? 'Editar Cliente' : 'Novo Cliente') },
+    { id: 'wizard', label: readOnly ? 'Visualizar Cliente' : (client.id && isEditMode ? 'Editar Cliente' : 'Novo Cliente') },
   ];
 
   const TOTAL_STEPS = 4;
@@ -151,34 +147,43 @@ const ClientWizardScreen: React.FC = () => {
   }, []);
 
   const handleSubmit = useCallback(async () => {
+    Keyboard.dismiss();
     if (readOnly) {
         navigation.goBack();
         return;
     }
     try {
-      const dataToValidate = {
-        ...client,
+      const dataToValidate: Client = {
         id: client.id || Date.now().toString(),
+        nome: client.nome || '',
         tipo: client.tipo || 'pessoaFisica',
-        nome: client.nome?.trim() || '',
-        email: client.email?.trim() || undefined,
-        telefone: client.telefone?.replace(/\D/g, '') || undefined,
-        cpf: client.cpf?.replace(/\D/g, '') || undefined,
-        cnpj: client.cnpj?.replace(/\D/g, '') || undefined,
-        endereco: client.endereco ? {
-          ...client.endereco,
-          cep: client.endereco.cep?.replace(/\D/g, '') || undefined,
-        } : undefined,
+        email: client.email || undefined,
+        telefone: client.telefone || undefined,
+        cpf: client.cpf || undefined,
+        rg: client.rg || undefined,
+        orgaoEmissor: client.orgaoEmissor || undefined,
+        estadoCivil: client.estadoCivil || undefined,
+        profissao: client.profissao || undefined,
+        dataNascimento: client.dataNascimento || undefined,
+        nomeFantasia: client.tipo === 'pessoaJuridica' ? (client.nomeFantasia || '') : undefined,
+        cnpj: client.cnpj || undefined,
+        inscricaoEstadual: client.inscricaoEstadual || undefined,
+        inscricaoMunicipal: client.inscricaoMunicipal || undefined,
+        ramoAtividade: client.ramoAtividade || undefined,
+        responsavelLegal: client.responsavelLegal || undefined,
+        endereco: client.endereco || undefined,
+        observacoes: client.observacoes || undefined,
+        pontoReferencia: client.pontoReferencia || undefined,
+        documentosAdicionais: client.documentosAdicionais || undefined,
       };
 
       await clientSchema.validate(dataToValidate, { abortEarly: false });
-
       console.log('Cliente validado e pronto para salvar:', dataToValidate);
       await new Promise(resolve => setTimeout(resolve, 700));
 
       Toast.show({
         type: 'success',
-        text1: isEditMode ? 'Cliente Atualizado' : 'Cliente Cadastrado',
+        text1: client.id && isEditMode ? 'Cliente Atualizado' : 'Cliente Cadastrado',
         text2: `${dataToValidate.nome} foi salvo com sucesso!`,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -188,7 +193,7 @@ const ClientWizardScreen: React.FC = () => {
       if (err instanceof yup.ValidationError) {
         console.error("Erros de validação:", err.errors);
         const firstError = err.errors[0];
-        Alert.alert('Erro de Validação', firstError);
+        Alert.alert('Erro de Validação', firstError || 'Verifique os campos destacados.');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       } else {
         console.error("Erro ao salvar cliente:", err);
@@ -199,16 +204,22 @@ const ClientWizardScreen: React.FC = () => {
   }, [client, isEditMode, navigation, readOnly]);
 
   const handleNext = useCallback(() => {
-    if (readOnly) return;
+    Keyboard.dismiss();
+    if (readOnly) {
+        if (step < TOTAL_STEPS) setStep(s => s + 1);
+        else navigation.goBack();
+        return;
+    }
     if (step < TOTAL_STEPS) {
       setStep(s => s + 1);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     } else {
       handleSubmit();
     }
-  }, [step, readOnly, handleSubmit]);
+  }, [step, handleSubmit, readOnly, navigation]);
 
   const handleBack = useCallback(() => {
+    Keyboard.dismiss();
     if (step > 1) {
       setStep(s => s - 1);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -221,15 +232,14 @@ const ClientWizardScreen: React.FC = () => {
     const stepProps = {
         data: client,
         onUpdate: readOnly ? () => {} : updateClient,
-        isEditMode: isEditMode, // This prop might be unused in child components now
+        isEditMode: isEditMode,
         readOnly: readOnly,
     };
-
     switch (step) {
       case 1: return <ClientBasicInfoStep {...stepProps} />;
       case 2: return <ClientDocumentsStep {...stepProps} />;
       case 3: return <ClientAddressStep {...stepProps} />;
-      case 4: return <ClientReviewStep data={client} onEditStep={readOnly ? () => {} : handleGoToStep} />; // Removed onUpdate, isEditMode, and readOnly props
+      case 4: return <ClientReviewStep data={client} onEditStep={readOnly ? () => {} : handleGoToStep} />;
       default: return null;
     }
   }, [step, client, updateClient, isEditMode, readOnly, handleGoToStep]);
@@ -240,7 +250,7 @@ const ClientWizardScreen: React.FC = () => {
       edges={['bottom', 'left', 'right']}
     >
       <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'} // Used isDark
+        barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
       />
       <View style={styles.headerContainer}>
@@ -255,15 +265,15 @@ const ClientWizardScreen: React.FC = () => {
         {renderStep()}
       </View>
       {!readOnly && (
-        <NavigationButtons
-            onNext={handleNext}
-            onBack={handleBack}
-            isFirstStep={step === 1} // Corrected props
-            isLastStep={step === TOTAL_STEPS} // Corrected props
-            isEditMode={isEditMode} // This prop is used by NavigationButtons
-            // nextButtonText is handled internally by NavigationButtons
-            // backButtonText is handled internally by NavigationButtons
-        />
+        <View style={[styles.navigationButtonContainer, { borderTopColor: theme.colors.border }]}>
+            <NavigationButtons
+                onNext={handleNext}
+                onBack={handleBack}
+                isFirstStep={step === 1}
+                isLastStep={step === TOTAL_STEPS}
+                isEditMode={client.id && isEditMode}
+            />
+        </View>
       )}
     </SafeAreaView>
   );
@@ -273,7 +283,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  content: { // 'content' antes de 'headerContainer'
     flex: 1,
     paddingHorizontal: 16,
   },
@@ -281,6 +291,12 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 16,
     paddingTop: 16,
+  },
+  navigationButtonContainer: { // Ordem das propriedades corrigida
+    borderTopWidth: StyleSheet.hairlineWidth,
+    // borderTopColor é aplicado dinamicamente acima usando theme.colors.border
+    paddingBottom: 10,
+    paddingHorizontal: 16,
   },
 });
 
