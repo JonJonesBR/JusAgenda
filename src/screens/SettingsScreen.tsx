@@ -21,7 +21,7 @@ import { Header, Section, InputDialog, Button } from '../components/ui'; // Usan
 import { Toast } from '../components/ui/Toast';
 import { STORAGE_KEYS, ROUTES } from '../constants';
 import * as NotificationService from '../services/notifications'; // Importando todo o módulo
-import * as EmailService from '../services/EmailService'; // Importando todo o módulo
+// EmailService import removed
 // Assumindo que HomeStackParamList é onde SettingsScreen está, ou uma RootStackParamList
 import { HomeStackParamList } from '../navigation/stacks/HomeStack';
 
@@ -31,10 +31,8 @@ type SettingsScreenNavigationProp = StackNavigationProp<HomeStackParamList, type
 
 interface SettingsState {
   notificationsEnabled: boolean;
-  emailNotificationsEnabled: boolean;
-  userEmail: string;
+  // emailNotificationsEnabled, userEmail, isEmailClientAvailable removed
   // darkMode: boolean; // O tema escuro é agora gerido pelo ThemeContext
-  isEmailClientAvailable: boolean;
 }
 
 const SettingsScreen: React.FC = () => {
@@ -43,31 +41,25 @@ const SettingsScreen: React.FC = () => {
 
   const [settings, setSettings] = useState<SettingsState>({
     notificationsEnabled: false,
-    emailNotificationsEnabled: false,
-    userEmail: '',
-    isEmailClientAvailable: false,
+    // emailNotificationsEnabled, userEmail, isEmailClientAvailable removed
   });
-  const [isEmailDialogVisible, setIsEmailDialogVisible] = useState(false);
-  const [tempEmail, setTempEmail] = useState('');
+  // isEmailDialogVisible, tempEmail removed
   const [isLoading, setIsLoading] = useState(true);
 
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
     try {
       const storedNotificationsEnabled = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED);
-      const storedEmailNotificationsEnabled = await AsyncStorage.getItem(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED);
-      const storedUserEmail = await AsyncStorage.getItem(STORAGE_KEYS.USER_EMAIL_FOR_NOTIFICATIONS);
+      // storedEmailNotificationsEnabled, storedUserEmail removed
       // O tema já é carregado pelo ThemeProvider, não precisamos carregar aqui.
 
-      const emailAvailable = await EmailService.isEmailClientAvailable();
+      // emailAvailable check removed
 
       setSettings({
         notificationsEnabled: storedNotificationsEnabled === 'true',
-        emailNotificationsEnabled: storedEmailNotificationsEnabled === 'true' && emailAvailable,
-        userEmail: storedUserEmail || '',
-        isEmailClientAvailable: emailAvailable,
+        // emailNotificationsEnabled, userEmail, isEmailClientAvailable removed
       });
-      setTempEmail(storedUserEmail || ''); // Inicializa tempEmail para o diálogo
+      // setTempEmail removed
     } catch (error) {
       console.error("SettingsScreen: Erro ao carregar configurações:", error);
       Toast.show({ type: 'error', text1: 'Erro', text2: 'Não foi possível carregar as configurações.' });
@@ -104,64 +96,17 @@ const SettingsScreen: React.FC = () => {
         Toast.show({ type: 'info', text1: 'Permissão Necessária', text2: 'Ative as notificações nas configurações.' });
       }
     } else { // Tentando desativar
-      setSettings(s => ({ ...s, notificationsEnabled: false, emailNotificationsEnabled: false })); // Desativa email também
+    setSettings(s => ({ ...s, notificationsEnabled: false }));
       await saveSetting(STORAGE_KEYS.NOTIFICATIONS_ENABLED, false);
-      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, false); // Desativa email também
       // Opcional: cancelar todas as notificações agendadas
       // await NotificationService.cancelAllScheduledNotifications();
       Toast.show({ type: 'info', text1: 'Notificações Desativadas' });
     }
   };
 
-  const handleToggleEmailNotifications = async (value: boolean) => {
-    if (!settings.notificationsEnabled && value) {
-      Toast.show({ type: 'error', text1: 'Aviso', text2: 'Ative as notificações gerais primeiro.' });
-      return;
-    }
-    if (!settings.isEmailClientAvailable && value) {
-        Toast.show({ type: 'error', text1: 'Sem Email', text2: 'Nenhum cliente de email configurado.' });
-        return;
-    }
-
-    if (value && !settings.userEmail) {
-      // Se está a ativar e não há email, abre o diálogo para inserir email
-      setTempEmail(settings.userEmail); // Garante que o diálogo comece com o email atual (ou vazio)
-      setIsEmailDialogVisible(true);
-      // Não salva a configuração ainda, espera a confirmação do email
-    } else if (value && settings.userEmail) {
-      setSettings(s => ({ ...s, emailNotificationsEnabled: true }));
-      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, true);
-      Toast.show({ type: 'success', text1: 'Alertas por Email Ativados' });
-    } else { // Desativando
-      setSettings(s => ({ ...s, emailNotificationsEnabled: false }));
-      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, false);
-      Toast.show({ type: 'info', text1: 'Alertas por Email Desativados' });
-    }
-  };
-
-  const handleSaveUserEmail = async (email: string) => {
-    if (email && EmailService.isValidEmail(email)) {
-      setSettings(s => ({ ...s, userEmail: email, emailNotificationsEnabled: true })); // Ativa notificações por email ao salvar um email válido
-      await saveSetting(STORAGE_KEYS.USER_EMAIL_FOR_NOTIFICATIONS, email);
-      await saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, true);
-      setIsEmailDialogVisible(false);
-      setTempEmail(''); // Limpa o email temporário
-      Toast.show({ type: 'success', text1: 'Email Salvo', text2: 'Alertas por email configurados.' });
-    } else {
-      Toast.show({ type: 'error', text1: 'Email Inválido', text2: 'Por favor, insira um email válido.' });
-      // Não fecha o diálogo, permite correção
-    }
-  };
-
-  const handleEmailDialogCancel = () => {
-    setIsEmailDialogVisible(false);
-    setTempEmail(''); // Limpa o email temporário
-    // Se o utilizador cancelou e as notificações por email estavam ativadas sem um email, desativa-as
-    if (settings.emailNotificationsEnabled && !settings.userEmail) {
-      setSettings(s => ({ ...s, emailNotificationsEnabled: false }));
-      saveSetting(STORAGE_KEYS.EMAIL_NOTIFICATIONS_ENABLED, false);
-    }
-  };
+// handleToggleEmailNotifications removed
+// handleSaveUserEmail removed
+// handleEmailDialogCancel removed
 
   const handleToggleDarkMode = async () => {
     toggleTheme(); // O ThemeContext já lida com a persistência do tema
@@ -219,24 +164,7 @@ const SettingsScreen: React.FC = () => {
             onValueChange={handleToggleNotifications}
             iconName="bell-ring-outline"
           />
-          <ListItem
-            title="Alertas por Email"
-            isSwitch
-            value={settings.emailNotificationsEnabled}
-            onValueChange={handleToggleEmailNotifications}
-            disabled={!settings.notificationsEnabled || !settings.isEmailClientAvailable} // Desabilita se notificações gerais ou email não estiverem ok
-            iconName="email-alert-outline"
-          />
-          <ListItem
-            title="Email para Alertas"
-            value={settings.userEmail || 'Não definido'}
-            onPress={() => {
-                setTempEmail(settings.userEmail); // Preenche o diálogo com o email atual
-                setIsEmailDialogVisible(true);
-            }}
-            disabled={!settings.notificationsEnabled || !settings.isEmailClientAvailable}
-            iconName="email-edit-outline"
-          />
+          {/* Email Alert ListItems removed */}
            <ListItem
             title="Cancelar Todos os Lembretes Agendados"
             onPress={async () => {
@@ -263,18 +191,7 @@ const SettingsScreen: React.FC = () => {
           {/* Adicionar mais opções de aparência, como tamanho da fonte, se implementado */}
         </Section>
 
-        <Section title="Dados" theme={theme} style={styles.sectionStyle}>
-            <ListItem
-                title="Exportar Dados"
-                onPress={() => navigation.navigate(ROUTES.EXPORT)} // Assumindo que EXPORT está na mesma stack ou numa stack acessível
-                iconName="export-variant"
-            />
-            <ListItem
-                title="Sincronizar com Email"
-                onPress={() => navigation.navigate(ROUTES.EMAIL_SYNC)}
-                iconName="email-sync-outline"
-            />
-        </Section>
+        {/* "Dados" section removed */}
 
         <Section title="Sobre e Suporte" theme={theme} style={styles.sectionStyle}>
           <ListItem
@@ -301,21 +218,7 @@ const SettingsScreen: React.FC = () => {
         </Section>
       </ScrollView>
 
-      <InputDialog
-        visible={isEmailDialogVisible}
-        title="Email para Alertas"
-        message="Insira o endereço de email onde deseja receber os alertas de eventos."
-        initialValue={tempEmail} // Usa tempEmail para o input
-        placeholder="seuemail@exemplo.com"
-        confirmText="Salvar Email"
-        cancelText="Cancelar"
-        onConfirm={(email) => handleSaveUserEmail(email)}
-        onCancel={handleEmailDialogCancel}
-        textInputProps={{
-          keyboardType: 'email-address',
-          autoCapitalize: 'none',
-        }}
-      />
+      {/* InputDialog for email removed */}
     </View>
   );
 };

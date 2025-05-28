@@ -9,8 +9,10 @@ import {
   Platform,
   Text,
   Switch,
+  TouchableOpacity, // Added for reminder toggles
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons'; // Added for reminder icons
 import type { StackNavigationProp } from '@react-navigation/stack';
 import * as Yup from 'yup';
 import { Picker } from '@react-native-picker/picker';
@@ -18,31 +20,27 @@ import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '../contexts/ThemeContext';
 import { useEvents } from '../contexts/EventCrudContext';
 import { Event as EventType, EventStatus } from '../types/event';
-import { HomeStackParamList } from '../navigation/stacks/HomeStack'; // Ajuste para a sua Stack Param List correta
+import { HomeStackParamList } from '../navigation/stacks/HomeStack';
 import {
   formatDate,
   formatTime,
   parseDateString,
   combineDateTime,
-  ensureDateObject,
 } from '../utils/dateUtils';
 import { Input, Header, Button, CustomDateTimePicker, Section } from '../components/ui';
 import { Toast } from '../components/ui/Toast';
-import { ROUTES, EVENT_TYPES, EVENT_TYPE_LABELS, PRIORIDADES, PRIORIDADE_LABELS, EVENT_STATUS_LABELS } from '../constants';
+import { ROUTES, EVENT_TYPES, EVENT_TYPE_LABELS, PRIORIDADES, PRIORIDADE_LABELS, EVENT_STATUS_LABELS, REMINDER_OPTIONS, APP_CONFIG } from '../constants';
 
-// Tipagem para os parâmetros da rota
 type EventDetailsScreenRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.EVENT_DETAILS>;
-// Tipagem para a prop de navegação
 type EventDetailsScreenNavigationProp = StackNavigationProp<HomeStackParamList, typeof ROUTES.EVENT_DETAILS>;
 
-// Interface para os dados do formulário (usando Date para date pickers)
 interface EventFormData {
   id?: string;
   title: string;
-  data: Date | null; // Data como objeto Date
-  hora: Date | null; // Hora como objeto Date
+  data: Date | null;
+  hora: Date | null;
   isAllDay: boolean;
-  eventType: string; // Usar EventTypeValue se definido em constants
+  eventType: string;
   local?: string;
   description?: string;
   numeroProcesso?: string;
@@ -51,10 +49,9 @@ interface EventFormData {
   prioridade?: EventType['prioridade'];
   status?: EventStatus;
   cor?: string;
-  // Adicione outros campos conforme necessário
+  reminders?: number[]; // Array of minutes
 }
 
-// Valores iniciais para um novo evento
 const getInitialFormData = (initialDateString?: string): EventFormData => {
   let initialDate = new Date();
   if (initialDateString) {
@@ -63,17 +60,15 @@ const getInitialFormData = (initialDateString?: string): EventFormData => {
       initialDate = parsedInitialDate;
     }
   }
-  // Define a hora inicial para o início da próxima hora cheia, ou null
-  const initialTime = new Date(initialDate);
-  initialTime.setHours(initialDate.getHours() + 1, 0, 0, 0);
-
+  // const initialTime = new Date(initialDate);
+  // initialTime.setHours(initialDate.getHours() + 1, 0, 0, 0);
 
   return {
     title: '',
     data: initialDate,
-    hora: null, // Começa sem hora definida, a menos que queira um padrão
+    hora: null,
     isAllDay: false,
-    eventType: EVENT_TYPES.REUNIAO, // Tipo padrão
+    eventType: EVENT_TYPES.REUNIAO,
     local: '',
     description: '',
     numeroProcesso: '',
@@ -82,15 +77,17 @@ const getInitialFormData = (initialDateString?: string): EventFormData => {
     prioridade: PRIORIDADES.MEDIA,
     status: 'scheduled',
     cor: '',
+    reminders: [...APP_CONFIG.DEFAULT_REMINDER_MINUTES], // Default reminders
   };
 };
 
-// Esquema de validação Yup (deve corresponder à estrutura de EventType após conversão)
 const eventValidationSchema = Yup.object().shape({
   title: Yup.string().required('O título é obrigatório.').min(3, 'Mínimo 3 caracteres.'),
-  // 'data' e 'hora' no schema validam as strings formatadas, não os objetos Date do formulário
   data: Yup.string().required('A data é obrigatória.').matches(/^\d{4}-\d{2}-\d{2}$/, 'Formato de data inválido.'),
-  hora: Yup.string().nullable().matches(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Formato de hora inválido.').optional(),
+  hora: Yup.string().nullable().matches(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Formato de hora inválido.').when('isAllDay', {
+    is: false,
+    otherwise: schema => schema.optional().nullable(),
+  }),
   isAllDay: Yup.boolean().required(),
   eventType: Yup.string().required('O tipo de evento é obrigatório.'),
   local: Yup.string().optional().nullable(),
@@ -101,8 +98,8 @@ const eventValidationSchema = Yup.object().shape({
   prioridade: Yup.string().oneOf(Object.values(PRIORIDADES)).optional().nullable(),
   status: Yup.string<EventStatus>().required('O status é obrigatório.'),
   cor: Yup.string().optional().nullable().matches(/^#([0-9A-Fa-f]{3}){1,2}$/, 'Cor hexadecimal inválida (ex: #RRGGBB).'),
+  reminders: Yup.array().of(Yup.number().integer().min(0)).optional().nullable(),
 });
-
 
 const EventDetailsScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -111,7 +108,7 @@ const EventDetailsScreen: React.FC = () => {
   const route = useRoute<EventDetailsScreenRouteProp>();
 
   const eventIdFromParams = route.params?.eventId;
-  const initialDateStringFromParams = route.params?.initialDateString; // YYYY-MM-DD
+  const initialDateStringFromParams = route.params?.initialDateString;
 
   const [formData, setFormData] = useState<EventFormData>(getInitialFormData(initialDateStringFromParams));
   const [isEditing, setIsEditing] = useState<boolean>(!!eventIdFromParams);
@@ -129,16 +126,11 @@ const EventDetailsScreen: React.FC = () => {
       const eventToEdit = getEventById(eventIdFromParams);
       if (eventToEdit) {
         setIsLoading(true);
-        // Converte data e hora (strings) para objetos Date para o formulário
         const dataDate = eventToEdit.data ? parseDateString(eventToEdit.data) : null;
         let horaDate: Date | null = null;
         if (eventToEdit.data && eventToEdit.hora) {
           horaDate = combineDateTime(eventToEdit.data, eventToEdit.hora);
-        } else if (dataDate && !eventToEdit.hora && !eventToEdit.isAllDay) {
-            // Se tem data, não tem hora e não é dia todo, podemos inicializar a hora
-            // horaDate = new Date(dataDate); // Hora será 00:00 ou pode pegar hora atual
         }
-
 
         setFormData({
           id: eventToEdit.id,
@@ -155,6 +147,7 @@ const EventDetailsScreen: React.FC = () => {
           prioridade: eventToEdit.prioridade || PRIORIDADES.MEDIA,
           status: eventToEdit.status || 'scheduled',
           cor: eventToEdit.cor || '',
+          reminders: eventToEdit.reminders || [...APP_CONFIG.DEFAULT_REMINDER_MINUTES],
         });
         setIsEditing(true);
         setIsLoading(false);
@@ -163,7 +156,6 @@ const EventDetailsScreen: React.FC = () => {
         navigation.goBack();
       }
     } else {
-      // Novo evento, data inicial já definida por getInitialFormData
       setIsEditing(false);
     }
   }, [eventIdFromParams, getEventById, navigation, initialDateStringFromParams]);
@@ -175,16 +167,16 @@ const EventDetailsScreen: React.FC = () => {
     }
   }, [errors]);
 
-  const handleDateChange = (event: CustomDateTimePickerEvent, selectedDate?: Date) => {
+  const handleDateChange = (event: any, selectedDate?: Date) => { // CustomDateTimePickerEvent type was causing issues
     if (event.type === 'set' && selectedDate) {
       handleInputChange('data', selectedDate);
       if (formData.isAllDay) {
-        handleInputChange('hora', null); // Limpa a hora se for dia todo
+        handleInputChange('hora', null);
       }
     }
   };
 
-  const handleTimeChange = (event: CustomDateTimePickerEvent, selectedTime?: Date) => {
+  const handleTimeChange = (event: any, selectedTime?: Date) => { // CustomDateTimePickerEvent type was causing issues
     if (event.type === 'set' && selectedTime) {
       handleInputChange('hora', selectedTime);
     }
@@ -193,7 +185,7 @@ const EventDetailsScreen: React.FC = () => {
   const handleIsAllDayChange = (value: boolean) => {
     handleInputChange('isAllDay', value);
     if (value) {
-      handleInputChange('hora', null); // Limpa a hora se for dia todo
+      handleInputChange('hora', null);
     }
   };
 
@@ -201,24 +193,22 @@ const EventDetailsScreen: React.FC = () => {
     setIsLoading(true);
     setErrors({});
 
-    // Prepara os dados para validação e submissão (converte Date para string)
     const dataToValidateAndSubmit: Partial<EventType> = {
       ...formData,
-      id: formData.id, // Mantém o ID se estiver editando
-      data: formData.data ? formatDate(formData.data, 'yyyy-MM-dd') : '', // String YYYY-MM-DD
-      hora: !formData.isAllDay && formData.hora ? formatTime(formData.hora) : undefined, // String HH:MM ou undefined
-      // Garante que campos opcionais não definidos sejam undefined
+      id: formData.id,
+      data: formData.data ? formatDate(formData.data, 'yyyy-MM-dd') : '',
+      hora: !formData.isAllDay && formData.hora ? formatTime(formData.hora) : undefined,
       local: formData.local?.trim() || undefined,
       description: formData.description?.trim() || undefined,
       numeroProcesso: formData.numeroProcesso?.trim() || undefined,
       vara: formData.vara?.trim() || undefined,
       comarca: formData.comarca?.trim() || undefined,
       cor: formData.cor?.trim() || undefined,
+      reminders: formData.reminders,
     };
 
     try {
       await eventValidationSchema.validate(dataToValidateAndSubmit, { abortEarly: false });
-
       const eventPayload = dataToValidateAndSubmit as Omit<EventType, 'id'> | EventType;
 
       if (isEditing && formData.id) {
@@ -248,7 +238,7 @@ const EventDetailsScreen: React.FC = () => {
     }
   };
 
-  if (isLoading && eventIdFromParams) { // Mostra loading apenas se estiver carregando um evento para edição
+  if (isLoading && eventIdFromParams) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -257,28 +247,26 @@ const EventDetailsScreen: React.FC = () => {
     );
   }
 
-  // Estilos para Pickers
-    const pickerContainerStyle = (hasError?: boolean) => ({
-        borderColor: hasError ? theme.colors.error : theme.colors.border,
-        borderWidth: 1,
-        borderRadius: theme.radii.md,
-        backgroundColor: theme.colors.surface,
-        marginBottom: hasError ? 0 : theme.spacing.md,
-        minHeight: Platform.OS === 'ios' ? undefined : 50,
-        justifyContent: 'center',
-    });
+  const pickerContainerStyle = (hasError?: boolean) => ({
+    borderColor: hasError ? theme.colors.error : theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surface,
+    marginBottom: hasError ? 0 : theme.spacing.md,
+    minHeight: Platform.OS === 'ios' ? undefined : 50,
+    justifyContent: 'center',
+  });
 
-    const pickerStyle = {
-        color: theme.colors.text,
-        fontFamily: theme.typography.fontFamily.regular,
-    };
-
+  const pickerStyle = {
+    color: theme.colors.text,
+    fontFamily: theme.typography.fontFamily.regular,
+  };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined} // 'height' pode ser problemático com ScrollView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: theme.colors.background }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? (64 + theme.spacing.md) : 0} // Ajuste conforme o seu Header
+      keyboardVerticalOffset={Platform.OS === 'ios' ? (64 + theme.spacing.md) : 0}
     >
       <Header
         title={isEditing ? 'Editar Evento' : 'Novo Evento'}
@@ -312,7 +300,6 @@ const EventDetailsScreen: React.FC = () => {
           </View>
           {errors.eventType && <Text style={styles.errorText}>{errors.eventType}</Text>}
 
-
           <View style={styles.row}>
             <View style={styles.flexInput}>
               <Text style={[styles.label, { color: theme.colors.placeholder }]}>Data *</Text>
@@ -328,7 +315,7 @@ const EventDetailsScreen: React.FC = () => {
               <View style={styles.flexInput}>
                 <Text style={[styles.label, { color: theme.colors.placeholder }]}>Hora</Text>
                 <CustomDateTimePicker
-                  value={formData.hora || new Date()} // Passa new Date() se hora for null para o picker
+                  value={formData.hora || new Date()}
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleTimeChange}
@@ -338,9 +325,7 @@ const EventDetailsScreen: React.FC = () => {
               </View>
             )}
           </View>
-           {/* Espaçamento após a linha de data/hora e antes do switch "Dia todo" */}
           <View style={{ marginBottom: (errors.data || errors.hora) ? 0 : theme.spacing.md }} />
-
 
           <View style={styles.switchRow}>
             <Text style={[styles.label, { color: theme.colors.text, flex: 1 }]}>Dia Todo?</Text>
@@ -380,8 +365,8 @@ const EventDetailsScreen: React.FC = () => {
           />
           <Input
             label="Vara / Comarca"
-            value={formData.vara || ''} // Pode dividir em dois campos se preferir
-            onChangeText={(text) => handleInputChange('vara', text)} // Assumindo que 'vara' pode conter comarca
+            value={formData.vara || ''}
+            onChangeText={(text) => handleInputChange('vara', text)}
             error={errors.vara || errors.comarca}
             placeholder="Ex: 1ª Vara Cível de Curitiba"
           />
@@ -414,10 +399,40 @@ const EventDetailsScreen: React.FC = () => {
             </Picker>
           </View>
           {errors.status && <Text style={styles.errorText}>{errors.status}</Text>}
+        </Section>
 
+        <Section title="Lembretes" theme={theme} style={styles.sectionSpacing}>
+          <Text style={[styles.label, { color: theme.colors.placeholder, marginBottom: theme.spacing.sm }]}>
+            Selecione os lembretes (minutos antes do evento):
+          </Text>
+          {REMINDER_OPTIONS.map(option => (
+            <TouchableOpacity
+              key={option.value}
+              style={styles.reminderOptionRow}
+              onPress={() => {
+                const currentReminders = formData.reminders || [];
+                const newReminders = currentReminders.includes(option.value)
+                  ? currentReminders.filter(r => r !== option.value)
+                  : [...currentReminders, option.value];
+                handleInputChange('reminders', newReminders.sort((a, b) => a - b));
+              }}
+            >
+              <MaterialCommunityIcons
+                name={formData.reminders?.includes(option.value) ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                size={24}
+                color={formData.reminders?.includes(option.value) ? theme.colors.primary : theme.colors.placeholder}
+              />
+              <Text style={[styles.reminderLabel, { color: theme.colors.text, marginLeft: theme.spacing.sm }]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          {errors.reminders && <Text style={styles.errorText}>{errors.reminders}</Text>}
+        </Section>
 
+        <Section title="Descrição / Observações" theme={theme} style={styles.sectionSpacing}>
           <Input
-            label="Descrição / Observações"
+            label="Descrição Detalhada" // Changed label from "Descrição / Observações"
             value={formData.description || ''}
             onChangeText={(text) => handleInputChange('description', text)}
             error={errors.description}
@@ -451,42 +466,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 16, // Usar theme.spacing.md
-    paddingBottom: 30, // Espaço para o botão Salvar não ficar colado na borda
+    paddingHorizontal: 16,
+    paddingBottom: 30,
   },
   sectionSpacing: {
-    marginBottom: 12, // Usar theme.spacing.md ou lg
+    marginBottom: 12,
   },
   label: {
-    fontSize: 14, // Usar theme.typography.fontSize.sm
-    // color: theme.colors.placeholder, // Definido inline
-    marginBottom: 6, // Usar theme.spacing.xs
-    // fontFamily: theme.typography.fontFamily.regular, // Definido inline
+    fontSize: 14,
+    marginBottom: 6,
   },
   errorText: {
-    fontSize: 12, // Usar theme.typography.fontSize.xs
-    color: 'red', // Definido via theme.colors.error inline
+    fontSize: 12,
+    color: 'red',
     marginTop: 4,
     marginBottom: 8,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start', // Para alinhar labels e inputs corretamente
-    // marginBottom: 16, // Espaçamento gerenciado pelos inputs ou View abaixo
+    alignItems: 'flex-start',
   },
   flexInput: {
     flex: 1,
-    // Adicionar marginRight ou marginLeft para espaçamento entre inputs na mesma linha
-    // Ex: se este for o input da esquerda: { marginRight: theme.spacing.sm }
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 12, // Usar theme.spacing.sm ou md
+    marginVertical: 12,
   },
-  // Estilos para Pickers são aplicados inline através da função pickerContainerStyle
+  reminderOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  reminderLabel: {
+    fontSize: 16,
+  },
 });
 
 export default EventDetailsScreen;

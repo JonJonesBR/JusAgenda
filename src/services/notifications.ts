@@ -141,35 +141,8 @@ export function createDateTrigger(date: Date): Notifications.DateTriggerInput | 
   };
 }
 
-/**
- * Cria um gatilho de notificação baseado em intervalo de tempo.
- * @param seconds - O número de segundos a partir de agora para o gatilho.
- * @param repeats - Se a notificação deve se repetir (padrão: false).
- * @returns Notifications.TimeIntervalTriggerInput.
- */
-export function createTimeIntervalTrigger(seconds: number, repeats = false): Notifications.TimeIntervalTriggerInput {
-  return {
-    seconds,
-    repeats,
-  };
-}
-
-/**
- * Agenda uma notificação de teste para agora + alguns segundos.
- */
-export async function scheduleTestNotificationHandler(): Promise<void> {
-  const title = 'Notificação de Teste! 🔔';
-  const body = 'Se você vê isso, as notificações estão funcionando.';
-  const data = { testId: '123', message: 'Dados de teste aqui!' };
-  // Agenda para 5 segundos a partir de agora
-  const trigger = createTimeIntervalTrigger(5);
-
-  if (trigger) {
-    await scheduleLocalNotification(title, body, data, trigger);
-  } else {
-    Toast.show({ type: 'error', text1: 'Falha no Teste', text2: 'Não foi possível criar gatilho para teste.' });
-  }
-}
+// createTimeIntervalTrigger removed
+// scheduleTestNotificationHandler removed
 
 /**
  * Cancela uma notificação agendada específica.
@@ -238,6 +211,8 @@ export function setupNotificationListeners(): void {
   // Em um app funcional, você chamaria esta função uma vez (ex: no App.tsx)
   // e retornaria a função de cleanup para ser chamada no useEffect de lá.
 }
+
+// setupNotificationListeners removed
 
 /**
  * Agenda lembretes para um evento específico.
