@@ -1,4 +1,5 @@
 // src/navigation/navigationConfig.ts
+import { Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { Theme } from '../contexts/ThemeContext'; // Importando o tipo Theme

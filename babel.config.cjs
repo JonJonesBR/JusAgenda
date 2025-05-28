@@ -7,10 +7,6 @@ module.exports = function (api) {
   ];
 
   const plugins = [
-    // Plugin para react-native-reanimated (MUITO IMPORTANTE se estiver a usar Reanimated V2+)
-    // Deve ser o último plugin na lista.
-    'react-native-reanimated/plugin',
-
     // Opcional: Plugin para aliases de caminho (module-resolver)
     // Se você decidiu usar os aliases definidos em tsconfig.json (ex: @components/*),
     // precisará deste plugin e da configuração correspondente.
@@ -43,6 +39,10 @@ module.exports = function (api) {
 
     // Adicione outros plugins Babel que você possa precisar
     // Ex: ['@babel/plugin-proposal-decorators', { 'legacy': true }] se usar decorators
+
+    // Plugin para react-native-reanimated (MUITO IMPORTANTE se estiver a usar Reanimated V2+)
+    // Deve ser o último plugin na lista.
+    'react-native-reanimated/plugin',
   ];
 
   return {
