@@ -1,10 +1,10 @@
 // src/navigation/BottomTabNavigator.tsx
 import React, { useMemo } from 'react';
-import { Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NavigatorScreenParams } from '@react-navigation/native'; // Para tipos de params de stacks aninhadas
 
-import { Tab, getTabScreenOptions } from './navigationConfig'; // Usando o Tab e getTabScreenOptions de navigationConfig
+// Usando o Tab, getTabScreenOptions e getStackScreenOptions de navigationConfig
+import { Tab, getTabScreenOptions, getStackScreenOptions } from './navigationConfig';
 import { useTheme } from '../contexts/ThemeContext';
 import { ROUTES } from '../constants';
 
