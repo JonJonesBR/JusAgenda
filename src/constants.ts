@@ -150,8 +150,8 @@ export const ROUTES = {
 
   SYNC_STACK: 'SyncStack',
   SYNC_EXPORT_OPTIONS: 'SyncExportOptionsScreen',
-  EMAIL_SYNC: 'EmailSyncScreen',
-  EXPORT: 'ExportScreen', // Tela de exportação de dados
+  // EMAIL_SYNC was removed
+  // EXPORT was removed
 
   // Telas fora das stacks principais ou modais
   EVENT_DETAILS: 'EventDetailsScreen', // Para adicionar/editar evento

@@ -12,7 +12,7 @@ import { ROUTES } from '../constants';
 import HomeStackNavigator, { HomeStackParamList } from './stacks/HomeStack';
 import ClientsStackNavigator, { ClientsStackParamList } from './stacks/ClientsStack';
 import SearchStackNavigator, { SearchStackParamList } from './stacks/SearchStack';
-import SyncStackNavigator, { SyncStackParamList } from './stacks/SyncStack';
+// SyncStackNavigator import removed
 
 // Importar telas diretas (se houver alguma que não esteja numa stack)
 import UnifiedCalendarScreen from '../screens/UnifiedCalendarScreen';
@@ -25,7 +25,7 @@ export type BottomTabParamList = {
   [ROUTES.CLIENTS_STACK]: NavigatorScreenParams<ClientsStackParamList>; // Stack de Clientes aninhada
   [ROUTES.UNIFIED_CALENDAR]: undefined; // Tela de Calendário Unificado (exemplo de tela direta)
   [ROUTES.SEARCH_STACK]: NavigatorScreenParams<SearchStackParamList>; // Stack de Busca aninhada
-  [ROUTES.SYNC_STACK]: NavigatorScreenParams<SyncStackParamList>; // Stack de Sincronização/Exportação aninhada
+  // SYNC_STACK route removed
   // [ROUTES.SETTINGS]: undefined; // Exemplo se Settings fosse uma tab direta
 };
 
@@ -60,9 +60,7 @@ const BottomTabNavigator: React.FC = () => {
       case ROUTES.SEARCH_STACK:
         iconName = focused ? 'magnify' : 'magnify'; // Pode usar o mesmo ou variações
         break;
-      case ROUTES.SYNC_STACK:
-        iconName = focused ? 'sync' : 'sync-off'; // Exemplo, ajuste o ícone
-        break;
+      // SYNC_STACK case removed
       // case ROUTES.SETTINGS:
       //   iconName = focused ? 'cog' : 'cog-outline';
       //   break;
@@ -113,14 +111,7 @@ const BottomTabNavigator: React.FC = () => {
           tabBarIcon: getTabBarIcon(ROUTES.SEARCH_STACK),
         }}
       />
-      <Tab.Screen
-        name={ROUTES.SYNC_STACK}
-        component={SyncStackNavigator}
-        options={{
-          tabBarLabel: 'Sinc/Export',
-          tabBarIcon: getTabBarIcon(ROUTES.SYNC_STACK),
-        }}
-      />
+      {/* SYNC_STACK Tab.Screen removed */}
       {/* Exemplo de uma tab direta para Configurações, se não estiver numa stack
       <Tab.Screen
         name={ROUTES.SETTINGS}
