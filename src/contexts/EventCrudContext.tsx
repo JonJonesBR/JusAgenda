@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback, use
 import { v4 as uuidv4 } from 'uuid';
 import { Event as EventType } from '../types/event'; // Importando o tipo Event de src/types/event
 import { parseISO, isSameDay, isValid } from 'date-fns'; // Para manipulação de datas
+import { scheduleRemindersForEvent } from '../services/notifications'; // Import for scheduling reminders
 
 // Interface para os props do Contexto
 interface EventCrudContextProps {
@@ -61,6 +62,9 @@ export const EventCrudProvider: React.FC<EventCrudProviderProps> = ({ children, 
     };
     setEvents(prevEvents => [...prevEvents, newEvent]);
     console.log('EventCrudContext: Evento adicionado:', newEvent);
+    if (newEvent.reminders && newEvent.reminders.length > 0) {
+      scheduleRemindersForEvent(newEvent); // Schedule reminders for the new event
+    }
     return newEvent;
   }, []);
 
@@ -85,6 +89,11 @@ export const EventCrudProvider: React.FC<EventCrudProviderProps> = ({ children, 
     );
     if (foundEvent) {
       console.log('EventCrudContext: Evento atualizado:', foundEvent);
+      // Re-schedule reminders for the updated event
+      // This doesn't cancel old reminders if event time changed, a known simplification for now.
+      if (foundEvent.reminders && foundEvent.reminders.length > 0) {
+        scheduleRemindersForEvent(foundEvent);
+      }
     } else {
       console.warn('EventCrudContext: updateEvent - Evento não encontrado para atualização, ID:', updatedEventData.id);
     }
@@ -92,6 +101,8 @@ export const EventCrudProvider: React.FC<EventCrudProviderProps> = ({ children, 
   }, []);
 
   // Deletar um evento
+  // Note: Does not cancel scheduled notifications for the deleted event due to complexity
+  // without storing notification IDs. This is a simplification.
   const deleteEvent = useCallback((eventId: string): boolean => {
     let deleted = false;
     setEvents(prevEvents =>

@@ -258,10 +258,10 @@ const HomeScreen: React.FC = () => {
       />
 
       {/* Botão Flutuante para Adicionar Evento */}
-      {!isReadOnly && ( // Supondo que isReadOnly possa vir de algum lugar, ou remover esta condição
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-          onPress={() => navigateToEventDetails(undefined, today.toISOString().split('T')[0])} // Passa a data de hoje para novo evento
+      {/* Condition !isReadOnly removed as isReadOnly is not defined in this scope */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        onPress={() => navigateToEventDetails(undefined, today.toISOString().split('T')[0])} // Passa a data de hoje para novo evento
           activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="plus" size={28} color={theme.colors.white || '#ffffff'} />
