@@ -13,6 +13,7 @@ import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import { ThemeProvider, useTheme as useAppTheme } from './src/contexts/ThemeContext'; // Renomeado para evitar conflito
 import { EventCrudProvider } from './src/contexts/EventCrudContext';
 import { ToastProvider } from './src/components/ui/Toast'; // Supondo que você tenha um ToastProvider
+import ThemeGate from './src/components/ThemeGate'; // Importando ThemeGate
 
 // Manter o splash screen visível enquanto buscamos recursos
 SplashScreen.preventAutoHideAsync().catch(e => console.warn('SplashScreen.preventAutoHideAsync error:', e));
@@ -141,10 +142,12 @@ export default function App(): ReactNode {
           <ThemeProvider>
             <EventCrudProvider>
               <ToastProvider>
-                {/* SafeAreaView pode ser aplicada aqui ou dentro das telas individuais */}
-                {/* <SafeAreaView style={{ flex: 1, backgroundColor: appTheme.colors.background }}> */}
-                <AppNavigation />
-                {/* </SafeAreaView> */}
+                <ThemeGate>
+                  {/* SafeAreaView pode ser aplicada aqui ou dentro das telas individuais */}
+                  {/* <SafeAreaView style={{ flex: 1, backgroundColor: appTheme.colors.background }}> */}
+                  <AppNavigation />
+                  {/* </SafeAreaView> */}
+                </ThemeGate>
               </ToastProvider>
             </EventCrudProvider>
           </ThemeProvider>
