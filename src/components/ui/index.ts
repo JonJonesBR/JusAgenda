@@ -19,6 +19,9 @@ export { default as Section } from './Section';
 export { Toast, ToastProvider } from './Toast';
 export type { ToastType, ToastProps } from './Toast'; // Exporta os tipos do Toast
 
+export { default as DetailDisplayItem } from './DetailDisplayItem';
+export type { DetailDisplayItemProps } from './DetailDisplayItem';
+
 // Adicione aqui outros componentes de UI que você criar na pasta 'ui'.
 // Por exemplo:
 // export { default as Avatar } from './Avatar';

@@ -1,15 +1,16 @@
 // src/navigation/stacks/HomeStack.tsx
 import React from 'react';
 import { Platform } from 'react-native';
-import { Stack, getStackScreenOptions } from '../navigationConfig'; // Usando Stack e getStackScreenOptions
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getStackScreenOptions } from '../navigationConfig'; // getStackScreenOptions ainda é de navigationConfig
 import { useTheme } from '../../contexts/ThemeContext';
 import { ROUTES } from '../../constants';
 
 // Importar as telas que pertencem a esta stack
 import HomeScreen from '../../screens/HomeScreen';
 import EventDetailsScreen from '../../screens/EventDetailsScreen';
-import EventViewScreen from '../../screens/EventViewScreen';
-import SettingsScreen from '../../screens/SettingsScreen';
+// import EventViewScreen from '../../screens/EventViewScreen'; // Removido
+// import SettingsScreen from '../../screens/SettingsScreen'; // Removido
 import ClientWizardScreen from '../../screens/ClientWizardScreen'; // Adicionando ClientWizard se acessível daqui
 import { Event as EventType } from '../../types/event'; // Para tipar params
 import { Client as ClientType } from '../../types/client'; // Para tipar params
@@ -18,9 +19,9 @@ import { Client as ClientType } from '../../types/client'; // Para tipar params
 // Isto é crucial para a segurança de tipos com React Navigation
 export type HomeStackParamList = {
   [ROUTES.HOME]: undefined; // Tela inicial não recebe parâmetros diretos ao ser chamada pela tab
-  [ROUTES.EVENT_DETAILS]: { eventId?: string; initialDateString?: string }; // Para adicionar/editar evento
-  [ROUTES.EVENT_VIEW]: { eventId: string; eventTitle?: string; event?: EventType }; // Para visualizar evento
-  [ROUTES.SETTINGS]: undefined;
+  [ROUTES.EVENT_DETAILS]: { eventId?: string; initialDateString?: string; readOnly?: boolean }; // Para adicionar/editar/visualizar evento
+  // [ROUTES.EVENT_VIEW]: { eventId: string; eventTitle?: string; event?: EventType }; // Removido
+  // [ROUTES.SETTINGS]: undefined; // Removido
   [ROUTES.CLIENT_WIZARD]: { // Se ClientWizard for acessível a partir da HomeStack
     clientId?: string;
     isEditMode?: boolean;
@@ -29,6 +30,9 @@ export type HomeStackParamList = {
   };
   // Adicione outras telas que podem ser navegadas a partir da HomeStack
 };
+
+// Criando a instância do Stack Navigator localmente
+const Stack = createNativeStackNavigator<HomeStackParamList>();
 
 const HomeStackNavigator: React.FC = () => {
   const { theme } = useTheme();
@@ -53,27 +57,12 @@ const HomeStackNavigator: React.FC = () => {
         options={({ route }) => ({
           // O título será definido dinamicamente dentro de EventDetailsScreen (Novo/Editar Evento)
           // title: route.params?.eventId ? 'Editar Evento' : 'Novo Evento',
-          presentation: Platform.OS === 'ios' ? 'modal' : 'card', // Modal no iOS para adicionar/editar
+          presentation: Platform.OS === 'ios' ? 'modal' : 'card', // Modal no iOS para adicionar/editar/visualizar
           // headerBackTitle: 'Cancelar', // Exemplo
         })}
       />
-      <Stack.Screen
-        name={ROUTES.EVENT_VIEW}
-        component={EventViewScreen}
-        options={({ route }) => ({
-          // O título será definido dinamicamente dentro de EventViewScreen com base no evento
-          // title: route.params?.eventTitle || 'Detalhes do Evento',
-          presentation: 'card',
-        })}
-      />
-      <Stack.Screen
-        name={ROUTES.SETTINGS}
-        component={SettingsScreen}
-        options={{
-          title: 'Configurações',
-          presentation: Platform.OS === 'ios' ? 'modal' : 'card',
-        }}
-      />
+      {/* Stack.Screen para EVENT_VIEW removido */}
+      {/* Stack.Screen para SETTINGS removido */}
       {/* Exemplo de como ClientWizardScreen poderia ser incluído se acessível daqui */}
       {/* <Stack.Screen
         name={ROUTES.CLIENT_WIZARD}

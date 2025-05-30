@@ -1,17 +1,18 @@
 // src/navigation/BottomTabNavigator.tsx
 import React, { useMemo } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { NavigatorScreenParams } from '@react-navigation/native'; // Para tipos de params de stacks aninhadas
+import { NavigatorScreenParams, Platform } from '@react-navigation/native'; // Para tipos de params de stacks aninhadas
+import { createBottomTabNavigator, BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 
-// Usando o Tab, getTabScreenOptions e getStackScreenOptions de navigationConfig
-import { Tab, getTabScreenOptions, getStackScreenOptions } from './navigationConfig';
-import { useTheme } from '../contexts/ThemeContext';
+// Usando o getStackScreenOptions de navigationConfig (se ainda necessário para alguma tab direta)
+import { getStackScreenOptions } from './navigationConfig';
+import { useTheme, Theme } from '../contexts/ThemeContext'; // Import Theme type
 import { ROUTES } from '../constants';
 
 // Importar os seus Stacks de Navegação para cada aba
 import HomeStackNavigator, { HomeStackParamList } from './stacks/HomeStack';
 import ClientsStackNavigator, { ClientsStackParamList } from './stacks/ClientsStack';
-import SearchStackNavigator, { SearchStackParamList } from './stacks/SearchStack';
+// import SearchStackNavigator, { SearchStackParamList } from './stacks/SearchStack'; // Removido
 // SyncStackNavigator import removed
 
 // Importar telas diretas (se houver alguma que não esteja numa stack)
@@ -24,10 +25,32 @@ export type BottomTabParamList = {
   [ROUTES.HOME_STACK]: NavigatorScreenParams<HomeStackParamList>; // Stack de Início aninhada
   [ROUTES.CLIENTS_STACK]: NavigatorScreenParams<ClientsStackParamList>; // Stack de Clientes aninhada
   [ROUTES.UNIFIED_CALENDAR]: undefined; // Tela de Calendário Unificado (exemplo de tela direta)
-  [ROUTES.SEARCH_STACK]: NavigatorScreenParams<SearchStackParamList>; // Stack de Busca aninhada
+  // [ROUTES.SEARCH_STACK]: NavigatorScreenParams<SearchStackParamList>; // Removido
   // SYNC_STACK route removed
   // [ROUTES.SETTINGS]: undefined; // Exemplo se Settings fosse uma tab direta
 };
+
+// Criando a instância do Tab Navigator localmente
+const Tab = createBottomTabNavigator<BottomTabParamList>();
+
+// Movendo getTabScreenOptions para este arquivo
+const getTabScreenOptions = (theme: Theme): BottomTabNavigationOptions => ({
+  headerShown: false, // Geralmente, cada tab terá o seu próprio header (definido pela stack interna)
+  tabBarStyle: {
+    backgroundColor: theme.colors.card, // Cor de fundo da barra de tabs
+    borderTopColor: theme.colors.border,
+    paddingBottom: Platform.OS === 'ios' ? theme.spacing.sm : theme.spacing.xs,
+    paddingTop: theme.spacing.xs,
+  },
+  tabBarActiveTintColor: theme.colors.primary,
+  tabBarInactiveTintColor: theme.colors.placeholder,
+  tabBarLabelStyle: {
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontFamily.regular,
+  },
+  tabBarHideOnKeyboard: Platform.OS === 'android',
+});
+
 
 // Interface para as props de ícone de aba
 interface TabBarIconProps {
@@ -57,9 +80,9 @@ const BottomTabNavigator: React.FC = () => {
       case ROUTES.UNIFIED_CALENDAR:
         iconName = focused ? 'calendar-month' : 'calendar-month-outline';
         break;
-      case ROUTES.SEARCH_STACK:
-        iconName = focused ? 'magnify' : 'magnify'; // Pode usar o mesmo ou variações
-        break;
+      // case ROUTES.SEARCH_STACK: // Removido
+      //   iconName = focused ? 'magnify' : 'magnify'; 
+      //   break;
       // SYNC_STACK case removed
       // case ROUTES.SETTINGS:
       //   iconName = focused ? 'cog' : 'cog-outline';
@@ -103,14 +126,7 @@ const BottomTabNavigator: React.FC = () => {
            title: 'Calendário Unificado', // Título do header para esta tab
         }}
       />
-      <Tab.Screen
-        name={ROUTES.SEARCH_STACK}
-        component={SearchStackNavigator}
-        options={{
-          tabBarLabel: 'Busca',
-          tabBarIcon: getTabBarIcon(ROUTES.SEARCH_STACK),
-        }}
-      />
+      {/* Tab.Screen para SEARCH_STACK removido */}
       {/* SYNC_STACK Tab.Screen removed */}
       {/* Exemplo de uma tab direta para Configurações, se não estiver numa stack
       <Tab.Screen

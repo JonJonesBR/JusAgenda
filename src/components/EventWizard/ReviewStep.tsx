@@ -1,11 +1,11 @@
 // src/components/EventWizard/ReviewStep.tsx
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Section } from '../ui'; // Seu componente Section
-import { Theme } from '../../contexts/ThemeContext'; // Tipo do tema
+// MaterialCommunityIcons will be imported by DetailDisplayItem if needed, or pass icon names
+import { Section, DetailDisplayItem } from '../ui'; // Seu componente Section e o novo DetailDisplayItem
+// Theme prop is no longer needed for DetailDisplayItem
 import { EventContact, Reminder } from '../../types/event'; // Tipos de Contact e Reminder
-import { EVENT_TYPE_LABELS, PRIORIDADE_LABELS, REMINDER_OPTIONS } from '../../constants'; // Labels e opções
+import { REMINDER_OPTIONS } from '../../constants'; // Labels e opções, EVENT_TYPE_LABELS, PRIORIDADE_LABELS might be passed in formData already formatted
 
 // Este formData será uma versão formatada para exibição
 interface ReviewStepFormData {
@@ -39,62 +39,16 @@ interface ReviewStepProps {
   formData: ReviewStepFormData;
   onEditStep: (stepIndex: number) => void;
   isReadOnly: boolean;
-  theme: Theme; // Recebe o tema como prop
+  theme: Theme; // theme prop can be removed if Section also uses useTheme or if its styling is static here
 }
 
-// Componente auxiliar para renderizar cada item de detalhe
-const DetailItem: React.FC<{
-  label: string;
-  value?: string | number | boolean | React.ReactNode;
-  theme: Theme;
-  isReadOnly?: boolean;
-  onEditPress?: () => void;
-  fullWidthValue?: boolean; // Se o valor deve ocupar mais espaço
-}> = ({ label, value, theme, isReadOnly, onEditPress, fullWidthValue = false }) => {
-  if (value === undefined || value === null || value === '') {
-    // Não renderiza o item se o valor for nulo, indefinido ou string vazia
-    // Pode querer mostrar "Não informado" dependendo do campo
-    return null;
-  }
-
-  let displayValue: React.ReactNode;
-  if (typeof value === 'boolean') {
-    displayValue = value ? 'Sim' : 'Não';
-  } else {
-    displayValue = value;
-  }
-
-  return (
-    <View style={styles.detailItemContainer}>
-      <View style={styles.detailTextContainer}>
-        <Text style={[styles.detailLabel, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
-          {label}:
-        </Text>
-        <View style={fullWidthValue ? styles.detailValueFullWidth : styles.detailValue}>
-            {typeof displayValue === 'string' || typeof displayValue === 'number' ? (
-                 <Text style={[styles.detailValueText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}>
-                    {displayValue}
-                 </Text>
-            ) : (
-                displayValue // Se for um ReactNode (ex: lista de contactos)
-            )}
-        </View>
-      </View>
-      {!isReadOnly && onEditPress && (
-        <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
-          <MaterialCommunityIcons name="pencil-circle-outline" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-};
-
+// DetailItem local component is removed.
 
 const ReviewStep: React.FC<ReviewStepProps> = ({
   formData,
   onEditStep,
   isReadOnly,
-  theme,
+  theme, // This theme is for Section, DetailDisplayItem uses its own.
 }) => {
 
   const formatReminders = (reminders?: Reminder[]): string => {
@@ -104,16 +58,16 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
       .join(', ');
   };
 
-  const renderContacts = (contacts?: EventContact[]) => {
+  const renderContacts = (contacts?: EventContact[]) => { // This function returns ReactNode, suitable for DetailDisplayItem's value
     if (!contacts || contacts.length === 0) {
-      return <Text style={{ color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }}>Nenhum contacto adicional.</Text>;
+      return <Text style={{ color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular, paddingVertical: 8 }}>Nenhum contacto adicional.</Text>;
     }
     return contacts.map((contact, index) => (
       <View key={contact.id || index} style={[styles.contactReviewItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.sm}]}>
         <Text style={[styles.contactNameReview, {color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold}]}>{contact.name}</Text>
-        {contact.role && <Text style={styles.contactDetailReview}>Papel: {contact.role}</Text>}
-        {contact.phone && <Text style={styles.contactDetailReview}>Telefone: {contact.phone}</Text>}
-        {contact.email && <Text style={styles.contactDetailReview}>Email: {contact.email}</Text>}
+        {contact.role && <Text style={[styles.contactDetailReview, {color: theme.colors.textMuted}]}>Papel: {contact.role}</Text>}
+        {contact.phone && <Text style={[styles.contactDetailReview, {color: theme.colors.textMuted}]}>Telefone: {contact.phone}</Text>}
+        {contact.email && <Text style={[styles.contactDetailReview, {color: theme.colors.textMuted}]}>Email: {contact.email}</Text>}
       </View>
     ));
   };
@@ -122,41 +76,41 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContentContainer}>
       <Section title="Informações Básicas" theme={theme} style={styles.sectionSpacing} showSeparator>
-        <DetailItem label="Título" value={formData.title} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-        <DetailItem label="Tipo de Evento" value={formData.eventType} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-        <DetailItem label="Data" value={formData.data} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailDisplayItem label="Título" value={formData.title} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="format-title" />
+        <DetailDisplayItem label="Tipo de Evento" value={formData.eventType} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="tag-outline" />
+        <DetailDisplayItem label="Data" value={formData.data} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="calendar" />
         {!formData.isAllDay && formData.hora && (
-            <DetailItem label="Hora" value={formData.hora} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+            <DetailDisplayItem label="Hora" value={formData.hora} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="clock-outline" />
         )}
-        <DetailItem label="Dia Todo" value={formData.isAllDay} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-        <DetailItem label="Local" value={formData.local} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-        <DetailItem label="Cor (Hex)" value={formData.cor} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-        <DetailItem label="Descrição" value={formData.description} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} fullWidthValue/>
+        <DetailDisplayItem label="Dia Todo" value={formData.isAllDay} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="calendar-check"/>
+        <DetailDisplayItem label="Local" value={formData.local} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="map-marker-outline" />
+        <DetailDisplayItem label="Cor (Hex)" value={formData.cor} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="palette-outline"/>
+        <DetailDisplayItem label="Descrição" value={formData.description} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} fullWidthValue iconName="text-long"/>
       </Section>
 
       <Section title="Detalhes do Processo" theme={theme} style={styles.sectionSpacing} showSeparator>
-        <DetailItem label="Nº do Processo" value={formData.numeroProcesso} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Vara/Tribunal" value={formData.vara} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Comarca" value={formData.comarca} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Instância" value={formData.instancia} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Natureza da Ação" value={formData.naturezaAcao} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Fase Processual" value={formData.faseProcessual} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Link do Processo" value={formData.linkProcesso} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue/>
-        <DetailItem label="Prioridade" value={formData.prioridade} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Presença Obrigatória" value={formData.presencaObrigatoria} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-        <DetailItem label="Lembretes" value={formatReminders(formData.reminders)} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue/>
-        <DetailItem label="Observações (Processo)" value={formData.observacoes} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue/>
+        <DetailDisplayItem label="Nº do Processo" value={formData.numeroProcesso} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="gavel"/>
+        <DetailDisplayItem label="Vara/Tribunal" value={formData.vara} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="bank-outline"/>
+        <DetailDisplayItem label="Comarca" value={formData.comarca} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="map-legend"/>
+        <DetailDisplayItem label="Instância" value={formData.instancia} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="layers-outline"/>
+        <DetailDisplayItem label="Natureza da Ação" value={formData.naturezaAcao} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="scale-balance"/>
+        <DetailDisplayItem label="Fase Processual" value={formData.faseProcessual} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="progress-check"/>
+        <DetailDisplayItem label="Link do Processo" value={formData.linkProcesso} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue iconName="link-variant"/>
+        <DetailDisplayItem label="Prioridade" value={formData.prioridade} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="priority-high"/>
+        <DetailDisplayItem label="Presença Obrigatória" value={formData.presencaObrigatoria} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} iconName="account-check-outline"/>
+        <DetailDisplayItem label="Lembretes" value={formatReminders(formData.reminders)} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue iconName="bell-ring-outline"/>
+        <DetailDisplayItem label="Observações (Processo)" value={formData.observacoes} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} fullWidthValue iconName="text-box-outline"/>
       </Section>
 
       <Section title="Contactos" theme={theme} style={styles.sectionSpacing} showSeparator>
-        <DetailItem label="Cliente Principal" value={formData.clienteNome} theme={theme} onEditPress={() => onEditStep(2)} isReadOnly={isReadOnly} />
-        <DetailItem
+        <DetailDisplayItem label="Cliente Principal" value={formData.clienteNome} onEditPress={() => onEditStep(2)} isReadOnly={isReadOnly} iconName="account-star-outline"/>
+        <DetailDisplayItem
             label="Contactos Adicionais"
             value={renderContacts(formData.contacts)}
-            theme={theme}
             onEditPress={() => onEditStep(2)}
             isReadOnly={isReadOnly}
             fullWidthValue
+            // iconName="account-multiple-outline" // Icon for the "Contactos Adicionais" label itself
         />
       </Section>
 

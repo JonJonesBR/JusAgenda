@@ -1,10 +1,12 @@
 // src/components/ClientWizard/ClientReviewStep.tsx
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Section } from '../ui'; // Seu componente Section
-import { Theme } from '../../contexts/ThemeContext'; // Tipo do tema
-import { ClientAddress, PessoaFisica, PessoaJuridica } from '../../types/client'; // Tipos de Cliente
+// MaterialCommunityIcons will be imported by DetailDisplayItem if needed
+import { Section, DetailDisplayItem } from '../ui'; // Seu componente Section e o novo DetailDisplayItem
+// Theme prop is no longer needed for DetailDisplayItem
+import { ClientAddress } from '../../types/client'; // Tipos de Cliente
+// Import useTheme if Section still needs the theme prop and doesn't use the hook itself.
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Este formData será uma versão formatada para exibição vinda do ClientWizardScreen
 interface ReviewClientFormData {
@@ -38,138 +40,100 @@ interface ClientReviewStepProps {
   formData: ReviewClientFormData;
   onEditStep: (stepIndex: number) => void;
   isReadOnly: boolean;
-  theme: Theme;
+  // theme: Theme; // Theme prop no longer needed by DetailDisplayItem, can be removed if Section is also updated
+  theme: Theme; // Keep for Section for now
 }
 
-// Componente auxiliar para renderizar cada item de detalhe (similar ao de EventViewScreen)
-const DetailReviewItem: React.FC<{
-  label: string;
-  value?: string | number | boolean | React.ReactNode;
-  theme: Theme;
-  isReadOnly?: boolean;
-  onEditPress?: () => void;
-  fullWidthValue?: boolean;
-  valueStyle?: object;
-}> = ({ label, value, theme, isReadOnly, onEditPress, fullWidthValue = false, valueStyle }) => {
-  if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
-    return null;
-  }
-
-  let displayValue: React.ReactNode;
-  if (typeof value === 'boolean') {
-    displayValue = value ? 'Sim' : 'Não';
-  } else {
-    displayValue = value;
-  }
-
-  return (
-    <View style={styles.detailItemContainer}>
-      <View style={styles.detailTextContainer}>
-        <Text style={[styles.detailLabel, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }]}>
-          {label}:
-        </Text>
-        <View style={fullWidthValue ? styles.detailValueFullWidth : styles.detailValue}>
-            {typeof displayValue === 'string' || typeof displayValue === 'number' ? (
-                 <Text style={[styles.detailValueText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }, valueStyle]}>
-                    {displayValue}
-                 </Text>
-            ) : (
-                displayValue
-            )}
-        </View>
-      </View>
-      {!isReadOnly && onEditPress && (
-        <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
-          <MaterialCommunityIcons name="pencil-circle-outline" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-};
-
+// DetailReviewItem local component is removed.
 
 const ClientReviewStep: React.FC<ClientReviewStepProps> = ({
   formData,
   onEditStep,
   isReadOnly,
-  theme,
+  theme, // This theme is for Section
 }) => {
+  const { theme: internalTheme } = useTheme(); // For styling renderAddresses text if needed
 
   const renderAddresses = (enderecos?: ClientAddress[]) => {
     if (!enderecos || enderecos.length === 0) {
-      return <Text style={{ color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular }}>Nenhum endereço informado.</Text>;
+      return <Text style={{ color: internalTheme.colors.placeholder, fontFamily: internalTheme.typography.fontFamily.regular, paddingVertical: 8 }}>Nenhum endereço informado.</Text>;
     }
     return enderecos.map((end, index) => (
-      <View key={end.id || `addr-${index}`} style={[styles.addressReviewItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.sm }]}>
-        <Text style={[styles.addressReviewTitle, {color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold}]}>
+      <View key={end.id || `addr-${index}`} style={[styles.addressReviewItem, { backgroundColor: internalTheme.colors.surface, borderColor: internalTheme.colors.border, borderRadius: internalTheme.radii.sm }]}>
+        <Text style={[styles.addressReviewTitle, {color: internalTheme.colors.text, fontFamily: internalTheme.typography.fontFamily.bold}]}>
           Endereço {enderecos.length > 1 ? index + 1 : ''} {end.isPrincipal ? '(Principal)' : ''}
         </Text>
-        <Text style={styles.addressDetailReview}>{`${end.logradouro || ''}, ${end.numero || ''}${end.complemento ? ` - ${end.complemento}` : ''}`}</Text>
-        <Text style={styles.addressDetailReview}>{`${end.bairro || ''} - ${end.cidade || ''}/${end.estado || ''}`}</Text>
-        <Text style={styles.addressDetailReview}>CEP: {end.cep || ''}</Text>
+        <Text style={[styles.addressDetailReview, {color: internalTheme.colors.textMuted}]}>{`${end.logradouro || ''}, ${end.numero || ''}${end.complemento ? ` - ${end.complemento}` : ''}`}</Text>
+        <Text style={[styles.addressDetailReview, {color: internalTheme.colors.textMuted}]}>{`${end.bairro || ''} - ${end.cidade || ''}/${end.estado || ''}`}</Text>
+        <Text style={[styles.addressDetailReview, {color: internalTheme.colors.textMuted}]}>CEP: {end.cep || ''}</Text>
       </View>
     ));
   };
 
+  // Helper to determine which step to edit for document fields
+  // Since documents are now in step 0 (Basic Info)
+  const docEditStep = 0; 
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContentContainer}>
       <Section title="Informações Básicas" theme={theme} style={styles.sectionSpacing} showSeparator>
-        <DetailReviewItem label="Tipo de Cliente" value={formData.tipo} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-        <DetailReviewItem label={formData.tipo === 'Pessoa Física' ? "Nome Completo" : "Razão Social"} value={formData.nome} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailDisplayItem label="Tipo de Cliente" value={formData.tipo} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="account-switch-outline" />
+        <DetailDisplayItem label={formData.tipo === 'Pessoa Física' ? "Nome Completo" : "Razão Social"} value={formData.nome} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="account-outline" />
         {formData.tipo === 'Pessoa Jurídica' && (
-          <DetailReviewItem label="Nome Fantasia" value={formData.nomeFantasia} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+          <DetailDisplayItem label="Nome Fantasia" value={formData.nomeFantasia} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="store-outline" />
         )}
-        <DetailReviewItem label="Email" value={formData.email} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-        <DetailReviewItem label="Telefone Principal" value={formData.telefonePrincipal} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailDisplayItem label="Email" value={formData.email} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="email-outline" />
+        <DetailDisplayItem label="Telefone Principal" value={formData.telefonePrincipal} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="phone-outline" />
          {formData.tipo === 'Pessoa Física' && (
             <>
-                <DetailReviewItem label="Data de Nascimento" value={formData.dataNascimento} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-                <DetailReviewItem label="Profissão" value={formData.profissao} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-                <DetailReviewItem label="Estado Civil" value={formData.estadoCivil} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+                <DetailDisplayItem label="Data de Nascimento" value={formData.dataNascimento} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="calendar-account" />
+                <DetailDisplayItem label="Profissão" value={formData.profissao} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="briefcase-outline" />
+                <DetailDisplayItem label="Estado Civil" value={formData.estadoCivil} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="account-heart-outline" />
             </>
          )}
          {formData.tipo === 'Pessoa Jurídica' && (
             <>
-                <DetailReviewItem label="Data de Fundação" value={formData.dataFundacao} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
-                <DetailReviewItem label="Ramo de Atividade" value={formData.ramoAtividade} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+                <DetailDisplayItem label="Data de Fundação" value={formData.dataFundacao} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="calendar-star" />
+                <DetailDisplayItem label="Ramo de Atividade" value={formData.ramoAtividade} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName="domain" />
             </>
          )}
-        <DetailReviewItem label="Cliente Ativo" value={formData.ativo} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} />
+        <DetailDisplayItem label="Cliente Ativo" value={formData.ativo} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} iconName={formData.ativo ? "check-circle-outline" : "close-circle-outline"} />
       </Section>
 
+      {/* Documents are now part of Basic Info (Step 0), so onEditPress points to 0 */}
       <Section title="Documentos" theme={theme} style={styles.sectionSpacing} showSeparator>
         {formData.tipo === 'Pessoa Física' ? (
           <>
-            <DetailReviewItem label="CPF" value={formData.cpf} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-            <DetailReviewItem label="RG" value={formData.rg} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+            <DetailDisplayItem label="CPF" value={formData.cpf} onEditPress={() => onEditStep(docEditStep)} isReadOnly={isReadOnly} iconName="card-account-details-outline"/>
+            <DetailDisplayItem label="RG" value={formData.rg} onEditPress={() => onEditStep(docEditStep)} isReadOnly={isReadOnly} iconName="card-account-details-outline"/>
           </>
         ) : (
           <>
-            <DetailReviewItem label="CNPJ" value={formData.cnpj} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-            <DetailReviewItem label="Inscrição Estadual" value={formData.inscricaoEstadual} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
-            <DetailReviewItem label="Inscrição Municipal" value={formData.inscricaoMunicipal} theme={theme} onEditPress={() => onEditStep(1)} isReadOnly={isReadOnly} />
+            <DetailDisplayItem label="CNPJ" value={formData.cnpj} onEditPress={() => onEditStep(docEditStep)} isReadOnly={isReadOnly} iconName="office-building-outline"/>
+            <DetailDisplayItem label="Inscrição Estadual" value={formData.inscricaoEstadual} onEditPress={() => onEditStep(docEditStep)} isReadOnly={isReadOnly} iconName="file-document-outline"/>
+            <DetailDisplayItem label="Inscrição Municipal" value={formData.inscricaoMunicipal} onEditPress={() => onEditStep(docEditStep)} isReadOnly={isReadOnly} iconName="file-document-outline"/>
           </>
         )}
       </Section>
 
+      {/* Address step index is now 1 (previously 2) */}
       <Section title="Endereços" theme={theme} style={styles.sectionSpacing} showSeparator>
-        <DetailReviewItem
-            // label="Lista de Endereços" // O label pode ser implícito pelo título da seção
+        <DetailDisplayItem
             value={renderAddresses(formData.enderecos)}
-            theme={theme}
-            onEditPress={() => onEditStep(2)}
+            onEditPress={() => onEditStep(1)} // Updated step index for address
             isReadOnly={isReadOnly}
             fullWidthValue
+            iconName="map-marker-multiple-outline"
         />
       </Section>
 
       <Section title="Outras Informações" theme={theme} style={styles.sectionSpacing}>
-        <DetailReviewItem label="Observações" value={formData.observacoes} theme={theme} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} fullWidthValue />
-        {/* O passo para observações pode variar, ajuste o onEditStep se for de outro passo */}
+        <DetailDisplayItem label="Observações" value={formData.observacoes} onEditPress={() => onEditStep(0)} isReadOnly={isReadOnly} fullWidthValue iconName="text-box-search-outline" />
+        {/* Assuming observacoes are part of basic info (step 0) */}
       </Section>
 
       {isReadOnly && (
-        <Text style={[styles.readOnlyMessage, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.italic }]}>
+        <Text style={[styles.readOnlyMessage, { color: internalTheme.colors.placeholder, fontFamily: internalTheme.typography.fontFamily.italic }]}>
           Este é um modo de visualização. Nenhuma alteração pode ser feita.
         </Text>
       )}

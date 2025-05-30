@@ -154,9 +154,9 @@ export const ROUTES = {
   // EXPORT was removed
 
   // Telas fora das stacks principais ou modais
-  EVENT_DETAILS: 'EventDetailsScreen', // Para adicionar/editar evento
-  EVENT_VIEW: 'EventViewScreen', // Para visualizar detalhes do evento
-  SETTINGS: 'SettingsScreen',
+  EVENT_DETAILS: 'EventDetailsScreen', // Para adicionar/editar/visualizar evento
+  // EVENT_VIEW: 'EventViewScreen', // Removido - EventDetailsScreen com readOnly=true substitui
+  // SETTINGS: 'SettingsScreen', // Removido
   FEEDBACK: 'FeedbackScreen',
 
   // Autenticação (se houver)

@@ -1,7 +1,8 @@
 // src/navigation/stacks/ClientsStack.tsx
 import React from 'react';
 import { Platform } from 'react-native';
-import { Stack, getStackScreenOptions } from '../navigationConfig'; // Usando Stack e getStackScreenOptions
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getStackScreenOptions } from '../navigationConfig'; // getStackScreenOptions ainda é de navigationConfig
 import { useTheme } from '../../contexts/ThemeContext';
 import { ROUTES } from '../../constants';
 import { Client as ClientType } from '../../types/client'; // Para tipar params
@@ -25,6 +26,9 @@ export type ClientsStackParamList = {
   // Exemplo se tivesse uma ClientViewScreen separada:
   // [ROUTES.CLIENT_VIEW]: { clientId: string; clientName?: string };
 };
+
+// Criando a instância do Stack Navigator localmente
+const Stack = createNativeStackNavigator<ClientsStackParamList>();
 
 const ClientsStackNavigator: React.FC = () => {
   const { theme } = useTheme();

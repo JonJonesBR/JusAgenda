@@ -16,7 +16,7 @@ import { ROUTES, REGEX_PATTERNS } from '../constants';
 
 // Importar os componentes de passo
 import ClientBasicInfoStep from '../components/ClientWizard/ClientBasicInfoStep';
-import ClientDocumentsStep from '../components/ClientWizard/ClientDocumentsStep';
+// import ClientDocumentsStep from '../components/ClientWizard/ClientDocumentsStep'; // Removido
 import ClientAddressStep from '../components/ClientWizard/ClientAddressStep';
 import ClientReviewStep from '../components/ClientWizard/ClientReviewStep';
 import { formatDate, parseDateString } from '../utils/dateUtils';
@@ -52,7 +52,7 @@ const getInitialClientFormData = (tipo: 'pessoaFisica' | 'pessoaJuridica' = 'pes
 });
 
 // Nomes dos passos para referência
-const STEP_NAMES = ['basicInfo', 'documents', 'address', 'review'] as const;
+const STEP_NAMES = ['basicInfo', 'address', 'review'] as const; // 'documents' removido
 type StepName = typeof STEP_NAMES[number];
 
 // Schema de validação Yup (deve corresponder à estrutura de ClientType após conversão)
@@ -258,14 +258,14 @@ const ClientWizardScreen: React.FC = () => {
       case 'basicInfo':
         fieldsToValidatePaths = ['tipo', 'nome', 'email', 'telefonePrincipal', 'ativo'];
         if (formData.tipo === 'pessoaFisica') {
-            fieldsToValidatePaths.push('dataNascimento', 'estadoCivil', 'profissao');
+            fieldsToValidatePaths.push('dataNascimento', 'estadoCivil', 'profissao', 'cpf', 'rg');
         } else {
-            fieldsToValidatePaths.push('nomeFantasia', 'dataFundacao', 'ramoAtividade');
+            fieldsToValidatePaths.push('nomeFantasia', 'dataFundacao', 'ramoAtividade', 'cnpj', 'inscricaoEstadual');
         }
         break;
-      case 'documents':
-        fieldsToValidatePaths = formData.tipo === 'pessoaFisica' ? ['cpf', 'rg'] : ['cnpj', 'inscricaoEstadual', 'inscricaoMunicipal'];
-        break;
+      // case 'documents': // Removido
+      //   fieldsToValidatePaths = formData.tipo === 'pessoaFisica' ? ['cpf', 'rg'] : ['cnpj', 'inscricaoEstadual', 'inscricaoMunicipal'];
+      //   break;
       case 'address':
         // A validação de endereços é mais complexa, validaremos o array inteiro no final.
         // Para o passo, podemos verificar se pelo menos um CEP foi preenchido, por exemplo.
@@ -422,11 +422,13 @@ const ClientWizardScreen: React.FC = () => {
      switch (stepName) {
       case 'basicInfo':
         const basic = ['tipo', 'nome', 'email', 'telefonePrincipal', 'ativo'];
-        return clientType === 'pessoaFisica'
-            ? [...basic, 'dataNascimento', 'estadoCivil', 'profissao']
-            : [...basic, 'nomeFantasia', 'dataFundacao', 'ramoAtividade'];
-      case 'documents':
-        return clientType === 'pessoaFisica' ? ['cpf', 'rg'] : ['cnpj', 'inscricaoEstadual', 'inscricaoMunicipal'];
+        if (clientType === 'pessoaFisica') {
+            return [...basic, 'dataNascimento', 'estadoCivil', 'profissao', 'cpf', 'rg'];
+        } else {
+            return [...basic, 'nomeFantasia', 'dataFundacao', 'ramoAtividade', 'cnpj', 'inscricaoEstadual'];
+        }
+      // case 'documents': // Removido
+      //   return clientType === 'pessoaFisica' ? ['cpf', 'rg'] : ['cnpj', 'inscricaoEstadual', 'inscricaoMunicipal'];
       case 'address': return ['enderecos']; // O erro pode ser em enderecos.X.campo
       default: return [];
     }
@@ -445,8 +447,8 @@ const ClientWizardScreen: React.FC = () => {
     switch (STEP_NAMES[currentStepIndex]) {
       case 'basicInfo':
         return <ClientBasicInfoStep {...stepProps} />;
-      case 'documents':
-        return <ClientDocumentsStep {...stepProps} />;
+      // case 'documents': // Removido
+      //   return <ClientDocumentsStep {...stepProps} />;
       case 'address':
         return (
           <ClientAddressStep
