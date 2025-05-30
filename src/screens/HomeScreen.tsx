@@ -112,13 +112,13 @@ const HomeScreen: React.FC = () => {
   }, [upcomingEvents, today]);
 
 
-  const navigateToEventDetails = (eventId?: string, initialDateString?: string) => {
-    navigation.navigate(ROUTES.EVENT_DETAILS, { eventId, initialDateString });
+  const navigateToEventDetails = (eventId?: string, initialDateString?: string, isReadOnly?: boolean) => {
+    navigation.navigate(ROUTES.EVENT_DETAILS, { eventId, initialDateString, readOnly: isReadOnly });
   };
 
-  const navigateToEventView = (event: EventType) => {
-    navigation.navigate(ROUTES.EVENT_VIEW, { eventId: event.id, eventTitle: event.title });
-  };
+  // const navigateToEventView = (event: EventType) => { // Removed
+  //   navigation.navigate(ROUTES.EVENT_VIEW, { eventId: event.id, eventTitle: event.title });
+  // };
 
   const renderEventCard = (event: EventType, isNextEventCard: boolean = false) => {
     if (!event) return null;
@@ -131,7 +131,7 @@ const HomeScreen: React.FC = () => {
       <Card
         key={event.id}
         style={[styles.eventCard, isNextEventCard ? styles.nextEventCardHighlight : {}]}
-        onPress={() => navigateToEventView(event)}
+        onPress={() => navigateToEventDetails(event.id, undefined, true)} // Updated to use navigateToEventDetails with readOnly: true
         elevation={isNextEventCard ? 'md' : 'sm'}
       >
         <Text style={[styles.eventTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]}>
@@ -261,7 +261,7 @@ const HomeScreen: React.FC = () => {
       {/* Condition !isReadOnly removed as isReadOnly is not defined in this scope */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigateToEventDetails(undefined, today.toISOString().split('T')[0])} // Passa a data de hoje para novo evento
+        onPress={() => navigateToEventDetails(undefined, today.toISOString().split('T')[0], false)} // Explicitly set readOnly: false for new event
           activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="plus" size={28} color={theme.colors.white || '#ffffff'} />
