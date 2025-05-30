@@ -97,6 +97,69 @@ const ClientBasicInfoStep: React.FC<ClientBasicInfoStepProps> = ({
         />
       )}
 
+      {/* Document Fields based on tipo */}
+      {formData.tipo === 'pessoaFisica' && (
+        <>
+          <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular, marginTop: theme.spacing.md }]}>
+            CPF *
+          </Text>
+          <View style={[styles.maskedInputContainer, { borderColor: errors.cpf ? theme.colors.error : theme.colors.border, backgroundColor: theme.colors.surface, borderRadius: theme.radii.md }]}>
+            <MaskInput
+              value={formData.cpf || ''}
+              onChangeText={(masked) => updateField('cpf', masked)}
+              mask={[/\d/, /\d/, /\d/, '.', /\d/, /\d/, /\d/, '.', /\d/, /\d/, /\d/, '-', /\d/, /\d/]}
+              placeholder="000.000.000-00"
+              keyboardType="numeric"
+              editable={!isReadOnly}
+              style={[styles.maskedInput, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}
+              placeholderTextColor={theme.colors.placeholder}
+            />
+          </View>
+          {errors.cpf && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.cpf}</Text>}
+
+          <Input
+            label="RG"
+            placeholder="Número do RG"
+            value={formData.rg || ''}
+            onChangeText={(text) => updateField('rg', text)}
+            error={errors.rg}
+            editable={!isReadOnly}
+            containerStyle={styles.inputSpacing}
+          />
+        </>
+      )}
+
+      {formData.tipo === 'pessoaJuridica' && (
+        <>
+          <Text style={[styles.label, { color: theme.colors.placeholder, fontFamily: theme.typography.fontFamily.regular, marginTop: theme.spacing.md }]}>
+            CNPJ *
+          </Text>
+          <View style={[styles.maskedInputContainer, { borderColor: errors.cnpj ? theme.colors.error : theme.colors.border, backgroundColor: theme.colors.surface, borderRadius: theme.radii.md }]}>
+            <MaskInput
+              value={formData.cnpj || ''}
+              onChangeText={(masked) => updateField('cnpj', masked)}
+              mask={[/\d/, /\d/, '.', /\d/, /\d/, /\d/, '.', /\d/, /\d/, /\d/, '/', /\d/, /\d/, /\d/, /\d/, '-', /\d/, /\d/]}
+              placeholder="00.000.000/0000-00"
+              keyboardType="numeric"
+              editable={!isReadOnly}
+              style={[styles.maskedInput, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.regular }]}
+              placeholderTextColor={theme.colors.placeholder}
+            />
+          </View>
+          {errors.cnpj && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.cnpj}</Text>}
+
+          <Input
+            label="Inscrição Estadual"
+            placeholder="Número da Inscrição Estadual"
+            value={formData.inscricaoEstadual || ''}
+            onChangeText={(text) => updateField('inscricaoEstadual', text)}
+            error={errors.inscricaoEstadual}
+            editable={!isReadOnly}
+            containerStyle={styles.inputSpacing}
+          />
+        </>
+      )}
+
       <Input
         label="Email Principal"
         placeholder="email@exemplo.com"
