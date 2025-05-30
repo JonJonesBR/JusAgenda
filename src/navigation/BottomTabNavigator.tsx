@@ -11,7 +11,7 @@ import { ROUTES } from '../constants';
 // Importar os seus Stacks de Navegação para cada aba
 import HomeStackNavigator, { HomeStackParamList } from './stacks/HomeStack';
 import ClientsStackNavigator, { ClientsStackParamList } from './stacks/ClientsStack';
-import SearchStackNavigator, { SearchStackParamList } from './stacks/SearchStack';
+// import SearchStackNavigator, { SearchStackParamList } from './stacks/SearchStack'; // Removido
 // SyncStackNavigator import removed
 
 // Importar telas diretas (se houver alguma que não esteja numa stack)
@@ -24,7 +24,7 @@ export type BottomTabParamList = {
   [ROUTES.HOME_STACK]: NavigatorScreenParams<HomeStackParamList>; // Stack de Início aninhada
   [ROUTES.CLIENTS_STACK]: NavigatorScreenParams<ClientsStackParamList>; // Stack de Clientes aninhada
   [ROUTES.UNIFIED_CALENDAR]: undefined; // Tela de Calendário Unificado (exemplo de tela direta)
-  [ROUTES.SEARCH_STACK]: NavigatorScreenParams<SearchStackParamList>; // Stack de Busca aninhada
+  // [ROUTES.SEARCH_STACK]: NavigatorScreenParams<SearchStackParamList>; // Removido
   // SYNC_STACK route removed
   // [ROUTES.SETTINGS]: undefined; // Exemplo se Settings fosse uma tab direta
 };
@@ -57,9 +57,9 @@ const BottomTabNavigator: React.FC = () => {
       case ROUTES.UNIFIED_CALENDAR:
         iconName = focused ? 'calendar-month' : 'calendar-month-outline';
         break;
-      case ROUTES.SEARCH_STACK:
-        iconName = focused ? 'magnify' : 'magnify'; // Pode usar o mesmo ou variações
-        break;
+      // case ROUTES.SEARCH_STACK: // Removido
+      //   iconName = focused ? 'magnify' : 'magnify'; 
+      //   break;
       // SYNC_STACK case removed
       // case ROUTES.SETTINGS:
       //   iconName = focused ? 'cog' : 'cog-outline';
@@ -103,14 +103,7 @@ const BottomTabNavigator: React.FC = () => {
            title: 'Calendário Unificado', // Título do header para esta tab
         }}
       />
-      <Tab.Screen
-        name={ROUTES.SEARCH_STACK}
-        component={SearchStackNavigator}
-        options={{
-          tabBarLabel: 'Busca',
-          tabBarIcon: getTabBarIcon(ROUTES.SEARCH_STACK),
-        }}
-      />
+      {/* Tab.Screen para SEARCH_STACK removido */}
       {/* SYNC_STACK Tab.Screen removed */}
       {/* Exemplo de uma tab direta para Configurações, se não estiver numa stack
       <Tab.Screen
