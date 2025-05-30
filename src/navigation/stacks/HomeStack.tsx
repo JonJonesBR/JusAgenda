@@ -8,7 +8,7 @@ import { ROUTES } from '../../constants';
 // Importar as telas que pertencem a esta stack
 import HomeScreen from '../../screens/HomeScreen';
 import EventDetailsScreen from '../../screens/EventDetailsScreen';
-import EventViewScreen from '../../screens/EventViewScreen';
+// import EventViewScreen from '../../screens/EventViewScreen'; // Removido
 import SettingsScreen from '../../screens/SettingsScreen';
 import ClientWizardScreen from '../../screens/ClientWizardScreen'; // Adicionando ClientWizard se acessível daqui
 import { Event as EventType } from '../../types/event'; // Para tipar params
@@ -18,8 +18,8 @@ import { Client as ClientType } from '../../types/client'; // Para tipar params
 // Isto é crucial para a segurança de tipos com React Navigation
 export type HomeStackParamList = {
   [ROUTES.HOME]: undefined; // Tela inicial não recebe parâmetros diretos ao ser chamada pela tab
-  [ROUTES.EVENT_DETAILS]: { eventId?: string; initialDateString?: string }; // Para adicionar/editar evento
-  [ROUTES.EVENT_VIEW]: { eventId: string; eventTitle?: string; event?: EventType }; // Para visualizar evento
+  [ROUTES.EVENT_DETAILS]: { eventId?: string; initialDateString?: string; readOnly?: boolean }; // Para adicionar/editar/visualizar evento
+  // [ROUTES.EVENT_VIEW]: { eventId: string; eventTitle?: string; event?: EventType }; // Removido
   [ROUTES.SETTINGS]: undefined;
   [ROUTES.CLIENT_WIZARD]: { // Se ClientWizard for acessível a partir da HomeStack
     clientId?: string;
@@ -53,19 +53,11 @@ const HomeStackNavigator: React.FC = () => {
         options={({ route }) => ({
           // O título será definido dinamicamente dentro de EventDetailsScreen (Novo/Editar Evento)
           // title: route.params?.eventId ? 'Editar Evento' : 'Novo Evento',
-          presentation: Platform.OS === 'ios' ? 'modal' : 'card', // Modal no iOS para adicionar/editar
+          presentation: Platform.OS === 'ios' ? 'modal' : 'card', // Modal no iOS para adicionar/editar/visualizar
           // headerBackTitle: 'Cancelar', // Exemplo
         })}
       />
-      <Stack.Screen
-        name={ROUTES.EVENT_VIEW}
-        component={EventViewScreen}
-        options={({ route }) => ({
-          // O título será definido dinamicamente dentro de EventViewScreen com base no evento
-          // title: route.params?.eventTitle || 'Detalhes do Evento',
-          presentation: 'card',
-        })}
-      />
+      {/* Stack.Screen para EVENT_VIEW removido */}
       <Stack.Screen
         name={ROUTES.SETTINGS}
         component={SettingsScreen}
